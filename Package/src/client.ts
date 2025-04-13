@@ -7,10 +7,13 @@ type PathParts<Path extends string> = Path extends `/${infer Rest}`
     : [Rest]
   : [];
 
-type RequestFunction<ResponseType> = () => Promise<{ error: any; data: ResponseType }>;
+type RequestFunction<ResponseType> = () => Promise<{
+  error: any | null;
+  data: ResponseType | null;
+}>;
 type PostRequestFunction<B, ResponseType> = (
   body?: B,
-) => Promise<{ error: any; data: ResponseType }>;
+) => Promise<{ error: any | null; data: ResponseType | null }>;
 
 type RouteToTreeInner<T extends string[], Params, Methods> = T extends [
   infer H extends string,
