@@ -7,19 +7,24 @@ type PathParts<Path extends string> = Path extends `/${infer Rest}`
     : [Rest]
   : [];
 
-type RequestFunction<ResponseType> = (query?: Record<string, any>) => Promise<{
+type DeleteRequestFunction<B, Q, ResponseType> = (
+  body?: B,
+  query?: Q,
+) => Promise<{ error: any | null; data: ResponseType | null }>;
+
+type RequestFunction<Q, ResponseType> = (query?: Q) => Promise<{
   error: any | null;
   data: ResponseType | null;
 }>;
 
-type PostRequestFunction<B, ResponseType> = (
+type PostRequestFunction<B, Q, ResponseType> = (
   body?: B,
-  query?: Record<string, any>,
+  query?: Q,
 ) => Promise<{ error: any | null; data: ResponseType | null }>;
 
-type PutRequestFunction<B, ResponseType> = (
+type PutRequestFunction<B, Q, ResponseType> = (
   body?: B,
-  query?: Record<string, any>,
+  query?: Q,
 ) => Promise<{ error: any | null; data: ResponseType | null }>;
 
 type RouteToTreeInner<T extends string[], Params, Methods> = T extends [
@@ -63,6 +68,7 @@ type GroupedRoutes<Routes> = {
         ["GET", P, any, any, any, any]
       >[0] extends "GET"
         ? RequestFunction<
+            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["GET", P, any, any, any, any]>[3],
             Extract<RouteDefinitionsToMethodsObjects<Routes>, ["GET", P, any, any, any, any]>[5]
           >
         : never;
@@ -72,6 +78,7 @@ type GroupedRoutes<Routes> = {
       >[0] extends "POST"
         ? PostRequestFunction<
             Extract<RouteDefinitionsToMethodsObjects<Routes>, ["POST", P, any, any, any, any]>[4],
+            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["POST", P, any, any, any, any]>[3],
             Extract<RouteDefinitionsToMethodsObjects<Routes>, ["POST", P, any, any, any, any]>[5]
           >
         : never;
@@ -81,7 +88,18 @@ type GroupedRoutes<Routes> = {
       >[0] extends "PUT"
         ? PutRequestFunction<
             Extract<RouteDefinitionsToMethodsObjects<Routes>, ["PUT", P, any, any, any, any]>[4],
+            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["PUT", P, any, any, any, any]>[3],
             Extract<RouteDefinitionsToMethodsObjects<Routes>, ["PUT", P, any, any, any, any]>[5]
+          >
+        : never;
+      delete: Extract<
+        RouteDefinitionsToMethodsObjects<Routes>,
+        ["DELETE", P, any, any, any, any]
+      >[0] extends "DELETE"
+        ? DeleteRequestFunction<
+            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["DELETE", P, any, any, any, any]>[4],
+            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["DELETE", P, any, any, any, any]>[3],
+            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["DELETE", P, any, any, any, any]>[5]
           >
         : never;
     }>;
@@ -159,7 +177,7 @@ export function createClient<T extends Framework<any>>(
         }
       }
 
-      const defineMethod = (method: "GET" | "POST" | "PUT", handler: any) => {
+      const defineMethod = (method: "GET" | "POST" | "PUT" | "DELETE", handler: any) => {
         const key = method.toLowerCase();
 
         const alreadyExists = current[key];
@@ -229,6 +247,25 @@ export function createClient<T extends Framework<any>>(
               const url = buildUrlWithQuery(fullPath, query);
               const res = await fetch(url, {
                 method: "PUT",
+                body: body ? JSON.stringify(body) : undefined,
+                headers: body ? { "Content-Type": "application/json" } : undefined,
+              });
+              if (!res.ok) return { error: res.statusText, data: null };
+              const data = await res.json();
+              return { error: null, data };
+            } catch (error) {
+              return { error, data: null };
+            }
+          });
+        }
+
+        if (route.method === "DELETE") {
+          defineMethod("DELETE", async (body?: any, query?: Record<string, any>) => {
+            const fullPath = route.path.replace(/:([^/]+)/g, (_: any, key: any) => params[key]);
+            try {
+              const url = buildUrlWithQuery(fullPath, query);
+              const res = await fetch(url, {
+                method: "DELETE",
                 body: body ? JSON.stringify(body) : undefined,
                 headers: body ? { "Content-Type": "application/json" } : undefined,
               });

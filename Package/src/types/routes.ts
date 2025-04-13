@@ -1,5 +1,5 @@
 export type RouteDefinition = {
-  method: "GET" | "POST" | "PUT";
+  method: "GET" | "POST" | "PUT" | "DELETE";
   path: string;
   params?: unknown;
   query?: unknown;
