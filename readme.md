@@ -36,3 +36,17 @@
 - **Fast and efficient**: A simple and fast framework for building APIs
 - **Performance optimized**: Efficient query building and data transformation
 - **Client-side integration**: Built-in client-side integration for easy integration with your frontend
+
+## 🕙 Progress
+
+- [x] Get route
+- [x] Post route
+- [ ] Put route
+- [ ] Delete route
+- [ ] Patch route
+- [ ] Head route
+- [ ] Options route
+- [ ] Use router
+- [ ] Before handler
+- [ ] After handler
+- [ ] Ws integration
