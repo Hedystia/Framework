@@ -4,47 +4,95 @@ type PathParts<Path extends string> = Path extends `/${infer Rest}`
     : [Rest]
   : [];
 
-type RouteToTree<P extends string, Params> = PathParts<P> extends [
-  infer H extends string,
-  ...infer T extends string[],
-]
-  ? H extends `:${infer Param}`
-    ? {
-        [K in Param]: (value: Params[K & keyof Params]) => RouteToTreeInner<T, Params>;
-      }
-    : {
-        [K in H]: RouteToTreeInner<T, Params>;
-      }
-  : {};
-
 type RequestFunction = () => Promise<any>;
+type PostRequestFunction<B> = (body?: B) => Promise<any>;
 
-type RouteToTreeInner<T extends string[], Params> = T extends [
+type RouteToTreeInner<T extends string[], Params, Methods> = T extends [
   infer H extends string,
   ...infer R extends string[],
 ]
   ? H extends `:${infer Param}`
     ? {
-        [K in Param]: (value: Params[K & keyof Params]) => RouteToTreeInner<R, Params>;
+        [K in Param]: (value: Params[K & keyof Params]) => RouteToTreeInner<R, Params, Methods>;
       }
     : {
-        [K in H]: RouteToTreeInner<R, Params>;
+        [K in H]: RouteToTreeInner<R, Params, Methods>;
       }
-  : { get: RequestFunction };
+  : Methods;
 
 type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void
   ? I
   : never;
 
+type MergeMethodObjects<T> = {
+  [K in keyof T]: T[K] extends never ? never : T[K];
+};
+
+type RouteDefinitionsToMethodsObjects<Routes> = Routes extends {
+  path: infer P extends string;
+  params: infer Params;
+  method: infer M;
+  body?: infer Body;
+}
+  ? [M, P, Params, Body]
+  : never;
+
+type GroupedRoutes<Routes> = {
+  [P in RouteDefinitionsToMethodsObjects<Routes>[1]]: {
+    params: Extract<RouteDefinitionsToMethodsObjects<Routes>, [any, P, any, any]>[2];
+    methods: MergeMethodObjects<{
+      get: Extract<RouteDefinitionsToMethodsObjects<Routes>, ["GET", P, any, any]>[0] extends "GET"
+        ? RequestFunction
+        : never;
+      post: Extract<
+        RouteDefinitionsToMethodsObjects<Routes>,
+        ["POST", P, any, any]
+      >[0] extends "POST"
+        ? PostRequestFunction<
+            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["POST", P, any, any]>[3]
+          >
+        : never;
+    }>;
+  };
+};
+
+type RouteToTree<Path extends string, Params, Methods> = PathParts<Path> extends [
+  infer H extends string,
+  ...infer T extends string[],
+]
+  ? H extends `:${infer Param}`
+    ? {
+        [K in Param]: (value: Params[K & keyof Params]) => RouteToTreeInner<T, Params, Methods>;
+      }
+    : {
+        [K in H]: RouteToTreeInner<T, Params, Methods>;
+      }
+  : {};
+
 type ClientTree<R> = UnionToIntersection<
-  R extends { path: infer P extends string; params: infer Params } ? RouteToTree<P, Params> : never
+  {
+    [P in keyof GroupedRoutes<R>]: RouteToTree<
+      P & string,
+      GroupedRoutes<R>[P]["params"],
+      GroupedRoutes<R>[P]["methods"]
+    >;
+  }[keyof GroupedRoutes<R>]
 >;
 
 export function createClient<R>(baseUrl: string, app: any): ClientTree<R> {
   const root: any = {};
 
-  (app as any).routes.forEach((route: any) => {
-    const parts = route.path.split("/").filter(Boolean);
+  const routesByPath: Record<string, any[]> = {};
+  for (const route of app.routes) {
+    const path = route.path;
+    if (!routesByPath[path]) {
+      routesByPath[path] = [];
+    }
+    routesByPath[path].push(route);
+  }
+
+  for (const [path, routes] of Object.entries(routesByPath)) {
+    const parts = path.split("/").filter(Boolean);
 
     const buildChain = (
       current: any,
@@ -55,59 +103,64 @@ export function createClient<R>(baseUrl: string, app: any): ClientTree<R> {
         const part = remainingParts[i];
         if (part?.startsWith(":")) {
           const param = part.slice(1);
-          current[param] = (value: any) => {
-            const newParams = { ...params, [param]: value };
-            const next: any = {};
-            buildChain(next, remainingParts.slice(i + 1), newParams);
-            return next;
-          };
+          if (!current[param]) {
+            current[param] = (value: any) => {
+              const newParams = { ...params, [param]: value };
+              const next: any = {};
+              buildChain(next, remainingParts.slice(i + 1), newParams);
+              return next;
+            };
+          }
           return;
         } else {
-          if (typeof part === "string") {
+          if (part) {
             current[part] = current[part] || {};
             current = current[part];
           }
         }
       }
 
-      current.get = async () => {
-        const fullPath = route.path.replace(/:([^/]+)/g, (_: any, key: any) => params[key]);
-        const res = await fetch(`${baseUrl}${fullPath}`, { method: "GET" });
-        return res.json();
+      const defineMethod = (method: "GET" | "POST", handler: any) => {
+        const key = method.toLowerCase();
+
+        const alreadyExists = current[key];
+        if (typeof alreadyExists === "object") {
+          Object.defineProperty(current, key, {
+            get() {
+              return handler;
+            },
+            enumerable: true,
+          });
+        } else {
+          current[key] = handler;
+        }
       };
+
+      for (const route of routes) {
+        if (route.method === "GET") {
+          defineMethod("GET", async () => {
+            const fullPath = route.path.replace(/:([^/]+)/g, (_: any, key: any) => params[key]);
+            const res = await fetch(new URL(fullPath, baseUrl), { method: "GET" });
+            return res.json();
+          });
+        }
+
+        if (route.method === "POST") {
+          defineMethod("POST", async (body?: any) => {
+            const fullPath = route.path.replace(/:([^/]+)/g, (_: any, key: any) => params[key]);
+            const res = await fetch(new URL(fullPath, baseUrl), {
+              method: "POST",
+              body: body ? JSON.stringify(body) : undefined,
+              headers: body ? { "Content-Type": "application/json" } : undefined,
+            });
+            return res.json();
+          });
+        }
+      }
     };
 
     buildChain(root, parts);
-  });
+  }
 
   return root;
-}
-
-function buildChain(current: any, parts: string[], params: any, route: any, baseUrl: string) {
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-    if (part?.startsWith(":")) {
-      const param = part.slice(1);
-      current[param] = (value: any) => {
-        const nextParams = { ...params, [param]: value };
-        const next: any = {};
-        buildChain(next, parts.slice(i + 1), nextParams, route, baseUrl);
-        return next;
-      };
-      break;
-    } else {
-      if (typeof part === "string") {
-        current[part] = current[part] || {};
-        current = current[part];
-      }
-    }
-  }
-
-  if (parts.length === 0) {
-    current.get = async () => {
-      const fullPath = route.path.replace(/:([^/]+)/g, (_: any, key: any) => params[key]);
-      const res = await fetch(`${baseUrl}${fullPath}`, { method: "GET" });
-      return res.json();
-    };
-  }
 }
