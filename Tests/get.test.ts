@@ -4,7 +4,7 @@ import { z } from "zod";
 import { describe, expect, it } from "bun:test";
 
 const app = new Framework()
-  .get("/users/get", (context) => {
+  .get("/users/get", () => {
     return Response.json({
       status: "ok",
     });
@@ -43,19 +43,19 @@ const client = createClient<Routes>("http://localhost:3000", app);
 
 describe("Test get route", () => {
   it("should return a response", async () => {
-    const slug = await client.slug.name("sally").get();
+    const { data: slug } = await client.slug.name("sally").get();
 
     expect(slug).toEqual({ name: "sally" });
   });
 
   it("should return a response with params", async () => {
-    const test = await client.test.test.new.random.name("sally").id(123).get();
+    const { data: test } = await client.test.test.new.random.name("sally").id(123).get();
 
     expect(test).toEqual({ id: 123, name: "sally" });
   });
 
   it("should return a response for path ending in 'get'", async () => {
-    const response = await client.users.get.get();
+    const { data: response } = await client.users.get.get();
     expect(response).toEqual({ status: "ok" });
   });
 });

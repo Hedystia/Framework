@@ -79,7 +79,7 @@ const client = createClient<Routes>("http://localhost:3001", app);
 
 describe("Test POST route", () => {
   it("should handle POST with params and body", async () => {
-    const response = await client.users.id(123).post({
+    const { data: response } = await client.users.id(123).post({
       name: "John Doe",
       email: "john@example.com",
     });
@@ -91,7 +91,7 @@ describe("Test POST route", () => {
   });
 
   it("should handle POST with only body", async () => {
-    const response = await client.users.post({
+    const { data: response } = await client.users.post({
       name: "Jane Doe",
     });
 
@@ -101,7 +101,7 @@ describe("Test POST route", () => {
   });
 
   it("should handle POST with only params", async () => {
-    const response = await client.profile.userId("user123").post();
+    const { data: response } = await client.profile.userId("user123").post();
 
     expect(response).toEqual({
       params: { userId: "user123" },
@@ -110,7 +110,7 @@ describe("Test POST route", () => {
   });
 
   it("should handle POST with no validation", async () => {
-    const response = await client.ping.post();
+    const { data: response } = await client.ping.post();
 
     expect(response).toEqual({
       body: "pong",
@@ -118,7 +118,7 @@ describe("Test POST route", () => {
   });
 
   it("should return a response for path ending in 'post'", async () => {
-    const response = await client.post.post();
+    const { data: response } = await client.post.post();
 
     expect(response).toEqual({
       body: undefined,

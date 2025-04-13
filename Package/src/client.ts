@@ -4,8 +4,8 @@ type PathParts<Path extends string> = Path extends `/${infer Rest}`
     : [Rest]
   : [];
 
-type RequestFunction = () => Promise<any>;
-type PostRequestFunction<B> = (body?: B) => Promise<any>;
+type RequestFunction = () => Promise<{ error: any; data: any }>;
+type PostRequestFunction<B> = (body?: B) => Promise<{ error: any; data: any }>;
 
 type RouteToTreeInner<T extends string[], Params, Methods> = T extends [
   infer H extends string,
@@ -140,20 +140,30 @@ export function createClient<R>(baseUrl: string, app: any): ClientTree<R> {
         if (route.method === "GET") {
           defineMethod("GET", async () => {
             const fullPath = route.path.replace(/:([^/]+)/g, (_: any, key: any) => params[key]);
-            const res = await fetch(new URL(fullPath, baseUrl), { method: "GET" });
-            return res.json();
+            try {
+              const res = await fetch(new URL(fullPath, baseUrl), { method: "GET" });
+              const data = await res.json();
+              return { error: null, data };
+            } catch (error) {
+              return { error, data: null };
+            }
           });
         }
 
         if (route.method === "POST") {
           defineMethod("POST", async (body?: any) => {
             const fullPath = route.path.replace(/:([^/]+)/g, (_: any, key: any) => params[key]);
-            const res = await fetch(new URL(fullPath, baseUrl), {
-              method: "POST",
-              body: body ? JSON.stringify(body) : undefined,
-              headers: body ? { "Content-Type": "application/json" } : undefined,
-            });
-            return res.json();
+            try {
+              const res = await fetch(new URL(fullPath, baseUrl), {
+                method: "POST",
+                body: body ? JSON.stringify(body) : undefined,
+                headers: body ? { "Content-Type": "application/json" } : undefined,
+              });
+              const data = await res.json();
+              return { error: null, data };
+            } catch (error) {
+              return { error, data: null };
+            }
           });
         }
       }
