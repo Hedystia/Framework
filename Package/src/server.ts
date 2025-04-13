@@ -18,6 +18,10 @@ type RouteDefinition = {
   body?: unknown;
 };
 
+interface FrameworkOptions {
+  reusePort?: boolean;
+}
+
 export type ExtractRoutes<T extends RouteDefinition[]> = T[number];
 
 export class Framework<Routes extends RouteDefinition[] = []> {
@@ -27,6 +31,11 @@ export class Framework<Routes extends RouteDefinition[] = []> {
     schema: RouteSchema;
     handler: (ctx: any) => Response;
   }[] = [];
+  private reusePort: boolean;
+
+  constructor(options?: FrameworkOptions) {
+    this.reusePort = options?.reusePort ?? false;
+  }
 
   get<Path extends string, Params extends z.ZodObject<any>>(
     path: Path,
@@ -84,6 +93,7 @@ export class Framework<Routes extends RouteDefinition[] = []> {
   listen(port: number) {
     serve({
       port,
+      reusePort: this.reusePort,
       fetch: async (req) => {
         const url = new URL(req.url);
         const method = req.method;
