@@ -3,22 +3,26 @@ import { serve } from "bun";
 
 type RouteSchema = {
   params?: z.ZodObject<any>;
+  body?: z.ZodType<any>;
 };
 
 type InferRouteContext<T extends RouteSchema> = {
   params: T["params"] extends z.ZodObject<any> ? z.infer<T["params"]> : {};
+  body: T["body"] extends z.ZodType<any> ? z.infer<T["body"]> : unknown;
 };
 
 type RouteDefinition = {
-  method: "GET";
+  method: "GET" | "POST";
   path: string;
-  params: unknown;
+  params?: unknown;
+  body?: unknown;
 };
 
 export type ExtractRoutes<T extends RouteDefinition[]> = T[number];
 
 export class Framework<Routes extends RouteDefinition[] = []> {
-  private routes: {
+  routes: {
+    method: "GET" | "POST";
     path: string;
     schema: RouteSchema;
     handler: (ctx: any) => Response;
@@ -27,20 +31,66 @@ export class Framework<Routes extends RouteDefinition[] = []> {
   get<Path extends string, Params extends z.ZodObject<any>>(
     path: Path,
     handler: (ctx: InferRouteContext<{ params: Params }>) => Response,
-    schema: { params: Params },
-  ): Framework<[...Routes, { method: "GET"; path: Path; params: z.infer<Params> }]> {
-    this.routes.push({ path, handler, schema });
+    schema: { params?: Params } = {},
+  ): Framework<
+    [
+      ...Routes,
+      { method: "GET"; path: Path; params: Params extends z.ZodObject<any> ? z.infer<Params> : {} },
+    ]
+  > {
+    this.routes.push({ method: "GET", path, handler, schema });
     return this as unknown as Framework<
       [...Routes, { method: "GET"; path: Path; params: z.infer<Params> }]
+    >;
+  }
+
+  post<Path extends string, Params extends z.ZodObject<any>, Body extends z.ZodType<any>>(
+    path: Path,
+    handler: (ctx: InferRouteContext<{ params: Params; body: Body }>) => Response,
+    schema: { params?: Params; body?: Body } = {},
+  ): Framework<
+    [
+      ...Routes,
+      {
+        method: "POST";
+        path: Path;
+        params: Params extends z.ZodObject<any> ? z.infer<Params> : {};
+        body: Body extends z.ZodType<any> ? z.infer<Body> : unknown;
+      },
+    ]
+  > {
+    this.routes.push({
+      method: "POST",
+      path,
+      handler,
+      schema: {
+        params: schema.params || (z.object({}) as any),
+        body: schema.body,
+      },
+    });
+    return this as unknown as Framework<
+      [
+        ...Routes,
+        {
+          method: "POST";
+          path: Path;
+          params: Params extends z.ZodObject<any> ? z.infer<Params> : {};
+          body: Body extends z.ZodType<any> ? z.infer<Body> : unknown;
+        },
+      ]
     >;
   }
 
   listen(port: number) {
     serve({
       port,
-      fetch: (req) => {
+      fetch: async (req) => {
         const url = new URL(req.url);
+        const method = req.method;
+
         for (const route of this.routes) {
+          if (route.method !== method) continue;
+
           const rawParams = matchRoute(url.pathname, route.path);
           if (!rawParams) continue;
 
@@ -52,8 +102,31 @@ export class Framework<Routes extends RouteDefinition[] = []> {
             return new Response("Invalid params", { status: 400 });
           }
 
+          let body = undefined;
+          let parsedBody: ReturnType<z.ZodTypeAny["safeParse"]> = {
+            success: true,
+            data: undefined,
+          };
+
+          if (method === "POST") {
+            try {
+              body = await req.json();
+              if (route.schema.body) {
+                parsedBody = route.schema.body.safeParse(body);
+                if (!parsedBody.success) {
+                  return new Response("Invalid body", { status: 400 });
+                }
+              }
+            } catch (e) {
+              if (route.schema.body) {
+                return new Response("Invalid JSON body", { status: 400 });
+              }
+            }
+          }
+
           return route.handler({
             params: parsedParams.data,
+            body: parsedBody.data || body,
           });
         }
         return new Response("Not found", { status: 404 });
