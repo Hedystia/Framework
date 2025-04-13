@@ -4,8 +4,10 @@ type PathParts<Path extends string> = Path extends `/${infer Rest}`
     : [Rest]
   : [];
 
-type RequestFunction = () => Promise<{ error: any; data: any }>;
-type PostRequestFunction<B> = (body?: B) => Promise<{ error: any; data: any }>;
+type RequestFunction<ResponseType> = () => Promise<{ error: any; data: ResponseType }>;
+type PostRequestFunction<B, ResponseType> = (
+  body?: B,
+) => Promise<{ error: any; data: ResponseType }>;
 
 type RouteToTreeInner<T extends string[], Params, Methods> = T extends [
   infer H extends string,
@@ -33,23 +35,30 @@ type RouteDefinitionsToMethodsObjects<Routes> = Routes extends {
   params: infer Params;
   method: infer M;
   body?: infer Body;
+  response?: infer Response;
 }
-  ? [M, P, Params, Body]
+  ? [M, P, Params, Body, Response]
   : never;
 
 type GroupedRoutes<Routes> = {
   [P in RouteDefinitionsToMethodsObjects<Routes>[1]]: {
-    params: Extract<RouteDefinitionsToMethodsObjects<Routes>, [any, P, any, any]>[2];
+    params: Extract<RouteDefinitionsToMethodsObjects<Routes>, [any, P, any, any, any]>[2];
     methods: MergeMethodObjects<{
-      get: Extract<RouteDefinitionsToMethodsObjects<Routes>, ["GET", P, any, any]>[0] extends "GET"
-        ? RequestFunction
+      get: Extract<
+        RouteDefinitionsToMethodsObjects<Routes>,
+        ["GET", P, any, any, any]
+      >[0] extends "GET"
+        ? RequestFunction<
+            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["GET", P, any, any, any]>[4]
+          >
         : never;
       post: Extract<
         RouteDefinitionsToMethodsObjects<Routes>,
-        ["POST", P, any, any]
+        ["POST", P, any, any, any]
       >[0] extends "POST"
         ? PostRequestFunction<
-            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["POST", P, any, any]>[3]
+            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["POST", P, any, any, any]>[3],
+            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["POST", P, any, any, any]>[4]
           >
         : never;
     }>;

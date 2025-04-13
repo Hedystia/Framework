@@ -4,27 +4,32 @@ import { z } from "zod";
 import { describe, expect, it } from "bun:test";
 
 const app = new Framework()
-  .get("/users/get", () => {
-    return Response.json({
-      status: "ok",
-    });
-  })
+  .get(
+    "/users/get",
+    () => {
+      return Response.json({
+        status: "ok",
+      });
+    },
+    {
+      response: z.object({ status: z.literal("ok") }),
+    },
+  )
   .get(
     "/slug/:name",
     (context) => {
-      context.params.name;
       return Response.json(context.params);
     },
     {
       params: z.object({
         name: z.string(),
       }),
+      response: z.object({ name: z.string() }),
     },
   )
   .get(
     "/test/test/new/random/:name/:id",
     (context) => {
-      context.params.id;
       return Response.json(context.params);
     },
     {
@@ -32,6 +37,7 @@ const app = new Framework()
         id: z.coerce.number(),
         name: z.string(),
       }),
+      response: z.object({ id: z.coerce.number(), name: z.string() }),
     },
   );
 

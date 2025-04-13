@@ -4,11 +4,13 @@ import { serve } from "bun";
 type RouteSchema = {
   params?: z.ZodObject<any>;
   body?: z.ZodType<any>;
+  response?: z.ZodType<any>;
 };
 
 type InferRouteContext<T extends RouteSchema> = {
   params: T["params"] extends z.ZodObject<any> ? z.infer<T["params"]> : {};
   body: T["body"] extends z.ZodType<any> ? z.infer<T["body"]> : unknown;
+  response: T["response"] extends z.ZodType<any> ? z.infer<T["response"]> : unknown;
 };
 
 type RouteDefinition = {
@@ -16,6 +18,7 @@ type RouteDefinition = {
   path: string;
   params?: unknown;
   body?: unknown;
+  response?: unknown;
 };
 
 interface FrameworkOptions {
@@ -37,14 +40,19 @@ export class Framework<Routes extends RouteDefinition[] = []> {
     this.reusePort = options?.reusePort ?? false;
   }
 
-  get<Path extends string, Params extends z.ZodObject<any>>(
+  get<Path extends string, Params extends z.ZodObject<any>, ResponseSchema extends z.ZodType<any>>(
     path: Path,
-    handler: (ctx: InferRouteContext<{ params: Params }>) => Response,
-    schema: { params?: Params } = {},
+    handler: (ctx: InferRouteContext<{ params: Params; response: ResponseSchema }>) => Response,
+    schema: { params?: Params; response?: ResponseSchema } = {},
   ): Framework<
     [
       ...Routes,
-      { method: "GET"; path: Path; params: Params extends z.ZodObject<any> ? z.infer<Params> : {} },
+      {
+        method: "GET";
+        path: Path;
+        params: Params extends z.ZodObject<any> ? z.infer<Params> : {};
+        response: z.infer<ResponseSchema>;
+      },
     ]
   > {
     this.routes.push({ method: "GET", path, handler, schema });
@@ -53,10 +61,17 @@ export class Framework<Routes extends RouteDefinition[] = []> {
     >;
   }
 
-  post<Path extends string, Params extends z.ZodObject<any>, Body extends z.ZodType<any>>(
+  post<
+    Path extends string,
+    Params extends z.ZodObject<any>,
+    Body extends z.ZodType<any>,
+    ResponseSchema extends z.ZodType<any>,
+  >(
     path: Path,
-    handler: (ctx: InferRouteContext<{ params: Params; body: Body }>) => Response,
-    schema: { params?: Params; body?: Body } = {},
+    handler: (
+      ctx: InferRouteContext<{ params: Params; body: Body; response: ResponseSchema }>,
+    ) => Response,
+    schema: { params?: Params; body?: Body; response?: ResponseSchema } = {},
   ): Framework<
     [
       ...Routes,
@@ -65,6 +80,7 @@ export class Framework<Routes extends RouteDefinition[] = []> {
         path: Path;
         params: Params extends z.ZodObject<any> ? z.infer<Params> : {};
         body: Body extends z.ZodType<any> ? z.infer<Body> : unknown;
+        response: z.infer<ResponseSchema>;
       },
     ]
   > {

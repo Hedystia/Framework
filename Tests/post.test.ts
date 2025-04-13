@@ -13,6 +13,7 @@ const app = new Framework()
       params: z.object({
         id: z.coerce.number(),
       }),
+      response: z.object({ id: z.coerce.number() }),
     },
   )
   .post(
@@ -31,6 +32,10 @@ const app = new Framework()
         name: z.string(),
         email: z.email(),
       }),
+      response: z.object({
+        params: z.object({ id: z.coerce.number() }),
+        body: z.object({ name: z.string(), email: z.email() }),
+      }),
     },
   )
   .post(
@@ -44,6 +49,7 @@ const app = new Framework()
       body: z.object({
         name: z.string(),
       }),
+      response: z.object({ body: z.object({ name: z.string() }) }),
     },
   )
   .post(
@@ -58,18 +64,34 @@ const app = new Framework()
       params: z.object({
         userId: z.string(),
       }),
+      response: z.object({
+        params: z.object({ userId: z.string() }),
+        body: z.optional(z.object()),
+      }),
     },
   )
-  .post("/ping", (context) => {
-    return Response.json({
-      body: context.body || "pong",
-    });
-  })
-  .post("/post", (context) => {
-    return Response.json({
-      body: context.body,
-    });
-  });
+  .post(
+    "/ping",
+    (context) => {
+      return Response.json({
+        body: context.body || "pong",
+      });
+    },
+    {
+      response: z.object({ body: z.optional(z.string()) }),
+    },
+  )
+  .post(
+    "/post",
+    (context) => {
+      return Response.json({
+        body: context.body,
+      });
+    },
+    {
+      response: z.object({ body: z.optional(z.object()) }),
+    },
+  );
 
 app.listen(3001);
 
