@@ -1,0 +1,10 @@
+{
+  "devDependencies": {
+    "@types/bun": "latest",
+    "zod": "^4.0.0-beta.20250411T232125"
+  },
+  "scripts": {
+    "dev": "bun --watch --no-clear-screen run index.ts",
+    "test": "bun test"
+  }
+}

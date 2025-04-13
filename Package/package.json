@@ -1,0 +1,16 @@
+{
+  "name": "packages",
+  "module": "index.ts",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "zod": "^4.0.0-beta.20250411T232125"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "private": true,
+  "scripts": {
+    "dev": "bun --watch --no-clear-screen run src/index.ts"
+  },
+  "type": "module"
+}

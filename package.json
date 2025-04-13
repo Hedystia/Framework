@@ -1,0 +1,14 @@
+{
+  "name": "framework",
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/bun": "^1.2.9",
+    "concurrently": "^9.1.2",
+    "typescript": "^5.8.3"
+  },
+  "scripts": {
+    "dev": "concurrently \"bun run --cwd Packages dev\" \"bun run --cwd Tests dev\"",
+    "test": "bun run --cwd Tests test"
+  },
+  "workspaces": ["Packages/*", "Tests/*"]
+}
