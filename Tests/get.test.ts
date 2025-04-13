@@ -39,9 +39,8 @@ const app = new Framework()
       }),
       response: z.object({ id: z.coerce.number(), name: z.string() }),
     },
-  );
-
-app.listen(3000);
+  )
+  .listen(3000);
 
 type Routes = typeof app extends Framework<infer R> ? ExtractRoutes<R> : never;
 

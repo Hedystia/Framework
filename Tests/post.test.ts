@@ -91,9 +91,8 @@ const app = new Framework()
     {
       response: z.object({ body: z.optional(z.object()) }),
     },
-  );
-
-app.listen(3001);
+  )
+  .listen(3001);
 
 type Routes = typeof app extends Framework<infer R> ? ExtractRoutes<R> : never;
 

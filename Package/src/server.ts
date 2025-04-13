@@ -106,7 +106,7 @@ export class Framework<Routes extends RouteDefinition[] = []> {
     >;
   }
 
-  listen(port: number) {
+  listen(port: number): this {
     serve({
       port,
       reusePort: this.reusePort,
@@ -158,6 +158,7 @@ export class Framework<Routes extends RouteDefinition[] = []> {
         return new Response("Not found", { status: 404 });
       },
     });
+    return this;
   }
 }
 
