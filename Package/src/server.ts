@@ -4,6 +4,7 @@ import type { RouteDefinition } from "./types/routes";
 
 type RouteSchema = {
   params?: z.ZodObject<any>;
+  query?: z.ZodObject<any>;
   body?: z.ZodType<any>;
   response?: z.ZodType<any>;
 };
@@ -11,6 +12,7 @@ type RouteSchema = {
 type InferRouteContext<T extends RouteSchema> = {
   req: Request;
   params: T["params"] extends z.ZodObject<any> ? z.infer<T["params"]> : {};
+  query: T["query"] extends z.ZodObject<any> ? z.infer<T["query"]> : {};
   body: T["body"] extends z.ZodType<any> ? z.infer<T["body"]> : unknown;
 };
 
@@ -20,7 +22,7 @@ interface FrameworkOptions {
 
 export class Framework<Routes extends RouteDefinition[] = []> {
   routes: {
-    method: "GET" | "POST";
+    method: "GET" | "POST" | "PUT";
     path: string;
     schema: RouteSchema;
     handler: (ctx: any) => Response;
@@ -31,10 +33,15 @@ export class Framework<Routes extends RouteDefinition[] = []> {
     this.reusePort = options?.reusePort ?? false;
   }
 
-  get<Path extends string, Params extends z.ZodObject<any>, ResponseSchema extends z.ZodType<any>>(
+  get<
+    Path extends string,
+    Params extends z.ZodObject<any>,
+    Query extends z.ZodObject<any>,
+    ResponseSchema extends z.ZodType<any>,
+  >(
     path: Path,
-    handler: (ctx: InferRouteContext<{ params: Params }>) => Response,
-    schema: { params?: Params; response?: ResponseSchema } = {},
+    handler: (ctx: InferRouteContext<{ params: Params; query: Query }>) => Response,
+    schema: { params?: Params; query?: Query; response?: ResponseSchema } = {},
   ): Framework<
     [
       ...Routes,
@@ -42,25 +49,34 @@ export class Framework<Routes extends RouteDefinition[] = []> {
         method: "GET";
         path: Path;
         params: Params extends z.ZodObject<any> ? z.infer<Params> : {};
-        response: z.infer<ResponseSchema>;
+        query: Query extends z.ZodObject<any> ? z.infer<Query> : {};
+        response: ResponseSchema extends z.ZodType<any> ? z.infer<ResponseSchema> : unknown;
       },
     ]
   > {
-    this.routes.push({ method: "GET", path, handler, schema });
-    return this as unknown as Framework<
-      [...Routes, { method: "GET"; path: Path; params: z.infer<Params> }]
-    >;
+    this.routes.push({
+      method: "GET",
+      path,
+      handler,
+      schema: {
+        params: schema.params || (z.object({}) as any),
+        query: schema.query || (z.object({}) as any),
+        response: schema.response,
+      },
+    });
+    return this as any;
   }
 
   post<
     Path extends string,
     Params extends z.ZodObject<any>,
+    Query extends z.ZodObject<any>,
     Body extends z.ZodType<any>,
     ResponseSchema extends z.ZodType<any>,
   >(
     path: Path,
-    handler: (ctx: InferRouteContext<{ params: Params; body: Body }>) => Response,
-    schema: { params?: Params; body?: Body; response?: ResponseSchema } = {},
+    handler: (ctx: InferRouteContext<{ params: Params; query: Query; body: Body }>) => Response,
+    schema: { params?: Params; query?: Query; body?: Body; response?: ResponseSchema } = {},
   ): Framework<
     [
       ...Routes,
@@ -68,8 +84,9 @@ export class Framework<Routes extends RouteDefinition[] = []> {
         method: "POST";
         path: Path;
         params: Params extends z.ZodObject<any> ? z.infer<Params> : {};
+        query: Query extends z.ZodObject<any> ? z.infer<Query> : {};
         body: Body extends z.ZodType<any> ? z.infer<Body> : unknown;
-        response: z.infer<ResponseSchema>;
+        response: ResponseSchema extends z.ZodType<any> ? z.infer<ResponseSchema> : unknown;
       },
     ]
   > {
@@ -79,20 +96,49 @@ export class Framework<Routes extends RouteDefinition[] = []> {
       handler,
       schema: {
         params: schema.params || (z.object({}) as any),
+        query: schema.query || (z.object({}) as any),
         body: schema.body,
+        response: schema.response,
       },
     });
-    return this as unknown as Framework<
-      [
-        ...Routes,
-        {
-          method: "POST";
-          path: Path;
-          params: Params extends z.ZodObject<any> ? z.infer<Params> : {};
-          body: Body extends z.ZodType<any> ? z.infer<Body> : unknown;
-        },
-      ]
-    >;
+    return this as any;
+  }
+
+  put<
+    Path extends string,
+    Params extends z.ZodObject<any>,
+    Query extends z.ZodObject<any>,
+    Body extends z.ZodType<any>,
+    ResponseSchema extends z.ZodType<any>,
+  >(
+    path: Path,
+    handler: (ctx: InferRouteContext<{ params: Params; query: Query; body: Body }>) => Response,
+    schema: { params?: Params; query?: Query; body?: Body; response?: ResponseSchema } = {},
+  ): Framework<
+    [
+      ...Routes,
+      {
+        method: "PUT";
+        path: Path;
+        params: Params extends z.ZodObject<any> ? z.infer<Params> : {};
+        query: Query extends z.ZodObject<any> ? z.infer<Query> : {};
+        body: Body extends z.ZodType<any> ? z.infer<Body> : unknown;
+        response: ResponseSchema extends z.ZodType<any> ? z.infer<ResponseSchema> : unknown;
+      },
+    ]
+  > {
+    this.routes.push({
+      method: "PUT",
+      path,
+      handler,
+      schema: {
+        params: schema.params || (z.object({}) as any),
+        query: schema.query || (z.object({}) as any),
+        body: schema.body,
+        response: schema.response,
+      },
+    });
+    return this as any;
   }
 
   listen(port: number): this {
@@ -102,6 +148,11 @@ export class Framework<Routes extends RouteDefinition[] = []> {
       fetch: async (req) => {
         const url = new URL(req.url);
         const method = req.method;
+
+        const queryParams: Record<string, string> = {};
+        url.searchParams.forEach((value, key) => {
+          queryParams[key] = value;
+        });
 
         for (const route of this.routes) {
           if (route.method !== method) continue;
@@ -117,13 +168,21 @@ export class Framework<Routes extends RouteDefinition[] = []> {
             return new Response("Invalid params", { status: 400 });
           }
 
+          const parsedQuery = route.schema.query
+            ? route.schema.query.safeParse(queryParams)
+            : { success: true, data: {} };
+
+          if (!parsedQuery.success) {
+            return new Response("Invalid query parameters", { status: 400 });
+          }
+
           let body = undefined;
           let parsedBody: ReturnType<z.ZodTypeAny["safeParse"]> = {
             success: true,
             data: undefined,
           };
 
-          if (method === "POST") {
+          if (method === "POST" || method === "PUT") {
             try {
               body = await req.json();
               if (route.schema.body) {
@@ -142,6 +201,7 @@ export class Framework<Routes extends RouteDefinition[] = []> {
           return route.handler({
             req,
             params: parsedParams.data,
+            query: parsedQuery.data,
             body: parsedBody.data || body,
           });
         }

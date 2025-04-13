@@ -7,12 +7,19 @@ type PathParts<Path extends string> = Path extends `/${infer Rest}`
     : [Rest]
   : [];
 
-type RequestFunction<ResponseType> = () => Promise<{
+type RequestFunction<ResponseType> = (query?: Record<string, any>) => Promise<{
   error: any | null;
   data: ResponseType | null;
 }>;
+
 type PostRequestFunction<B, ResponseType> = (
   body?: B,
+  query?: Record<string, any>,
+) => Promise<{ error: any | null; data: ResponseType | null }>;
+
+type PutRequestFunction<B, ResponseType> = (
+  body?: B,
+  query?: Record<string, any>,
 ) => Promise<{ error: any | null; data: ResponseType | null }>;
 
 type RouteToTreeInner<T extends string[], Params, Methods> = T extends [
@@ -40,31 +47,41 @@ type RouteDefinitionsToMethodsObjects<Routes> = Routes extends {
   path: infer P extends string;
   params: infer Params;
   method: infer M;
+  query?: infer Query;
   body?: infer Body;
   response?: infer Response;
 }
-  ? [M, P, Params, Body, Response]
+  ? [M, P, Params, Query, Body, Response]
   : never;
 
 type GroupedRoutes<Routes> = {
   [P in RouteDefinitionsToMethodsObjects<Routes>[1]]: {
-    params: Extract<RouteDefinitionsToMethodsObjects<Routes>, [any, P, any, any, any]>[2];
+    params: Extract<RouteDefinitionsToMethodsObjects<Routes>, [any, P, any, any, any, any]>[2];
     methods: MergeMethodObjects<{
       get: Extract<
         RouteDefinitionsToMethodsObjects<Routes>,
-        ["GET", P, any, any, any]
+        ["GET", P, any, any, any, any]
       >[0] extends "GET"
         ? RequestFunction<
-            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["GET", P, any, any, any]>[4]
+            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["GET", P, any, any, any, any]>[5]
           >
         : never;
       post: Extract<
         RouteDefinitionsToMethodsObjects<Routes>,
-        ["POST", P, any, any, any]
+        ["POST", P, any, any, any, any]
       >[0] extends "POST"
         ? PostRequestFunction<
-            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["POST", P, any, any, any]>[3],
-            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["POST", P, any, any, any]>[4]
+            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["POST", P, any, any, any, any]>[4],
+            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["POST", P, any, any, any, any]>[5]
+          >
+        : never;
+      put: Extract<
+        RouteDefinitionsToMethodsObjects<Routes>,
+        ["PUT", P, any, any, any, any]
+      >[0] extends "PUT"
+        ? PutRequestFunction<
+            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["PUT", P, any, any, any, any]>[4],
+            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["PUT", P, any, any, any, any]>[5]
           >
         : never;
     }>;
@@ -142,7 +159,7 @@ export function createClient<T extends Framework<any>>(
         }
       }
 
-      const defineMethod = (method: "GET" | "POST", handler: any) => {
+      const defineMethod = (method: "GET" | "POST" | "PUT", handler: any) => {
         const key = method.toLowerCase();
 
         const alreadyExists = current[key];
@@ -158,12 +175,26 @@ export function createClient<T extends Framework<any>>(
         }
       };
 
+      const buildUrlWithQuery = (fullPath: string, query?: Record<string, any>) => {
+        const url = new URL(fullPath, baseUrl);
+        if (query) {
+          Object.entries(query).forEach(([key, value]) => {
+            if (value !== undefined) {
+              url.searchParams.append(key, String(value));
+            }
+          });
+        }
+        return url;
+      };
+
       for (const route of routes) {
         if (route.method === "GET") {
-          defineMethod("GET", async () => {
+          defineMethod("GET", async (query?: Record<string, any>) => {
             const fullPath = route.path.replace(/:([^/]+)/g, (_: any, key: any) => params[key]);
             try {
-              const res = await fetch(new URL(fullPath, baseUrl), { method: "GET" });
+              const url = buildUrlWithQuery(fullPath, query);
+              const res = await fetch(url, { method: "GET" });
+              if (!res.ok) return { error: res.statusText, data: null };
               const data = await res.json();
               return { error: null, data };
             } catch (error) {
@@ -173,14 +204,35 @@ export function createClient<T extends Framework<any>>(
         }
 
         if (route.method === "POST") {
-          defineMethod("POST", async (body?: any) => {
+          defineMethod("POST", async (body?: any, query?: Record<string, any>) => {
             const fullPath = route.path.replace(/:([^/]+)/g, (_: any, key: any) => params[key]);
             try {
-              const res = await fetch(new URL(fullPath, baseUrl), {
+              const url = buildUrlWithQuery(fullPath, query);
+              const res = await fetch(url, {
                 method: "POST",
                 body: body ? JSON.stringify(body) : undefined,
                 headers: body ? { "Content-Type": "application/json" } : undefined,
               });
+              if (!res.ok) return { error: res.statusText, data: null };
+              const data = await res.json();
+              return { error: null, data };
+            } catch (error) {
+              return { error, data: null };
+            }
+          });
+        }
+
+        if (route.method === "PUT") {
+          defineMethod("PUT", async (body?: any, query?: Record<string, any>) => {
+            const fullPath = route.path.replace(/:([^/]+)/g, (_: any, key: any) => params[key]);
+            try {
+              const url = buildUrlWithQuery(fullPath, query);
+              const res = await fetch(url, {
+                method: "PUT",
+                body: body ? JSON.stringify(body) : undefined,
+                headers: body ? { "Content-Type": "application/json" } : undefined,
+              });
+              if (!res.ok) return { error: res.statusText, data: null };
               const data = await res.json();
               return { error: null, data };
             } catch (error) {
