@@ -9,9 +9,9 @@ type RouteSchema = {
 };
 
 type InferRouteContext<T extends RouteSchema> = {
+  req: Request;
   params: T["params"] extends z.ZodObject<any> ? z.infer<T["params"]> : {};
   body: T["body"] extends z.ZodType<any> ? z.infer<T["body"]> : unknown;
-  response: T["response"] extends z.ZodType<any> ? z.infer<T["response"]> : unknown;
 };
 
 interface FrameworkOptions {
@@ -33,7 +33,7 @@ export class Framework<Routes extends RouteDefinition[] = []> {
 
   get<Path extends string, Params extends z.ZodObject<any>, ResponseSchema extends z.ZodType<any>>(
     path: Path,
-    handler: (ctx: InferRouteContext<{ params: Params; response: ResponseSchema }>) => Response,
+    handler: (ctx: InferRouteContext<{ params: Params }>) => Response,
     schema: { params?: Params; response?: ResponseSchema } = {},
   ): Framework<
     [
@@ -59,9 +59,7 @@ export class Framework<Routes extends RouteDefinition[] = []> {
     ResponseSchema extends z.ZodType<any>,
   >(
     path: Path,
-    handler: (
-      ctx: InferRouteContext<{ params: Params; body: Body; response: ResponseSchema }>,
-    ) => Response,
+    handler: (ctx: InferRouteContext<{ params: Params; body: Body }>) => Response,
     schema: { params?: Params; body?: Body; response?: ResponseSchema } = {},
   ): Framework<
     [
@@ -142,6 +140,7 @@ export class Framework<Routes extends RouteDefinition[] = []> {
           }
 
           return route.handler({
+            req,
             params: parsedParams.data,
             body: parsedBody.data || body,
           });
