@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { serve } from "bun";
+import type { RouteDefinition } from "./types/routes";
 
 type RouteSchema = {
   params?: z.ZodObject<any>;
@@ -13,19 +14,9 @@ type InferRouteContext<T extends RouteSchema> = {
   response: T["response"] extends z.ZodType<any> ? z.infer<T["response"]> : unknown;
 };
 
-type RouteDefinition = {
-  method: "GET" | "POST";
-  path: string;
-  params?: unknown;
-  body?: unknown;
-  response?: unknown;
-};
-
 interface FrameworkOptions {
   reusePort?: boolean;
 }
-
-export type ExtractRoutes<T extends RouteDefinition[]> = T[number];
 
 export class Framework<Routes extends RouteDefinition[] = []> {
   routes: {

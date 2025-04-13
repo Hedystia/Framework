@@ -1,4 +1,4 @@
-import { Framework, createClient, type ExtractRoutes } from "../Package/src";
+import { Framework, createClient } from "../Package/src";
 import { z } from "zod";
 
 import { describe, expect, it } from "bun:test";
@@ -94,9 +94,7 @@ const app = new Framework()
   )
   .listen(3001);
 
-type Routes = typeof app extends Framework<infer R> ? ExtractRoutes<R> : never;
-
-const client = createClient<Routes>("http://localhost:3001", app);
+const client = createClient("http://localhost:3001", app);
 
 describe("Test POST route", () => {
   it("should handle POST with params and body", async () => {

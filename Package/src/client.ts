@@ -1,3 +1,6 @@
+import type { Framework } from "./server";
+import type { RouteDefinition } from "./types/routes";
+
 type PathParts<Path extends string> = Path extends `/${infer Rest}`
   ? Rest extends `${infer Head}/${infer Tail}`
     ? [Head, ...PathParts<`/${Tail}`>]
@@ -88,7 +91,14 @@ type ClientTree<R> = UnionToIntersection<
   }[keyof GroupedRoutes<R>]
 >;
 
-export function createClient<R>(baseUrl: string, app: any): ClientTree<R> {
+type ExtractRoutes<T extends RouteDefinition[]> = T[number];
+
+type ExtractRoutesFromFramework<T> = T extends Framework<infer R> ? ExtractRoutes<R> : never;
+
+export function createClient<T extends Framework<any>>(
+  baseUrl: string,
+  app: T,
+): ClientTree<ExtractRoutesFromFramework<T>> {
   const root: any = {};
 
   const routesByPath: Record<string, any[]> = {};
