@@ -51,9 +51,9 @@
 - [ ] After handler
 - [ ] Ws integration
 - Response bodies - https://bun.sh/docs/api/fetch#response-bodies
-    - [ ] text
+    - [x] text
     - [x] json
-    - [ ] formData
-    - [ ] bytes
-    - [ ] arrayBuffer
-    - [ ] blob
+    - [x] formData
+    - [x] bytes
+    - [x] arrayBuffer
+    - [x] blob
