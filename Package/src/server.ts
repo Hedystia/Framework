@@ -22,7 +22,7 @@ interface FrameworkOptions {
 
 export class Framework<Routes extends RouteDefinition[] = []> {
   routes: {
-    method: "GET" | "POST" | "PUT" | "DELETE";
+    method: "GET" | "PATCH" | "POST" | "PUT" | "DELETE";
     path: string;
     schema: RouteSchema;
     handler: (ctx: any) => Response;
@@ -61,6 +61,43 @@ export class Framework<Routes extends RouteDefinition[] = []> {
       schema: {
         params: schema.params || (z.object({}) as any),
         query: schema.query || (z.object({}) as any),
+        response: schema.response,
+      },
+    });
+    return this as any;
+  }
+
+  patch<
+    Path extends string,
+    Params extends z.ZodObject<any>,
+    Query extends z.ZodObject<any>,
+    Body extends z.ZodType<any>,
+    ResponseSchema extends z.ZodType<any>,
+  >(
+    path: Path,
+    handler: (ctx: InferRouteContext<{ params: Params; query: Query; body: Body }>) => Response,
+    schema: { params?: Params; query?: Query; body?: Body; response?: ResponseSchema } = {},
+  ): Framework<
+    [
+      ...Routes,
+      {
+        method: "PATCH";
+        path: Path;
+        params: Params extends z.ZodObject<any> ? z.infer<Params> : {};
+        query: Query extends z.ZodObject<any> ? z.infer<Query> : {};
+        body: Body extends z.ZodType<any> ? z.infer<Body> : unknown;
+        response: ResponseSchema extends z.ZodType<any> ? z.infer<ResponseSchema> : unknown;
+      },
+    ]
+  > {
+    this.routes.push({
+      method: "PATCH",
+      path,
+      handler,
+      schema: {
+        params: schema.params || (z.object({}) as any),
+        query: schema.query || (z.object({}) as any),
+        body: schema.body,
         response: schema.response,
       },
     });
@@ -219,7 +256,7 @@ export class Framework<Routes extends RouteDefinition[] = []> {
             data: undefined,
           };
 
-          if (method === "POST" || method === "PUT" || method === "DELETE") {
+          if (method === "PATCH" || method === "POST" || method === "PUT" || method === "DELETE") {
             try {
               body = await req.json();
               if (route.schema.body) {

@@ -17,6 +17,11 @@ type RequestFunction<Q, ResponseType> = (query?: Q) => Promise<{
   data: ResponseType | null;
 }>;
 
+type PatchRequestFunction<B, Q, ResponseType> = (
+  body?: B,
+  query?: Q,
+) => Promise<{ error: any | null; data: ResponseType | null }>;
+
 type PostRequestFunction<B, Q, ResponseType> = (
   body?: B,
   query?: Q,
@@ -70,6 +75,16 @@ type GroupedRoutes<Routes> = {
         ? RequestFunction<
             Extract<RouteDefinitionsToMethodsObjects<Routes>, ["GET", P, any, any, any, any]>[3],
             Extract<RouteDefinitionsToMethodsObjects<Routes>, ["GET", P, any, any, any, any]>[5]
+          >
+        : never;
+      patch: Extract<
+        RouteDefinitionsToMethodsObjects<Routes>,
+        ["PATCH", P, any, any, any, any]
+      >[0] extends "PATCH"
+        ? PatchRequestFunction<
+            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["PATCH", P, any, any, any, any]>[4],
+            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["PATCH", P, any, any, any, any]>[3],
+            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["PATCH", P, any, any, any, any]>[5]
           >
         : never;
       post: Extract<
@@ -177,7 +192,7 @@ export function createClient<T extends Framework<any>>(
         }
       }
 
-      const defineMethod = (method: "GET" | "POST" | "PUT" | "DELETE", handler: any) => {
+      const defineMethod = (method: "GET" | "PATCH" | "POST" | "PUT" | "DELETE", handler: any) => {
         const key = method.toLowerCase();
 
         const alreadyExists = current[key];
@@ -212,6 +227,25 @@ export function createClient<T extends Framework<any>>(
             try {
               const url = buildUrlWithQuery(fullPath, query);
               const res = await fetch(url, { method: "GET" });
+              if (!res.ok) return { error: res.statusText, data: null };
+              const data = await res.json();
+              return { error: null, data };
+            } catch (error) {
+              return { error, data: null };
+            }
+          });
+        }
+
+        if (route.method === "PATCH") {
+          defineMethod("PATCH", async (body?: any, query?: Record<string, any>) => {
+            const fullPath = route.path.replace(/:([^/]+)/g, (_: any, key: any) => params[key]);
+            try {
+              const url = buildUrlWithQuery(fullPath, query);
+              const res = await fetch(url, {
+                method: "PATCH",
+                body: body ? JSON.stringify(body) : undefined,
+                headers: body ? { "Content-Type": "application/json" } : undefined,
+              });
               if (!res.ok) return { error: res.statusText, data: null };
               const data = await res.json();
               return { error: null, data };
