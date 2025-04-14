@@ -33,6 +33,28 @@ export class Framework<Routes extends RouteDefinition[] = []> {
     this.reusePort = options?.reusePort ?? false;
   }
 
+  static createResponse(data: any, contentType?: string): Response {
+    if (contentType === "text/plain" || typeof data === "string") {
+      return new Response(data, {
+        headers: { "Content-Type": contentType || "text/plain" },
+      });
+    }
+
+    if (data instanceof Uint8Array || data instanceof ArrayBuffer) {
+      return new Response(data);
+    }
+
+    if (data instanceof Blob) {
+      return new Response(data);
+    }
+
+    if (data instanceof FormData) {
+      return new Response(data);
+    }
+
+    return Response.json(data);
+  }
+
   get<
     Path extends string,
     Params extends z.ZodObject<any>,
@@ -258,7 +280,22 @@ export class Framework<Routes extends RouteDefinition[] = []> {
 
           if (method === "PATCH" || method === "POST" || method === "PUT" || method === "DELETE") {
             try {
-              body = await req.json();
+              const contentType = req.headers.get("Content-Type") || "";
+
+              if (contentType.includes("application/json")) {
+                body = await req.json();
+              } else if (contentType.includes("multipart/form-data")) {
+                body = await req.formData();
+              } else if (contentType.includes("text/")) {
+                body = await req.text();
+              } else {
+                try {
+                  body = await req.json();
+                } catch {
+                  body = await req.text();
+                }
+              }
+
               if (route.schema.body) {
                 parsedBody = route.schema.body.safeParse(body);
                 if (!parsedBody.success) {
@@ -267,7 +304,7 @@ export class Framework<Routes extends RouteDefinition[] = []> {
               }
             } catch (e) {
               if (route.schema.body) {
-                return new Response("Invalid JSON body", { status: 400 });
+                return new Response("Invalid body format", { status: 400 });
               }
             }
           }

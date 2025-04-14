@@ -2,6 +2,7 @@ import type { Framework } from "./server";
 import type { RouteDefinition } from "./types/routes";
 
 type HttpMethod = "GET" | "PATCH" | "POST" | "PUT" | "DELETE";
+type ResponseFormat = "json" | "text" | "formData" | "bytes" | "arrayBuffer" | "blob";
 
 type PathParts<Path extends string> = Path extends `/${infer Rest}`
   ? Rest extends `${infer Head}/${infer Tail}`
@@ -12,9 +13,13 @@ type PathParts<Path extends string> = Path extends `/${infer Rest}`
 type DeleteRequestFunction<B, Q, ResponseType> = (
   body?: B,
   query?: Q,
+  options?: { responseFormat?: ResponseFormat },
 ) => Promise<{ error: any | null; data: ResponseType | null }>;
 
-type RequestFunction<Q, ResponseType> = (query?: Q) => Promise<{
+type RequestFunction<Q, ResponseType> = (
+  query?: Q,
+  options?: { responseFormat?: ResponseFormat },
+) => Promise<{
   error: any | null;
   data: ResponseType | null;
 }>;
@@ -22,16 +27,19 @@ type RequestFunction<Q, ResponseType> = (query?: Q) => Promise<{
 type PatchRequestFunction<B, Q, ResponseType> = (
   body?: B,
   query?: Q,
+  options?: { responseFormat?: ResponseFormat },
 ) => Promise<{ error: any | null; data: ResponseType | null }>;
 
 type PostRequestFunction<B, Q, ResponseType> = (
   body?: B,
   query?: Q,
+  options?: { responseFormat?: ResponseFormat },
 ) => Promise<{ error: any | null; data: ResponseType | null }>;
 
 type PutRequestFunction<B, Q, ResponseType> = (
   body?: B,
   query?: Q,
+  options?: { responseFormat?: ResponseFormat },
 ) => Promise<{ error: any | null; data: ResponseType | null }>;
 
 type RouteToTreeInner<T extends string[], Params, Methods> = T extends [
@@ -150,6 +158,30 @@ type ExtractRoutes<T extends RouteDefinition[]> = T[number];
 
 type ExtractRoutesFromFramework<T> = T extends Framework<infer R> ? ExtractRoutes<R> : never;
 
+async function processResponse(response: Response, format: ResponseFormat = "json") {
+  try {
+    switch (format) {
+      case "json":
+        return await response.json().catch(() => null);
+      case "text":
+        return await response.text();
+      case "formData":
+        return await response.formData();
+      case "bytes":
+        return new Uint8Array(await response.arrayBuffer());
+      case "arrayBuffer":
+        return await response.arrayBuffer();
+      case "blob":
+        return await response.blob();
+      default:
+        return await response.json().catch(() => null);
+    }
+  } catch (error) {
+    console.error(`Error processing ${format} response:`, error);
+    return null;
+  }
+}
+
 export function createClient<T extends Framework<any>>(
   baseUrl: string,
 ): ClientTree<ExtractRoutesFromFramework<T>> {
@@ -175,13 +207,20 @@ export function createClient<T extends Framework<any>>(
           const fullPath = newSegments.length ? "/" + newSegments.join("/") : "";
           const url = new URL(fullPath, baseUrl);
 
-          let body: any, query: any;
+          let body: any,
+            query: any,
+            options: any = {};
+
           if (method === "GET") {
             query = args[0];
+            options = args[1] || {};
           } else {
             body = args[0];
             query = args[1];
+            options = args[2] || {};
           }
+
+          const responseFormat = options.responseFormat || "json";
 
           if (query && typeof query === "object") {
             Object.keys(query).forEach((key) => {
@@ -200,10 +239,16 @@ export function createClient<T extends Framework<any>>(
           if (body !== undefined && method !== "GET") {
             init.body = JSON.stringify(body);
           }
+
           return (async () => {
             try {
               const res = await fetch(url.toString(), init);
-              const data = await res.json().catch(() => null);
+
+              if (!res.ok) {
+                throw new Error(`HTTP error! Status: ${res.status}`);
+              }
+
+              const data = await processResponse(res, responseFormat);
               return { error: null, data };
             } catch (error) {
               return { error, data: null };
