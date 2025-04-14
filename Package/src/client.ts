@@ -173,7 +173,7 @@ export function createClient<T extends Framework<any>>(
           const method = lastSegment.toUpperCase() as HttpMethod;
           const newSegments = segments.slice(0, segments.length - 1);
           const fullPath = newSegments.length ? "/" + newSegments.join("/") : "";
-          const url = new URL(baseUrl + fullPath);
+          const url = new URL(fullPath, baseUrl);
 
           let body: any, query: any;
           if (method === "GET") {
