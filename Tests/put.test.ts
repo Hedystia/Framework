@@ -85,7 +85,7 @@ const app = new Framework()
   )
   .listen(3004);
 
-const client = createClient("http://localhost:3004", app);
+const client = createClient<typeof app>("http://localhost:3004");
 
 describe("Test PUT method", () => {
   it("should handle PUT with params and body", async () => {

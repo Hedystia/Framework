@@ -53,7 +53,7 @@ const app = new Framework()
   )
   .listen(3003);
 
-const client = createClient("http://localhost:3003", app);
+const client = createClient<typeof app>("http://localhost:3003");
 
 describe("Test query parameters", () => {
   it("should handle query parameters without path params", async () => {

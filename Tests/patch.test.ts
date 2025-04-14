@@ -85,7 +85,7 @@ const app = new Framework()
   )
   .listen(3006);
 
-const client = createClient("http://localhost:3006", app);
+const client = createClient<typeof app>("http://localhost:3006");
 
 describe("Test PATCH method", () => {
   it("should handle PATCH with params and body", async () => {

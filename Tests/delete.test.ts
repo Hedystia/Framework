@@ -48,7 +48,7 @@ const app = new Framework()
   )
   .listen(3005);
 
-const client = createClient("http://localhost:3005", app);
+const client = createClient<typeof app>("http://localhost:3005");
 
 describe("Test DELETE method", () => {
   it("should handle DELETE with params, body and query", async () => {

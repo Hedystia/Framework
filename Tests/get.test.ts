@@ -42,7 +42,7 @@ const app = new Framework()
   )
   .listen(3000);
 
-const client = createClient("http://localhost:3000", app);
+const client = createClient<typeof app>("http://localhost:3000");
 
 describe("Test get route", () => {
   it("should return a response", async () => {
