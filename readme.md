@@ -57,3 +57,12 @@
     - [x] bytes
     - [x] arrayBuffer
     - [x] blob
+- On event functions
+    - [x] onRequest
+    - [x] onParse
+    - [x] onTransform
+    - [x] onBeforeHandle
+    - [x] onAfterHandle
+    - [x] onMapResponse
+    - [x] onError
+    - [x] onAfterResponse
