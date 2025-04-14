@@ -1,16 +1,25 @@
 {
-  "name": "packages",
+  "name": "@hedystia/framework",
   "module": "index.ts",
+  "version": "0.0.1",
+  "dependencies": {
+    "zod": ">= 4.0.0-beta.20250411T232125"
+  },
   "devDependencies": {
-    "@types/bun": "latest",
-    "zod": "^4.0.0-beta.20250411T232125"
+    "@types/bun": "latest"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": ">= 5.0.0",
+    "zod": ">= 4.0.0-beta.20250411T232125"
   },
-  "private": true,
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  },
+  "private": false,
   "scripts": {
     "dev": "bun --watch --no-clear-screen run src/index.ts"
   },
-  "type": "module"
+  "type": "commonjs"
 }
