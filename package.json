@@ -10,5 +10,5 @@
     "dev": "concurrently \"bun run --cwd Packages dev\" \"bun run --cwd Tests dev\"",
     "test": "bun run --cwd Tests test"
   },
-  "workspaces": ["Packages/*", "Tests/*"]
+  "workspaces": ["./Package", "./Tests"]
 }

@@ -1,4 +1,5 @@
 {
+  "name": "tests",
   "devDependencies": {
     "@types/bun": "latest",
     "zod": "^4.0.0-beta.20250411T232125"
