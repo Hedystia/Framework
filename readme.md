@@ -50,4 +50,10 @@
 - [ ] Before handler
 - [ ] After handler
 - [ ] Ws integration
-- [ ] Response bodies (text, json, formData, bytes, arrayBuffer, blob) - JSON its done, but the rest is not - https://bun.sh/docs/api/fetch#response-bodies
+- Response bodies - https://bun.sh/docs/api/fetch#response-bodies
+    - [ ] text
+    - [x] json
+    - [ ] formData
+    - [ ] bytes
+    - [ ] arrayBuffer
+    - [ ] blob
