@@ -106,7 +106,6 @@ describe("Test PUT method", () => {
   });
 
   it("should handle PUT with nested route", async () => {
-    client.resources.id;
     const { data: response } = await client.resources.status.id(456).put(
       {
         status: "published",
