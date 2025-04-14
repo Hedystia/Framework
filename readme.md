@@ -41,9 +41,9 @@
 
 - [x] Get route
 - [x] Post route
-- [ ] Put route
-- [ ] Delete route
-- [ ] Patch route
+- [X] Put route
+- [X] Delete route
+- [X] Patch route
 - [ ] Head route
 - [ ] Options route
 - [ ] Use router
