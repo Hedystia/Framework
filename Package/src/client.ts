@@ -160,11 +160,15 @@ type ExtractRoutesFromFramework<T> = T extends Framework<infer R> ? ExtractRoute
 
 async function processResponse(response: Response, format: ResponseFormat = "json") {
   try {
+    const contentType = response.headers.get("Content-Type") || "";
+
+    if ((format === "text" || contentType.includes("text/plain")) && format !== "blob") {
+      return await response.text();
+    }
+
     switch (format) {
       case "json":
         return await response.json().catch(() => null);
-      case "text":
-        return await response.text();
       case "formData":
         return await response.formData();
       case "bytes":

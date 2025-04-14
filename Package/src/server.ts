@@ -20,6 +20,19 @@ interface FrameworkOptions {
   reusePort?: boolean;
 }
 
+type PrefixRoutes<Prefix extends string, T extends RouteDefinition[]> = {
+  [K in keyof T]: T[K] extends RouteDefinition
+    ? {
+        method: T[K]["method"];
+        path: `${Prefix}${T[K]["path"]}`;
+        params: T[K]["params"];
+        query: T[K]["query"];
+        body: T[K] extends { body: infer B } ? B : undefined;
+        response: T[K] extends { response: infer R } ? R : undefined;
+      }
+    : never;
+};
+
 export class Framework<Routes extends RouteDefinition[] = []> {
   routes: {
     method: "GET" | "PATCH" | "POST" | "PUT" | "DELETE";
@@ -28,6 +41,7 @@ export class Framework<Routes extends RouteDefinition[] = []> {
     handler: (ctx: any) => Response;
   }[] = [];
   private reusePort: boolean;
+  private prefix: string = "";
 
   constructor(options?: FrameworkOptions) {
     this.reusePort = options?.reusePort ?? false;
@@ -76,9 +90,10 @@ export class Framework<Routes extends RouteDefinition[] = []> {
       },
     ]
   > {
+    const fullPath = this.prefix + path;
     this.routes.push({
       method: "GET",
-      path,
+      path: fullPath,
       handler,
       schema: {
         params: schema.params || (z.object({}) as any),
@@ -112,9 +127,10 @@ export class Framework<Routes extends RouteDefinition[] = []> {
       },
     ]
   > {
+    const fullPath = this.prefix + path;
     this.routes.push({
       method: "PATCH",
-      path,
+      path: fullPath,
       handler,
       schema: {
         params: schema.params || (z.object({}) as any),
@@ -149,9 +165,10 @@ export class Framework<Routes extends RouteDefinition[] = []> {
       },
     ]
   > {
+    const fullPath = this.prefix + path;
     this.routes.push({
       method: "POST",
-      path,
+      path: fullPath,
       handler,
       schema: {
         params: schema.params || (z.object({}) as any),
@@ -186,9 +203,10 @@ export class Framework<Routes extends RouteDefinition[] = []> {
       },
     ]
   > {
+    const fullPath = this.prefix + path;
     this.routes.push({
       method: "PUT",
-      path,
+      path: fullPath,
       handler,
       schema: {
         params: schema.params || (z.object({}) as any),
@@ -223,9 +241,10 @@ export class Framework<Routes extends RouteDefinition[] = []> {
       },
     ]
   > {
+    const fullPath = this.prefix + path;
     this.routes.push({
       method: "DELETE",
-      path,
+      path: fullPath,
       handler,
       schema: {
         params: schema.params || (z.object({}) as any),
@@ -234,6 +253,20 @@ export class Framework<Routes extends RouteDefinition[] = []> {
         response: schema.response,
       },
     });
+    return this as any;
+  }
+
+  use<Prefix extends string, ChildRoutes extends RouteDefinition[]>(
+    prefix: Prefix,
+    childFramework: Framework<ChildRoutes>,
+  ): Framework<[...Routes, ...PrefixRoutes<Prefix, ChildRoutes>]> {
+    for (const route of childFramework.routes) {
+      this.routes.push({
+        ...route,
+        path: prefix + route.path,
+      });
+    }
+
     return this as any;
   }
 
