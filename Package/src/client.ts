@@ -1,6 +1,8 @@
 import type { Framework } from "./server";
 import type { RouteDefinition } from "./types/routes";
 
+type HttpMethod = "GET" | "PATCH" | "POST" | "PUT" | "DELETE";
+
 type PathParts<Path extends string> = Path extends `/${infer Rest}`
   ? Rest extends `${infer Head}/${infer Tail}`
     ? [Head, ...PathParts<`/${Tail}`>]
@@ -150,172 +152,71 @@ type ExtractRoutesFromFramework<T> = T extends Framework<infer R> ? ExtractRoute
 
 export function createClient<T extends Framework<any>>(
   baseUrl: string,
-  app: T,
 ): ClientTree<ExtractRoutesFromFramework<T>> {
-  const root: any = {};
+  const HTTP_METHODS = ["get", "put", "post", "patch", "delete"];
 
-  const routesByPath: Record<string, any[]> = {};
-  for (const route of app.routes) {
-    const path = route.path;
-    if (!routesByPath[path]) {
-      routesByPath[path] = [];
-    }
-    routesByPath[path].push(route);
-  }
-
-  for (const [path, routes] of Object.entries(routesByPath)) {
-    const parts = path.split("/").filter(Boolean);
-
-    const buildChain = (
-      current: any,
-      remainingParts: string[],
-      params: Record<string, any> = {},
-    ) => {
-      for (let i = 0; i < remainingParts.length; i++) {
-        const part = remainingParts[i];
-        if (part?.startsWith(":")) {
-          const param = part.slice(1);
-          if (!current[param]) {
-            current[param] = (value: any) => {
-              const newParams = { ...params, [param]: value };
-              const next: any = {};
-              buildChain(next, remainingParts.slice(i + 1), newParams);
-              return next;
-            };
-          }
-          return;
-        } else {
-          if (part) {
-            current[part] = current[part] || {};
-            current = current[part];
-          }
+  const createProxy = (segments: string[] = []): any => {
+    const proxyTarget = () => {};
+    return new Proxy(proxyTarget, {
+      get(_target, prop: string | symbol, receiver) {
+        if (typeof prop !== "string") {
+          return Reflect.get(_target, prop, receiver);
         }
-      }
+        if (prop === "then") {
+          return undefined;
+        }
+        return createProxy([...segments, prop]);
+      },
+      apply(_target, _thisArg, args) {
+        const lastSegment = segments[segments.length - 1];
+        if (lastSegment && HTTP_METHODS.includes(lastSegment.toLowerCase())) {
+          const method = lastSegment.toUpperCase() as HttpMethod;
+          const newSegments = segments.slice(0, segments.length - 1);
+          const fullPath = newSegments.length ? "/" + newSegments.join("/") : "";
+          const url = new URL(baseUrl + fullPath);
 
-      const defineMethod = (method: "GET" | "PATCH" | "POST" | "PUT" | "DELETE", handler: any) => {
-        const key = method.toLowerCase();
+          let body: any, query: any;
+          if (method === "GET") {
+            query = args[0];
+          } else {
+            body = args[0];
+            query = args[1];
+          }
 
-        const alreadyExists = current[key];
-        if (typeof alreadyExists === "object") {
-          Object.defineProperty(current, key, {
-            get() {
-              return handler;
+          if (query && typeof query === "object") {
+            Object.keys(query).forEach((key) => {
+              if (query[key] !== undefined) {
+                url.searchParams.append(key, String(query[key]));
+              }
+            });
+          }
+
+          const init: RequestInit = {
+            method,
+            headers: {
+              "Content-Type": "application/json",
             },
-            enumerable: true,
-          });
+          };
+          if (body !== undefined && method !== "GET") {
+            init.body = JSON.stringify(body);
+          }
+          return (async () => {
+            try {
+              const res = await fetch(url.toString(), init);
+              const data = await res.json().catch(() => null);
+              return { error: null, data };
+            } catch (error) {
+              return { error, data: null };
+            }
+          })();
         } else {
-          current[key] = handler;
+          const value = args[0];
+          const newSegments = segments.slice(0, segments.length - 1).concat(String(value));
+          return createProxy(newSegments);
         }
-      };
+      },
+    });
+  };
 
-      const buildUrlWithQuery = (fullPath: string, query?: Record<string, any>) => {
-        const url = new URL(fullPath, baseUrl);
-        if (query) {
-          Object.entries(query).forEach(([key, value]) => {
-            if (value !== undefined) {
-              url.searchParams.append(key, String(value));
-            }
-          });
-        }
-        return url;
-      };
-
-      for (const route of routes) {
-        if (route.method === "GET") {
-          defineMethod("GET", async (query?: Record<string, any>) => {
-            const fullPath = route.path.replace(/:([^/]+)/g, (_: any, key: any) => params[key]);
-            try {
-              const url = buildUrlWithQuery(fullPath, query);
-              const res = await fetch(url, { method: "GET" });
-              if (!res.ok) return { error: res.statusText, data: null };
-              const data = await res.json();
-              return { error: null, data };
-            } catch (error) {
-              return { error, data: null };
-            }
-          });
-        }
-
-        if (route.method === "PATCH") {
-          defineMethod("PATCH", async (body?: any, query?: Record<string, any>) => {
-            const fullPath = route.path.replace(/:([^/]+)/g, (_: any, key: any) => params[key]);
-            try {
-              const url = buildUrlWithQuery(fullPath, query);
-              const res = await fetch(url, {
-                method: "PATCH",
-                body: body ? JSON.stringify(body) : undefined,
-                headers: body ? { "Content-Type": "application/json" } : undefined,
-              });
-              if (!res.ok) return { error: res.statusText, data: null };
-              const data = await res.json();
-              return { error: null, data };
-            } catch (error) {
-              return { error, data: null };
-            }
-          });
-        }
-
-        if (route.method === "POST") {
-          defineMethod("POST", async (body?: any, query?: Record<string, any>) => {
-            const fullPath = route.path.replace(/:([^/]+)/g, (_: any, key: any) => params[key]);
-            try {
-              const url = buildUrlWithQuery(fullPath, query);
-              const res = await fetch(url, {
-                method: "POST",
-                body: body ? JSON.stringify(body) : undefined,
-                headers: body ? { "Content-Type": "application/json" } : undefined,
-              });
-              if (!res.ok) return { error: res.statusText, data: null };
-              const data = await res.json();
-              return { error: null, data };
-            } catch (error) {
-              return { error, data: null };
-            }
-          });
-        }
-
-        if (route.method === "PUT") {
-          defineMethod("PUT", async (body?: any, query?: Record<string, any>) => {
-            const fullPath = route.path.replace(/:([^/]+)/g, (_: any, key: any) => params[key]);
-            try {
-              const url = buildUrlWithQuery(fullPath, query);
-              const res = await fetch(url, {
-                method: "PUT",
-                body: body ? JSON.stringify(body) : undefined,
-                headers: body ? { "Content-Type": "application/json" } : undefined,
-              });
-              if (!res.ok) return { error: res.statusText, data: null };
-              const data = await res.json();
-              return { error: null, data };
-            } catch (error) {
-              return { error, data: null };
-            }
-          });
-        }
-
-        if (route.method === "DELETE") {
-          defineMethod("DELETE", async (body?: any, query?: Record<string, any>) => {
-            const fullPath = route.path.replace(/:([^/]+)/g, (_: any, key: any) => params[key]);
-            try {
-              const url = buildUrlWithQuery(fullPath, query);
-              const res = await fetch(url, {
-                method: "DELETE",
-                body: body ? JSON.stringify(body) : undefined,
-                headers: body ? { "Content-Type": "application/json" } : undefined,
-              });
-              if (!res.ok) return { error: res.statusText, data: null };
-              const data = await res.json();
-              return { error: null, data };
-            } catch (error) {
-              return { error, data: null };
-            }
-          });
-        }
-      }
-    };
-
-    buildChain(root, parts);
-  }
-
-  return root;
+  return createProxy();
 }
