@@ -46,7 +46,7 @@
 - [X] Patch route
 - [ ] Head route
 - [ ] Options route
-- [ ] Use router
+- [x] Use router
 - [ ] Before handler
 - [ ] After handler
 - [ ] Ws integration
