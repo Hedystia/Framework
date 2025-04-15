@@ -464,7 +464,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
     this.server = serve({
       port,
       reusePort: this.reusePort,
-      fetch: async function (originalReq: Request) {
+      fetch: async function (originalReq) {
         try {
           let req = originalReq;
           for (const handler of self.onRequestHandlers) {
