@@ -3,3 +3,4 @@ bun.lock
 tsconfig.json
 src
 .npmignore
+tsup.config.ts
