@@ -6,7 +6,8 @@
     "zod": ">= 4.0.0-beta.20250411T232125"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "tsup": "^8.3.5"
   },
   "peerDependencies": {
     "typescript": ">= 5.0.0",
@@ -19,7 +20,9 @@
   },
   "private": false,
   "scripts": {
+    "build": "tsup",
     "dev": "bun --watch --no-clear-screen run src/index.ts"
   },
-  "type": "commonjs"
+  "type": "commonjs",
+  "types": "./dist/index.d.ts"
 }
