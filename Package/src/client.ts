@@ -162,7 +162,10 @@ async function processResponse(response: Response, format: ResponseFormat = "jso
   try {
     const contentType = response.headers.get("Content-Type") || "";
 
-    if ((format === "text" || contentType.includes("text/plain")) && format !== "blob") {
+    if (
+      ((format === "text" || contentType.includes("text/plain")) && format !== "blob") ||
+      (contentType.includes("text/html") && format !== "blob")
+    ) {
       return await response.text();
     }
 
