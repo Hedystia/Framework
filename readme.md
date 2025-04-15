@@ -47,8 +47,8 @@
 - [ ] Head route
 - [ ] Options route
 - [x] Use router
-- [ ] Before handler
-- [ ] After handler
+- [x] Group router
+- [x] Macros
 - [ ] Ws integration
 - Response bodies - https://bun.sh/docs/api/fetch#response-bodies
     - [x] text
