@@ -1,6 +1,6 @@
 import { Framework, createClient } from "../Package/src";
 import { z } from "zod";
-import { describe, expect, it } from "bun:test";
+import { afterAll, describe, expect, it } from "bun:test";
 
 const apiV1 = new Framework()
   .get(
@@ -129,5 +129,9 @@ describe("Framework .use() Tests", () => {
     expect(data?.users).toHaveLength(2);
     expect(data?.users[0]?.metadata).toBeDefined();
     expect(data?.users[0]?.metadata.lastLogin).toBeDefined();
+  });
+
+  afterAll(() => {
+    app.close();
   });
 });

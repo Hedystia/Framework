@@ -1,7 +1,7 @@
 import { Framework, createClient } from "../Package/src";
 import { z } from "zod";
 
-import { describe, expect, it } from "bun:test";
+import { afterAll, describe, expect, it } from "bun:test";
 
 const app = new Framework()
   .get(
@@ -117,5 +117,9 @@ describe("Test query parameters", () => {
     } catch (error) {
       expect(error).toBeDefined();
     }
+  });
+
+  afterAll(() => {
+    app.close();
   });
 });

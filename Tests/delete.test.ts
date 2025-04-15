@@ -1,6 +1,6 @@
 import { Framework, createClient } from "../Package/src";
 import { z } from "zod";
-import { describe, expect, it } from "bun:test";
+import { afterAll, describe, expect, it } from "bun:test";
 
 const app = new Framework()
   .delete(
@@ -93,5 +93,9 @@ describe("Test DELETE method", () => {
     const { error } = await client.resources.id(999).delete(undefined as any);
 
     expect(error).toBeDefined();
+  });
+
+  afterAll(() => {
+    app.close();
   });
 });
