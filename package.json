@@ -7,6 +7,7 @@
     "typescript": "^5.8.3"
   },
   "scripts": {
+    "build": "bun run --cwd Package build",
     "dev": "concurrently \"bun run --cwd Package dev\" \"bun run --cwd Tests dev\"",
     "test": "bun run --cwd Tests test"
   },
