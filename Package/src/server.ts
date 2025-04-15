@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { serve } from "bun";
+import { serve, type BunRequest } from "bun";
 import type { RouteDefinition } from "./types/routes";
 
 type RouteSchema = {
@@ -10,7 +10,7 @@ type RouteSchema = {
 };
 
 type InferRouteContext<T extends RouteSchema> = {
-  req: Request;
+  req: BunRequest;
   params: T["params"] extends z.ZodObject<any> ? z.infer<T["params"]> : {};
   query: T["query"] extends z.ZodObject<any> ? z.infer<T["query"]> : {};
   body: T["body"] extends z.ZodType<any> ? z.infer<T["body"]> : unknown;
@@ -36,8 +36,8 @@ type PrefixRoutes<Prefix extends string, T extends RouteDefinition[]> = {
 type RequestHandler = (ctx: any) => Response | Promise<Response>;
 type NextFunction = () => Promise<Response>;
 
-type OnRequestHandler = (req: Request) => Request | Promise<Request>;
-type OnParseHandler = (req: Request) => Promise<any> | any;
+type OnRequestHandler = (req: BunRequest) => BunRequest | Promise<BunRequest>;
+type OnParseHandler = (req: BunRequest) => Promise<any> | any;
 type OnTransformHandler = (ctx: any) => any | Promise<any>;
 type OnBeforeHandleHandler = (
   ctx: any,
@@ -53,6 +53,8 @@ type MacroErrorFunction = (statusCode: number, message?: string) => never;
 
 type MacroData = Record<string, any>;
 
+type BunRouteRecord = Record<string, any>;
+
 export class Framework<Routes extends RouteDefinition[] = [], Macros extends MacroData = {}> {
   routes: {
     method: "GET" | "PATCH" | "POST" | "PUT" | "DELETE";
@@ -64,6 +66,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
   private prefix: string = "";
   private server: any = null;
   public macros: Record<string, { resolve: MacroResolveFunction<any> }> = {};
+  private staticRoutes: { path: string; response: Response }[] = [];
 
   private onRequestHandlers: OnRequestHandler[] = [];
   private onParseHandlers: OnParseHandler[] = [];
@@ -436,6 +439,83 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
     return this as any;
   }
 
+  static<
+    Path extends string,
+    ResponseSchema extends z.ZodType<any> = z.ZodType<any>,
+    ContentType extends string = string,
+    ResponseBody = any,
+  >(
+    path: Path,
+    response:
+      | Response
+      | {
+          body: ResponseBody;
+          contentType?: ContentType;
+          status?: number;
+          headers?: Record<string, string>;
+        },
+    schema: {
+      response?: ResponseSchema;
+    } = {},
+  ): Framework<
+    [
+      ...Routes,
+      {
+        method: "GET";
+        path: Path;
+        params: {};
+        query: {};
+        response: ResponseSchema extends z.ZodType<any> ? z.infer<ResponseSchema> : unknown;
+      },
+    ],
+    Macros
+  > {
+    let finalResponse: Response;
+
+    if (response instanceof Response) {
+      finalResponse = response;
+    } else {
+      const { body, contentType, status = 200, headers = {} } = response;
+
+      if (schema.response) {
+        const validationResult = schema.response.safeParse(body);
+        if (!validationResult.success) {
+          throw new Error(
+            `Static route response validation failed: ${JSON.stringify(validationResult.error)}`,
+          );
+        }
+      }
+
+      if (
+        typeof body === "string" ||
+        body instanceof Uint8Array ||
+        body instanceof ArrayBuffer ||
+        body instanceof Blob ||
+        body instanceof FormData
+      ) {
+        finalResponse = new Response(body, {
+          status,
+          headers: {
+            "Content-Type": contentType || this.determineContentType(body),
+            ...headers,
+          },
+        });
+      } else {
+        finalResponse = Response.json(body, {
+          status,
+          headers,
+        });
+      }
+    }
+
+    this.staticRoutes.push({
+      path,
+      response: finalResponse,
+    });
+
+    return this as any;
+  }
+
   use<Prefix extends string, ChildRoutes extends RouteDefinition[]>(
     prefix: Prefix,
     childFramework: Framework<ChildRoutes>,
@@ -461,121 +541,163 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
 
   listen(port: number): this {
     const self = this;
-    this.server = serve({
-      port,
-      reusePort: this.reusePort,
-      fetch: async function (originalReq) {
+
+    const bunRoutes: BunRouteRecord = {};
+
+    for (const route of self.routes) {
+      const routePath = route.path;
+
+      if (!bunRoutes[routePath]) {
+        bunRoutes[routePath] = {};
+      }
+
+      bunRoutes[routePath][route.method] = async (req: BunRequest) => {
         try {
-          let req = originalReq;
+          let modifiedReq = req;
           for (const handler of self.onRequestHandlers) {
-            req = await handler(req);
+            modifiedReq = await handler(modifiedReq);
           }
 
           const url = new URL(req.url);
-          const method = req.method;
-
           const queryParams = Object.fromEntries(url.searchParams.entries());
 
-          for (const route of self.routes) {
-            if (route.method !== method) continue;
+          const rawParams = matchRoute(url.pathname, routePath);
+          if (!rawParams) {
+            return new Response("Invalid route parameters", { status: 400 });
+          }
 
-            const rawParams = matchRoute(url.pathname, route.path);
-            if (!rawParams) continue;
+          const parsedParams = route.schema.params
+            ? route.schema.params.safeParse(rawParams)
+            : { success: true, data: {} };
 
-            const parsedParams = route.schema.params
-              ? route.schema.params.safeParse(rawParams)
-              : { success: true, data: {} };
+          if (!parsedParams.success) {
+            return new Response("Invalid params", { status: 400 });
+          }
 
-            if (!parsedParams.success) {
-              return new Response("Invalid params", { status: 400 });
+          const parsedQuery = route.schema.query
+            ? route.schema.query.safeParse(queryParams)
+            : { success: true, data: {} };
+
+          if (!parsedQuery.success) {
+            return new Response("Invalid query parameters", { status: 400 });
+          }
+
+          let body = undefined;
+          let parsedBody: ReturnType<z.ZodTypeAny["safeParse"]> = {
+            success: true,
+            data: undefined,
+          };
+
+          if (
+            route.method === "PATCH" ||
+            route.method === "POST" ||
+            route.method === "PUT" ||
+            route.method === "DELETE"
+          ) {
+            try {
+              for (const parseHandler of self.onParseHandlers) {
+                const parsedResult = await parseHandler(modifiedReq);
+                if (parsedResult !== undefined) {
+                  body = parsedResult;
+                  break;
+                }
+              }
+
+              if (body === undefined) {
+                body = await parseRequestBody(modifiedReq);
+              }
+
+              if (route.schema.body) {
+                parsedBody = route.schema.body.safeParse(body);
+                if (!parsedBody.success) {
+                  return new Response("Invalid body", { status: 400 });
+                }
+                body = parsedBody.data;
+              }
+            } catch (e) {
+              if (route.schema.body) {
+                return new Response("Invalid body format", { status: 400 });
+              }
             }
+          }
 
-            const parsedQuery = route.schema.query
-              ? route.schema.query.safeParse(queryParams)
-              : { success: true, data: {} };
+          let ctx = {
+            req: modifiedReq,
+            params: parsedParams.data,
+            query: parsedQuery.data,
+            body: parsedBody.success ? parsedBody.data : body,
+            route: routePath,
+            method: route.method,
+          };
 
-            if (!parsedQuery.success) {
-              return new Response("Invalid query parameters", { status: 400 });
+          for (const transformHandler of self.onTransformHandlers) {
+            const transformedCtx = await transformHandler(ctx);
+            if (transformedCtx) {
+              ctx = transformedCtx;
             }
+          }
 
-            let body = undefined;
-            let parsedBody: ReturnType<z.ZodTypeAny["safeParse"]> = {
-              success: true,
-              data: undefined,
-            };
+          try {
+            let mainHandlerExecuted = false;
+            let processResult: Response | null = null;
 
-            if (
-              method === "PATCH" ||
-              method === "POST" ||
-              method === "PUT" ||
-              method === "DELETE"
-            ) {
-              try {
-                for (const parseHandler of self.onParseHandlers) {
-                  const parsedResult = await parseHandler(req);
-                  if (parsedResult !== undefined) {
-                    body = parsedResult;
+            async function executeMainHandler() {
+              mainHandlerExecuted = true;
+              let result = await route.handler(ctx);
+
+              if (!(result instanceof Response)) {
+                for (const mapHandler of self.onMapResponseHandlers) {
+                  const mappedResponse = await mapHandler(result, ctx);
+                  if (mappedResponse instanceof Response) {
+                    result = mappedResponse;
                     break;
                   }
                 }
 
-                if (body === undefined) {
-                  body = await parseRequestBody(req);
-                }
-
-                if (route.schema.body) {
-                  parsedBody = route.schema.body.safeParse(body);
-                  if (!parsedBody.success) {
-                    return new Response("Invalid body", { status: 400 });
-                  }
-                  body = parsedBody.data;
-                }
-              } catch (e) {
-                if (route.schema.body) {
-                  return new Response("Invalid body format", { status: 400 });
-                }
-              }
-            }
-
-            let ctx = {
-              req,
-              params: parsedParams.data,
-              query: parsedQuery.data,
-              body: parsedBody.success ? parsedBody.data : body,
-              route: route.path,
-              method,
-            };
-
-            for (const transformHandler of self.onTransformHandlers) {
-              const transformedCtx = await transformHandler(ctx);
-              if (transformedCtx) {
-                ctx = transformedCtx;
-              }
-            }
-
-            try {
-              let mainHandlerExecuted = false;
-              let processResult: Response | null = null;
-
-              async function executeMainHandler() {
-                mainHandlerExecuted = true;
-                let result = await route.handler(ctx);
-
                 if (!(result instanceof Response)) {
-                  for (const mapHandler of self.onMapResponseHandlers) {
-                    const mappedResponse = await mapHandler(result, ctx);
-                    if (mappedResponse instanceof Response) {
-                      result = mappedResponse;
-                      break;
-                    }
-                  }
-
-                  if (!(result instanceof Response)) {
-                    result = Framework.createResponse(result);
-                  }
+                  result = Framework.createResponse(result);
                 }
+              }
 
-                let finalResponse = result;
+              let finalResponse = result;
+              for (const afterHandler of self.onAfterHandleHandlers) {
+                const afterResult = await afterHandler(finalResponse, ctx);
+                if (afterResult instanceof Response) {
+                  finalResponse = afterResult;
+                }
+              }
+
+              setTimeout(async () => {
+                for (const afterResponseHandler of self.onAfterResponseHandlers) {
+                  await afterResponseHandler(finalResponse, ctx);
+                }
+              }, 0);
+
+              return finalResponse;
+            }
+
+            let i = 0;
+            const executeBeforeHandlers = async (): Promise<Response> => {
+              if (i >= self.onBeforeHandleHandlers.length) {
+                return executeMainHandler();
+              }
+
+              const beforeHandler = self.onBeforeHandleHandlers[i++];
+              if (!beforeHandler) {
+                return executeMainHandler();
+              }
+
+              const nextCalled = { value: false };
+
+              const next = async () => {
+                nextCalled.value = true;
+                return executeBeforeHandlers();
+              };
+
+              const earlyResponse = await beforeHandler(ctx, next as () => Promise<Response>);
+
+              if (earlyResponse instanceof Response) {
+                let finalResponse = earlyResponse;
                 for (const afterHandler of self.onAfterHandleHandlers) {
                   const afterResult = await afterHandler(finalResponse, ctx);
                   if (afterResult instanceof Response) {
@@ -592,81 +714,57 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
                 return finalResponse;
               }
 
-              let i = 0;
-              const executeBeforeHandlers = async (): Promise<Response> => {
-                if (i >= self.onBeforeHandleHandlers.length) {
-                  return executeMainHandler();
-                }
-
-                const beforeHandler = self.onBeforeHandleHandlers[i++];
-                if (!beforeHandler) {
-                  return executeMainHandler();
-                }
-
-                const nextCalled = { value: false };
-
-                const next = async () => {
-                  nextCalled.value = true;
-                  return executeBeforeHandlers();
-                };
-
-                const earlyResponse = await beforeHandler(ctx, next as () => Promise<Response>);
-
-                if (earlyResponse instanceof Response) {
-                  let finalResponse = earlyResponse;
-                  for (const afterHandler of self.onAfterHandleHandlers) {
-                    const afterResult = await afterHandler(finalResponse, ctx);
-                    if (afterResult instanceof Response) {
-                      finalResponse = afterResult;
-                    }
-                  }
-
-                  setTimeout(async () => {
-                    for (const afterResponseHandler of self.onAfterResponseHandlers) {
-                      await afterResponseHandler(finalResponse, ctx);
-                    }
-                  }, 0);
-
-                  return finalResponse;
-                }
-
-                if (nextCalled.value) {
-                  return processResult || new Response("Internal Server Error", { status: 500 });
-                }
-
-                return executeBeforeHandlers();
-              };
-
-              if (self.onBeforeHandleHandlers.length > 0) {
-                const result = await executeBeforeHandlers();
-                if (result) return result;
+              if (nextCalled.value) {
+                return processResult || new Response("Internal Server Error", { status: 500 });
               }
 
-              if (!mainHandlerExecuted) {
-                return await executeMainHandler();
-              }
-            } catch (error) {
-              for (const errorHandler of self.onErrorHandlers) {
-                try {
-                  const errorResponse = await errorHandler(error as Error, ctx);
-                  if (errorResponse instanceof Response) {
-                    return errorResponse;
-                  }
-                } catch {}
-              }
+              return executeBeforeHandlers();
+            };
 
-              console.error(`Error processing request: ${error}`);
-              return new Response(`Internal Server Error: ${(error as Error).message}`, {
-                status: 500,
-              });
+            if (self.onBeforeHandleHandlers.length > 0) {
+              const result = await executeBeforeHandlers();
+              if (result) return result;
             }
-          }
 
-          return new Response("Not found", { status: 404 });
+            if (!mainHandlerExecuted) {
+              return await executeMainHandler();
+            }
+
+            return new Response("Internal Server Error", { status: 500 });
+          } catch (error) {
+            for (const errorHandler of self.onErrorHandlers) {
+              try {
+                const errorResponse = await errorHandler(error as Error, ctx);
+                if (errorResponse instanceof Response) {
+                  return errorResponse;
+                }
+              } catch {}
+            }
+
+            console.error(`Error processing request: ${error}`);
+            return new Response(`Internal Server Error: ${(error as Error).message}`, {
+              status: 500,
+            });
+          }
         } catch (error) {
           console.error(`Unhandled server error: ${error}`);
           return new Response("Internal Server Error", { status: 500 });
         }
+      };
+    }
+
+    if (this.staticRoutes && this.staticRoutes.length > 0) {
+      for (const staticRoute of this.staticRoutes) {
+        bunRoutes[staticRoute.path] = staticRoute.response;
+      }
+    }
+
+    this.server = serve({
+      port,
+      reusePort: this.reusePort,
+      routes: bunRoutes,
+      fetch: async function (req) {
+        return new Response("Not found", { status: 404 });
       },
     });
 
@@ -698,6 +796,15 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
       const result = await handler(ctx);
       return result instanceof Response ? result : Framework.createResponse(result);
     };
+  }
+
+  private determineContentType(body: any): string {
+    if (typeof body === "string") return "text/plain";
+    if (body instanceof Uint8Array || body instanceof ArrayBuffer)
+      return "application/octet-stream";
+    if (body instanceof Blob) return body.type || "application/octet-stream";
+    if (body instanceof FormData) return "multipart/form-data";
+    return "application/json";
   }
 
   close(): void {
@@ -736,7 +843,7 @@ function matchRoute(pathname: string, routePath: string): Record<string, string>
   return params;
 }
 
-async function parseRequestBody(req: Request): Promise<any> {
+async function parseRequestBody(req: BunRequest): Promise<any> {
   const contentType = req.headers.get("Content-Type") || "";
   if (contentType.includes("application/json")) return req.json();
   if (contentType.includes("multipart/form-data")) return req.formData();
