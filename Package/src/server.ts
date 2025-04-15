@@ -215,38 +215,8 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
     Macros
   > {
     const fullPath = this.prefix + path;
-    const self = this;
 
-    const wrappedHandler = async (originalCtx: any) => {
-      let ctx: any = { ...originalCtx };
-
-      for (const key in schema) {
-        if (
-          key !== "params" &&
-          key !== "query" &&
-          key !== "response" &&
-          (schema as any)[key] === true
-        ) {
-          const macro = self.macros[key];
-          if (macro) {
-            try {
-              ctx[key] = await macro.resolve(ctx);
-            } catch (err: any) {
-              if (err.isMacroError) {
-                return new Response(err.message, { status: err.statusCode });
-              }
-              throw err;
-            }
-          }
-        }
-      }
-
-      const result = await handler(ctx);
-
-      if (result instanceof Response) return result;
-
-      return Framework.createResponse(result);
-    };
+    const wrappedHandler = this.createWrappedHandler(handler, schema);
 
     this.routes.push({
       method: "GET",
@@ -295,37 +265,8 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
     Macros
   > {
     const fullPath = this.prefix + path;
-    const self = this;
 
-    const wrappedHandler = async (originalCtx: any) => {
-      let ctx: any = { ...originalCtx };
-
-      for (const key in schema) {
-        if (
-          key !== "params" &&
-          key !== "query" &&
-          key !== "body" &&
-          key !== "response" &&
-          (schema as any)[key] === true
-        ) {
-          const macro = self.macros[key];
-          if (macro) {
-            try {
-              ctx[key] = await macro.resolve(ctx);
-            } catch (err: any) {
-              if (err.isMacroError) {
-                return new Response(err.message, { status: err.statusCode });
-              }
-              throw err;
-            }
-          }
-        }
-      }
-
-      const result = await handler(ctx);
-      if (result instanceof Response) return result;
-      return Framework.createResponse(result);
-    };
+    const wrappedHandler = this.createWrappedHandler(handler, schema);
 
     this.routes.push({
       method: "PATCH",
@@ -375,37 +316,8 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
     Macros
   > {
     const fullPath = this.prefix + path;
-    const self = this;
 
-    const wrappedHandler = async (originalCtx: any) => {
-      let ctx: any = { ...originalCtx };
-
-      for (const key in schema) {
-        if (
-          key !== "params" &&
-          key !== "query" &&
-          key !== "body" &&
-          key !== "response" &&
-          (schema as any)[key] === true
-        ) {
-          const macro = self.macros[key];
-          if (macro) {
-            try {
-              ctx[key] = await macro.resolve(ctx);
-            } catch (err: any) {
-              if (err.isMacroError) {
-                return new Response(err.message, { status: err.statusCode });
-              }
-              throw err;
-            }
-          }
-        }
-      }
-
-      const result = await handler(ctx);
-      if (result instanceof Response) return result;
-      return Framework.createResponse(result);
-    };
+    const wrappedHandler = this.createWrappedHandler(handler, schema);
 
     this.routes.push({
       method: "POST",
@@ -455,37 +367,8 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
     Macros
   > {
     const fullPath = this.prefix + path;
-    const self = this;
 
-    const wrappedHandler = async (originalCtx: any) => {
-      let ctx: any = { ...originalCtx };
-
-      for (const key in schema) {
-        if (
-          key !== "params" &&
-          key !== "query" &&
-          key !== "body" &&
-          key !== "response" &&
-          (schema as any)[key] === true
-        ) {
-          const macro = self.macros[key];
-          if (macro) {
-            try {
-              ctx[key] = await macro.resolve(ctx);
-            } catch (err: any) {
-              if (err.isMacroError) {
-                return new Response(err.message, { status: err.statusCode });
-              }
-              throw err;
-            }
-          }
-        }
-      }
-
-      const result = await handler(ctx);
-      if (result instanceof Response) return result;
-      return Framework.createResponse(result);
-    };
+    const wrappedHandler = this.createWrappedHandler(handler, schema);
 
     this.routes.push({
       method: "PUT",
@@ -535,37 +418,8 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
     Macros
   > {
     const fullPath = this.prefix + path;
-    const self = this;
 
-    const wrappedHandler = async (originalCtx: any) => {
-      let ctx: any = { ...originalCtx };
-
-      for (const key in schema) {
-        if (
-          key !== "params" &&
-          key !== "query" &&
-          key !== "body" &&
-          key !== "response" &&
-          (schema as any)[key] === true
-        ) {
-          const macro = self.macros[key];
-          if (macro) {
-            try {
-              ctx[key] = await macro.resolve(ctx);
-            } catch (err: any) {
-              if (err.isMacroError) {
-                return new Response(err.message, { status: err.statusCode });
-              }
-              throw err;
-            }
-          }
-        }
-      }
-
-      const result = await handler(ctx);
-      if (result instanceof Response) return result;
-      return Framework.createResponse(result);
-    };
+    const wrappedHandler = this.createWrappedHandler(handler, schema);
 
     this.routes.push({
       method: "DELETE",
@@ -620,10 +474,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
           const url = new URL(req.url);
           const method = req.method;
 
-          const queryParams: Record<string, string> = {};
-          for (const [key, value] of url.searchParams) {
-            queryParams[key] = value;
-          }
+          const queryParams = Object.fromEntries(url.searchParams.entries());
 
           for (const route of self.routes) {
             if (route.method !== method) continue;
@@ -669,21 +520,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
                 }
 
                 if (body === undefined) {
-                  const contentType = req.headers.get("Content-Type") || "";
-
-                  if (contentType.includes("application/json")) {
-                    body = await req.json();
-                  } else if (contentType.includes("multipart/form-data")) {
-                    body = await req.formData();
-                  } else if (contentType.includes("text/")) {
-                    body = await req.text();
-                  } else {
-                    try {
-                      body = await req.json();
-                    } catch {
-                      body = await req.text();
-                    }
-                  }
+                  body = await parseRequestBody(req);
                 }
 
                 if (route.schema.body) {
@@ -836,6 +673,33 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
     return this;
   }
 
+  private createWrappedHandler(
+    handler: (ctx: any) => Response | any,
+    schema: Record<string, any>,
+  ): RequestHandler {
+    const self = this;
+    return async function (originalCtx: any): Promise<Response> {
+      let ctx: any = { ...originalCtx };
+      for (const key in schema) {
+        if (!["params", "query", "body", "response"].includes(key) && schema[key] === true) {
+          const macro = self.macros[key];
+          if (macro) {
+            try {
+              ctx[key] = await macro.resolve(ctx);
+            } catch (err: any) {
+              if (err.isMacroError) {
+                return new Response(err.message, { status: err.statusCode });
+              }
+              throw err;
+            }
+          }
+        }
+      }
+      const result = await handler(ctx);
+      return result instanceof Response ? result : Framework.createResponse(result);
+    };
+  }
+
   close(): void {
     if (this.server) {
       this.server.stop();
@@ -870,4 +734,16 @@ function matchRoute(pathname: string, routePath: string): Record<string, string>
   }
 
   return params;
+}
+
+async function parseRequestBody(req: Request): Promise<any> {
+  const contentType = req.headers.get("Content-Type") || "";
+  if (contentType.includes("application/json")) return req.json();
+  if (contentType.includes("multipart/form-data")) return req.formData();
+  if (contentType.includes("text/")) return req.text();
+  try {
+    return await req.json();
+  } catch {
+    return req.text();
+  }
 }
