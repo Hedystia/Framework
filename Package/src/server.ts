@@ -48,7 +48,12 @@ type OnMapResponseHandler = (result: any, ctx: any) => Response | Promise<Respon
 type OnErrorHandler = (error: Error, ctx: any) => Response | Promise<Response>;
 type OnAfterResponseHandler = (response: Response, ctx: any) => void | Promise<void>;
 
-export class Framework<Routes extends RouteDefinition[] = []> {
+type MacroResolveFunction<T> = (ctx: any) => T | Promise<T>;
+type MacroErrorFunction = (statusCode: number, message?: string) => never;
+
+type MacroData = Record<string, any>;
+
+export class Framework<Routes extends RouteDefinition[] = [], Macros extends MacroData = {}> {
   routes: {
     method: "GET" | "PATCH" | "POST" | "PUT" | "DELETE";
     path: string;
@@ -58,6 +63,7 @@ export class Framework<Routes extends RouteDefinition[] = []> {
   private reusePort: boolean;
   private prefix: string = "";
   private server: any = null;
+  public macros: Record<string, { resolve: MacroResolveFunction<any> }> = {};
 
   private onRequestHandlers: OnRequestHandler[] = [];
   private onParseHandlers: OnParseHandler[] = [];
@@ -70,6 +76,53 @@ export class Framework<Routes extends RouteDefinition[] = []> {
 
   constructor(options?: FrameworkOptions) {
     this.reusePort = options?.reusePort ?? false;
+  }
+
+  macro<T extends Record<string, (enabled: boolean) => { resolve: MacroResolveFunction<any> }>>(
+    config: T,
+  ): Framework<Routes, Macros & { [K in keyof T]: ReturnType<ReturnType<T[K]>["resolve"]> }> & {
+    error: MacroErrorFunction;
+  } {
+    for (const [key, macroFactory] of Object.entries(config)) {
+      this.macros[key] = macroFactory(true);
+    }
+
+    const self = this as unknown as Framework<
+      Routes,
+      Macros & { [K in keyof T]: ReturnType<ReturnType<T[K]>["resolve"]> }
+    > & { error: MacroErrorFunction };
+    self.error = (statusCode: number, message?: string): never => {
+      throw { isMacroError: true, statusCode, message: message || "Unauthorized" };
+    };
+
+    return self;
+  }
+
+  group<Prefix extends string, GroupRoutes extends RouteDefinition[]>(
+    prefix: Prefix,
+    callback: (app: Framework<[]>) => Framework<GroupRoutes>,
+  ): Framework<[...Routes, ...PrefixRoutes<Prefix, GroupRoutes>]> {
+    const groupApp = new Framework();
+    groupApp.prefix = this.prefix + prefix;
+
+    const configuredApp = callback(groupApp);
+
+    for (const route of configuredApp.routes) {
+      this.routes.push({
+        ...route,
+      });
+    }
+
+    this.onRequestHandlers.push(...configuredApp.onRequestHandlers);
+    this.onParseHandlers.push(...configuredApp.onParseHandlers);
+    this.onTransformHandlers.push(...configuredApp.onTransformHandlers);
+    this.onBeforeHandleHandlers.push(...configuredApp.onBeforeHandleHandlers);
+    this.onAfterHandleHandlers.push(...configuredApp.onAfterHandleHandlers);
+    this.onMapResponseHandlers.push(...configuredApp.onMapResponseHandlers);
+    this.onErrorHandlers.push(...configuredApp.onErrorHandlers);
+    this.onAfterResponseHandlers.push(...configuredApp.onAfterResponseHandlers);
+
+    return this as any;
   }
 
   onRequest(handler: OnRequestHandler): this {
@@ -139,10 +192,15 @@ export class Framework<Routes extends RouteDefinition[] = []> {
     Params extends z.ZodObject<any>,
     Query extends z.ZodObject<any>,
     ResponseSchema extends z.ZodType<any>,
+    MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
-    handler: (ctx: InferRouteContext<{ params: Params; query: Query }>) => Response,
-    schema: { params?: Params; query?: Query; response?: ResponseSchema } = {},
+    handler: (ctx: InferRouteContext<{ params: Params; query: Query }> & Macros) => Response | any,
+    schema: {
+      params?: Params;
+      query?: Query;
+      response?: ResponseSchema;
+    } & MacroOptions = {} as any,
   ): Framework<
     [
       ...Routes,
@@ -153,19 +211,54 @@ export class Framework<Routes extends RouteDefinition[] = []> {
         query: Query extends z.ZodObject<any> ? z.infer<Query> : {};
         response: ResponseSchema extends z.ZodType<any> ? z.infer<ResponseSchema> : unknown;
       },
-    ]
+    ],
+    Macros
   > {
     const fullPath = this.prefix + path;
+    const self = this;
+
+    const wrappedHandler = async (originalCtx: any) => {
+      let ctx: any = { ...originalCtx };
+
+      for (const key in schema) {
+        if (
+          key !== "params" &&
+          key !== "query" &&
+          key !== "response" &&
+          (schema as any)[key] === true
+        ) {
+          const macro = self.macros[key];
+          if (macro) {
+            try {
+              ctx[key] = await macro.resolve(ctx);
+            } catch (err: any) {
+              if (err.isMacroError) {
+                return new Response(err.message, { status: err.statusCode });
+              }
+              throw err;
+            }
+          }
+        }
+      }
+
+      const result = await handler(ctx);
+
+      if (result instanceof Response) return result;
+
+      return Framework.createResponse(result);
+    };
+
     this.routes.push({
       method: "GET",
       path: fullPath,
-      handler,
+      handler: wrappedHandler,
       schema: {
         params: schema.params || (z.object({}) as any),
         query: schema.query || (z.object({}) as any),
         response: schema.response,
       },
     });
+
     return this as any;
   }
 
@@ -175,10 +268,18 @@ export class Framework<Routes extends RouteDefinition[] = []> {
     Query extends z.ZodObject<any>,
     Body extends z.ZodType<any>,
     ResponseSchema extends z.ZodType<any>,
+    MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
-    handler: (ctx: InferRouteContext<{ params: Params; query: Query; body: Body }>) => Response,
-    schema: { params?: Params; query?: Query; body?: Body; response?: ResponseSchema } = {},
+    handler: (
+      ctx: InferRouteContext<{ params: Params; query: Query; body: Body }> & Macros,
+    ) => Response | any,
+    schema: {
+      params?: Params;
+      query?: Query;
+      body?: Body;
+      response?: ResponseSchema;
+    } & MacroOptions = {} as any,
   ): Framework<
     [
       ...Routes,
@@ -190,13 +291,46 @@ export class Framework<Routes extends RouteDefinition[] = []> {
         body: Body extends z.ZodType<any> ? z.infer<Body> : unknown;
         response: ResponseSchema extends z.ZodType<any> ? z.infer<ResponseSchema> : unknown;
       },
-    ]
+    ],
+    Macros
   > {
     const fullPath = this.prefix + path;
+    const self = this;
+
+    const wrappedHandler = async (originalCtx: any) => {
+      let ctx: any = { ...originalCtx };
+
+      for (const key in schema) {
+        if (
+          key !== "params" &&
+          key !== "query" &&
+          key !== "body" &&
+          key !== "response" &&
+          (schema as any)[key] === true
+        ) {
+          const macro = self.macros[key];
+          if (macro) {
+            try {
+              ctx[key] = await macro.resolve(ctx);
+            } catch (err: any) {
+              if (err.isMacroError) {
+                return new Response(err.message, { status: err.statusCode });
+              }
+              throw err;
+            }
+          }
+        }
+      }
+
+      const result = await handler(ctx);
+      if (result instanceof Response) return result;
+      return Framework.createResponse(result);
+    };
+
     this.routes.push({
       method: "PATCH",
       path: fullPath,
-      handler,
+      handler: wrappedHandler,
       schema: {
         params: schema.params || (z.object({}) as any),
         query: schema.query || (z.object({}) as any),
@@ -204,6 +338,7 @@ export class Framework<Routes extends RouteDefinition[] = []> {
         response: schema.response,
       },
     });
+
     return this as any;
   }
 
@@ -213,10 +348,18 @@ export class Framework<Routes extends RouteDefinition[] = []> {
     Query extends z.ZodObject<any>,
     Body extends z.ZodType<any>,
     ResponseSchema extends z.ZodType<any>,
+    MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
-    handler: (ctx: InferRouteContext<{ params: Params; query: Query; body: Body }>) => Response,
-    schema: { params?: Params; query?: Query; body?: Body; response?: ResponseSchema } = {},
+    handler: (
+      ctx: InferRouteContext<{ params: Params; query: Query; body: Body }> & Macros,
+    ) => Response | any,
+    schema: {
+      params?: Params;
+      query?: Query;
+      body?: Body;
+      response?: ResponseSchema;
+    } & MacroOptions = {} as any,
   ): Framework<
     [
       ...Routes,
@@ -228,13 +371,46 @@ export class Framework<Routes extends RouteDefinition[] = []> {
         body: Body extends z.ZodType<any> ? z.infer<Body> : unknown;
         response: ResponseSchema extends z.ZodType<any> ? z.infer<ResponseSchema> : unknown;
       },
-    ]
+    ],
+    Macros
   > {
     const fullPath = this.prefix + path;
+    const self = this;
+
+    const wrappedHandler = async (originalCtx: any) => {
+      let ctx: any = { ...originalCtx };
+
+      for (const key in schema) {
+        if (
+          key !== "params" &&
+          key !== "query" &&
+          key !== "body" &&
+          key !== "response" &&
+          (schema as any)[key] === true
+        ) {
+          const macro = self.macros[key];
+          if (macro) {
+            try {
+              ctx[key] = await macro.resolve(ctx);
+            } catch (err: any) {
+              if (err.isMacroError) {
+                return new Response(err.message, { status: err.statusCode });
+              }
+              throw err;
+            }
+          }
+        }
+      }
+
+      const result = await handler(ctx);
+      if (result instanceof Response) return result;
+      return Framework.createResponse(result);
+    };
+
     this.routes.push({
       method: "POST",
       path: fullPath,
-      handler,
+      handler: wrappedHandler,
       schema: {
         params: schema.params || (z.object({}) as any),
         query: schema.query || (z.object({}) as any),
@@ -242,6 +418,7 @@ export class Framework<Routes extends RouteDefinition[] = []> {
         response: schema.response,
       },
     });
+
     return this as any;
   }
 
@@ -251,10 +428,18 @@ export class Framework<Routes extends RouteDefinition[] = []> {
     Query extends z.ZodObject<any>,
     Body extends z.ZodType<any>,
     ResponseSchema extends z.ZodType<any>,
+    MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
-    handler: (ctx: InferRouteContext<{ params: Params; query: Query; body: Body }>) => Response,
-    schema: { params?: Params; query?: Query; body?: Body; response?: ResponseSchema } = {},
+    handler: (
+      ctx: InferRouteContext<{ params: Params; query: Query; body: Body }> & Macros,
+    ) => Response | any,
+    schema: {
+      params?: Params;
+      query?: Query;
+      body?: Body;
+      response?: ResponseSchema;
+    } & MacroOptions = {} as any,
   ): Framework<
     [
       ...Routes,
@@ -266,13 +451,46 @@ export class Framework<Routes extends RouteDefinition[] = []> {
         body: Body extends z.ZodType<any> ? z.infer<Body> : unknown;
         response: ResponseSchema extends z.ZodType<any> ? z.infer<ResponseSchema> : unknown;
       },
-    ]
+    ],
+    Macros
   > {
     const fullPath = this.prefix + path;
+    const self = this;
+
+    const wrappedHandler = async (originalCtx: any) => {
+      let ctx: any = { ...originalCtx };
+
+      for (const key in schema) {
+        if (
+          key !== "params" &&
+          key !== "query" &&
+          key !== "body" &&
+          key !== "response" &&
+          (schema as any)[key] === true
+        ) {
+          const macro = self.macros[key];
+          if (macro) {
+            try {
+              ctx[key] = await macro.resolve(ctx);
+            } catch (err: any) {
+              if (err.isMacroError) {
+                return new Response(err.message, { status: err.statusCode });
+              }
+              throw err;
+            }
+          }
+        }
+      }
+
+      const result = await handler(ctx);
+      if (result instanceof Response) return result;
+      return Framework.createResponse(result);
+    };
+
     this.routes.push({
       method: "PUT",
       path: fullPath,
-      handler,
+      handler: wrappedHandler,
       schema: {
         params: schema.params || (z.object({}) as any),
         query: schema.query || (z.object({}) as any),
@@ -280,6 +498,7 @@ export class Framework<Routes extends RouteDefinition[] = []> {
         response: schema.response,
       },
     });
+
     return this as any;
   }
 
@@ -289,10 +508,18 @@ export class Framework<Routes extends RouteDefinition[] = []> {
     Query extends z.ZodObject<any>,
     Body extends z.ZodType<any>,
     ResponseSchema extends z.ZodType<any>,
+    MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
-    handler: (ctx: InferRouteContext<{ params: Params; query: Query; body: Body }>) => Response,
-    schema: { params?: Params; query?: Query; body?: Body; response?: ResponseSchema } = {},
+    handler: (
+      ctx: InferRouteContext<{ params: Params; query: Query; body: Body }> & Macros,
+    ) => Response | any,
+    schema: {
+      params?: Params;
+      query?: Query;
+      body?: Body;
+      response?: ResponseSchema;
+    } & MacroOptions = {} as any,
   ): Framework<
     [
       ...Routes,
@@ -304,13 +531,46 @@ export class Framework<Routes extends RouteDefinition[] = []> {
         body: Body extends z.ZodType<any> ? z.infer<Body> : unknown;
         response: ResponseSchema extends z.ZodType<any> ? z.infer<ResponseSchema> : unknown;
       },
-    ]
+    ],
+    Macros
   > {
     const fullPath = this.prefix + path;
+    const self = this;
+
+    const wrappedHandler = async (originalCtx: any) => {
+      let ctx: any = { ...originalCtx };
+
+      for (const key in schema) {
+        if (
+          key !== "params" &&
+          key !== "query" &&
+          key !== "body" &&
+          key !== "response" &&
+          (schema as any)[key] === true
+        ) {
+          const macro = self.macros[key];
+          if (macro) {
+            try {
+              ctx[key] = await macro.resolve(ctx);
+            } catch (err: any) {
+              if (err.isMacroError) {
+                return new Response(err.message, { status: err.statusCode });
+              }
+              throw err;
+            }
+          }
+        }
+      }
+
+      const result = await handler(ctx);
+      if (result instanceof Response) return result;
+      return Framework.createResponse(result);
+    };
+
     this.routes.push({
       method: "DELETE",
       path: fullPath,
-      handler,
+      handler: wrappedHandler,
       schema: {
         params: schema.params || (z.object({}) as any),
         query: schema.query || (z.object({}) as any),
@@ -318,6 +578,7 @@ export class Framework<Routes extends RouteDefinition[] = []> {
         response: schema.response,
       },
     });
+
     return this as any;
   }
 
@@ -580,6 +841,10 @@ export class Framework<Routes extends RouteDefinition[] = []> {
       this.server.stop();
       this.server = null;
     }
+  }
+
+  error(statusCode: number, message: string): never {
+    throw { statusCode, message };
   }
 }
 
