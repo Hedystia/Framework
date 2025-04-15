@@ -44,6 +44,7 @@
 - [X] Put route
 - [X] Delete route
 - [X] Patch route
+- [X] Static route
 - [ ] Head route
 - [ ] Options route
 - [x] Use router
