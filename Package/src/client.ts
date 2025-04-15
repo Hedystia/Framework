@@ -227,11 +227,11 @@ export function createClient<T extends Framework<any>>(
           const responseFormat = options.responseFormat || "json";
 
           if (query && typeof query === "object") {
-            Object.keys(query).forEach((key) => {
+            for (const key in query) {
               if (query[key] !== undefined) {
                 url.searchParams.append(key, String(query[key]));
               }
-            });
+            }
           }
 
           const init: RequestInit = {

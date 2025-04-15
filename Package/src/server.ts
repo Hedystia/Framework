@@ -621,9 +621,9 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
           const method = req.method;
 
           const queryParams: Record<string, string> = {};
-          url.searchParams.forEach((value, key) => {
+          for (const [key, value] of url.searchParams) {
             queryParams[key] = value;
-          });
+          }
 
           for (const route of self.routes) {
             if (route.method !== method) continue;
