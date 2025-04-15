@@ -6,10 +6,8 @@ describe("Framework .on() Hooks Tests", () => {
   it("should trigger onRequest hook", async () => {
     const app = new Framework()
       .onRequest((req) => {
-        const newReq = new Request(req.url, {
-          headers: { ...req.headers, "X-Test-Header": "modified" },
-        });
-        return newReq;
+        req.headers.set("X-Test-Header", "modified");
+        return req;
       })
       .get("/test-header", (ctx) => {
         return Response.json({
@@ -22,6 +20,8 @@ describe("Framework .on() Hooks Tests", () => {
     const { data } = await client["test-header"].get();
 
     expect(data?.headerValue).toBe("modified");
+
+    app.close();
   });
 
   it("should trigger onParse hook", async () => {
@@ -44,6 +44,8 @@ describe("Framework .on() Hooks Tests", () => {
     const { data } = await client["parse-test"].post("raw text");
 
     expect(data?.parsedBody).toEqual({ custom: true });
+
+    app.close();
   });
 
   it("should trigger onTransform hook", async () => {
@@ -61,6 +63,8 @@ describe("Framework .on() Hooks Tests", () => {
     const { data } = await client["transform-test"].get();
 
     expect(data?.wasTransformed).toBeTrue();
+
+    app.close();
   });
 
   it("should chain multiple onBeforeHandle hooks", async () => {
@@ -82,10 +86,12 @@ describe("Framework .on() Hooks Tests", () => {
     const { data } = await client["before-handle"].get();
 
     expect(data?.chainResult).toBe("first-second");
+
+    app.close();
   });
 
   it("should trigger onAfterHandle hook", async () => {
-    new Framework()
+    const app = new Framework()
       .onAfterHandle(async (res) => {
         return new Response(JSON.stringify({ wrapped: await res.json() }), {
           headers: { "X-Modified": "true" },
@@ -98,6 +104,8 @@ describe("Framework .on() Hooks Tests", () => {
 
     expect(response.headers.get("X-Modified")).toBe("true");
     expect(await response.json()).toEqual({ wrapped: { original: true } });
+
+    app.close();
   });
 
   it("should handle errors with onError hook", async () => {
@@ -114,6 +122,8 @@ describe("Framework .on() Hooks Tests", () => {
     const { data } = await client["error-test"].get();
 
     expect(data?.customError).toBe("Test error handled");
+
+    app.close();
   });
 
   it("should trigger onAfterResponse hook", async () => {
@@ -128,5 +138,7 @@ describe("Framework .on() Hooks Tests", () => {
 
     const client = createClient<typeof app>("http://localhost:3015");
     await client["after-response"].get();
+
+    app.close();
   });
 });
