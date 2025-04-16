@@ -1,5 +1,4 @@
-import { Framework, createClient } from "../Package/src";
-import { z } from "zod";
+import { Framework, createClient, z } from "../Package/src";
 
 import { afterAll, describe, expect, it } from "bun:test";
 
@@ -19,14 +18,14 @@ const app = new Framework()
       body: z.object({
         title: z.string(),
         content: z.string(),
-        published: z.boolean().optional(),
+        published: z.optional(z.boolean()),
       }),
       response: z.object({
         params: z.object({ id: z.number() }),
         body: z.object({
           title: z.string(),
           content: z.string(),
-          published: z.boolean().optional(),
+          published: z.optional(z.boolean()),
         }),
       }),
     },
@@ -45,14 +44,14 @@ const app = new Framework()
         id: z.coerce.number(),
       }),
       query: z.object({
-        notify: z.enum(["yes", "no"]).optional(),
+        notify: z.optional(z.enum(["yes", "no"])),
       }),
       body: z.object({
         status: z.enum(["draft", "published", "archived"]),
       }),
       response: z.object({
         params: z.object({ id: z.number() }),
-        query: z.object({ notify: z.enum(["yes", "no"]).optional() }),
+        query: z.object({ notify: z.optional(z.enum(["yes", "no"])) }),
         body: z.object({
           status: z.enum(["draft", "published", "archived"]),
         }),

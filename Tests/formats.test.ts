@@ -1,5 +1,4 @@
-import { Framework, createClient } from "../Package/src";
-import { z } from "zod";
+import { Framework, createClient, z } from "../Package/src";
 
 import { afterAll, describe, expect, it } from "bun:test";
 
@@ -35,10 +34,10 @@ const app = new Framework()
         age: z.number(),
       }),
       response: z.object({
-        message: z.string().optional(),
+        message: z.optional(z.string()),
         receivedData: z.object({
-          name: z.string().optional(),
-          age: z.number().optional(),
+          name: z.optional(z.string()),
+          age: z.optional(z.number()),
         }),
       }),
     },
@@ -52,7 +51,7 @@ const app = new Framework()
       });
     },
     {
-      response: z.string().optional(),
+      response: z.optional(z.string()),
     },
   )
   .post(
@@ -66,7 +65,7 @@ const app = new Framework()
       body: z.object({
         message: z.string(),
       }),
-      response: z.string().optional(),
+      response: z.optional(z.string()),
     },
   )
 
@@ -80,7 +79,7 @@ const app = new Framework()
       return new Response(formData);
     },
     {
-      response: z.instanceof(FormData).optional(),
+      response: z.optional(z.instanceof(FormData)),
     },
   )
   .post(
@@ -95,7 +94,7 @@ const app = new Framework()
       body: z.object({
         message: z.string(),
       }),
-      response: z.instanceof(FormData).optional(),
+      response: z.optional(z.instanceof(FormData)),
     },
   )
 
@@ -107,7 +106,7 @@ const app = new Framework()
       return new Response(bytes);
     },
     {
-      response: z.instanceof(Uint8Array).optional(),
+      response: z.optional(z.instanceof(Uint8Array)),
     },
   )
   .post(
@@ -121,7 +120,7 @@ const app = new Framework()
       body: z.object({
         message: z.string(),
       }),
-      response: z.instanceof(Uint8Array).optional(),
+      response: z.optional(z.instanceof(Uint8Array)),
     },
   )
 
@@ -133,7 +132,7 @@ const app = new Framework()
       return new Response(buffer);
     },
     {
-      response: z.instanceof(ArrayBuffer).optional(),
+      response: z.optional(z.instanceof(ArrayBuffer)),
     },
   )
   .post(
@@ -147,7 +146,7 @@ const app = new Framework()
       body: z.object({
         message: z.string(),
       }),
-      response: z.instanceof(ArrayBuffer).optional(),
+      response: z.optional(z.instanceof(ArrayBuffer)),
     },
   )
 
@@ -158,7 +157,7 @@ const app = new Framework()
       return new Response(blob);
     },
     {
-      response: z.instanceof(Blob).optional(),
+      response: z.optional(z.instanceof(Blob)),
     },
   )
   .post(
@@ -171,7 +170,7 @@ const app = new Framework()
       body: z.object({
         message: z.string(),
       }),
-      response: z.instanceof(Blob).optional(),
+      response: z.optional(z.instanceof(Blob)),
     },
   )
 
@@ -186,7 +185,7 @@ const app = new Framework()
       params: z.object({
         id: z.coerce.number(),
       }),
-      response: z.string().optional(),
+      response: z.optional(z.string()),
     },
   )
 
@@ -203,14 +202,14 @@ const app = new Framework()
         id: z.coerce.number(),
       }),
       body: z.object({
-        name: z.string().optional(),
-        status: z.string().optional(),
+        name: z.optional(z.string()),
+        status: z.optional(z.string()),
       }),
       response: z.object({
-        message: z.string().optional(),
+        message: z.optional(z.string()),
         updatedFields: z.object({
-          name: z.string().optional(),
-          status: z.string().optional(),
+          name: z.optional(z.string()),
+          status: z.optional(z.string()),
         }),
       }),
     },
@@ -230,18 +229,18 @@ const app = new Framework()
         id: z.coerce.number(),
       }),
       query: z.object({
-        notify: z.enum(["yes", "no"]).optional(),
+        notify: z.optional(z.enum(["yes", "no"])),
       }),
       body: z.object({
         name: z.string(),
-        description: z.string().optional(),
+        description: z.optional(z.string()),
       }),
       response: z.object({
-        message: z.string().optional(),
-        notify: z.enum(["yes", "no"]).optional(),
+        message: z.optional(z.string()),
+        notify: z.optional(z.enum(["yes", "no"])),
         data: z.object({
-          name: z.string().optional(),
-          description: z.string().optional(),
+          name: z.optional(z.string()),
+          description: z.optional(z.string()),
         }),
       }),
     },

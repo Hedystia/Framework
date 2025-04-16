@@ -1,5 +1,4 @@
-import { Framework, createClient } from "../Package/src";
-import { z } from "zod";
+import { Framework, createClient, z } from "../Package/src";
 
 import { afterAll, describe, expect, it } from "bun:test";
 
@@ -13,15 +12,15 @@ const app = new Framework()
     },
     {
       query: z.object({
-        category: z.string().optional(),
-        limit: z.coerce.number().optional(),
-        sort: z.enum(["asc", "desc"]).optional(),
+        category: z.optional(z.string()),
+        limit: z.optional(z.coerce.number()),
+        sort: z.optional(z.enum(["asc", "desc"])),
       }),
       response: z.object({
         query: z.object({
-          category: z.string().optional(),
-          limit: z.number().optional(),
-          sort: z.enum(["asc", "desc"]).optional(),
+          category: z.optional(z.string()),
+          limit: z.optional(z.number()),
+          sort: z.optional(z.enum(["asc", "desc"])),
         }),
       }),
     },
@@ -39,14 +38,14 @@ const app = new Framework()
         id: z.coerce.number(),
       }),
       query: z.object({
-        fields: z.string().optional(),
-        include: z.string().optional(),
+        fields: z.optional(z.string()),
+        include: z.optional(z.string()),
       }),
       response: z.object({
         params: z.object({ id: z.number() }),
         query: z.object({
-          fields: z.string().optional(),
-          include: z.string().optional(),
+          fields: z.optional(z.string()),
+          include: z.optional(z.string()),
         }),
       }),
     },

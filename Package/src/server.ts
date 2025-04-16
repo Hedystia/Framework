@@ -1,19 +1,19 @@
-import { z } from "zod";
+import { z } from "@zod/mini";
 import { serve, type BunRequest } from "bun";
 import type { RouteDefinition } from "./types/routes";
 
 type RouteSchema = {
-  params?: z.ZodObject<any>;
-  query?: z.ZodObject<any>;
-  body?: z.ZodType<any>;
-  response?: z.ZodType<any>;
+  params?: z.ZodMiniObject<any>;
+  query?: z.ZodMiniObject<any>;
+  body?: z.ZodMiniType<any>;
+  response?: z.ZodMiniType<any>;
 };
 
 type InferRouteContext<T extends RouteSchema> = {
   req: BunRequest;
-  params: T["params"] extends z.ZodObject<any> ? z.infer<T["params"]> : {};
-  query: T["query"] extends z.ZodObject<any> ? z.infer<T["query"]> : {};
-  body: T["body"] extends z.ZodType<any> ? z.infer<T["body"]> : unknown;
+  params: T["params"] extends z.ZodMiniObject<any> ? z.infer<T["params"]> : {};
+  query: T["query"] extends z.ZodMiniObject<any> ? z.infer<T["query"]> : {};
+  body: T["body"] extends z.ZodMiniType<any> ? z.infer<T["body"]> : unknown;
 };
 
 interface FrameworkOptions {
@@ -192,9 +192,9 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
 
   get<
     Path extends string,
-    Params extends z.ZodObject<any>,
-    Query extends z.ZodObject<any>,
-    ResponseSchema extends z.ZodType<any>,
+    Params extends z.ZodMiniObject<any>,
+    Query extends z.ZodMiniObject<any>,
+    ResponseSchema extends z.ZodMiniType<any>,
     MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
@@ -210,9 +210,9 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
       {
         method: "GET";
         path: Path;
-        params: Params extends z.ZodObject<any> ? z.infer<Params> : {};
-        query: Query extends z.ZodObject<any> ? z.infer<Query> : {};
-        response: ResponseSchema extends z.ZodType<any> ? z.infer<ResponseSchema> : unknown;
+        params: Params extends z.ZodMiniObject<any> ? z.infer<Params> : {};
+        query: Query extends z.ZodMiniObject<any> ? z.infer<Query> : {};
+        response: ResponseSchema extends z.ZodMiniType<any> ? z.infer<ResponseSchema> : unknown;
       },
     ],
     Macros
@@ -237,10 +237,10 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
 
   patch<
     Path extends string,
-    Params extends z.ZodObject<any>,
-    Query extends z.ZodObject<any>,
-    Body extends z.ZodType<any>,
-    ResponseSchema extends z.ZodType<any>,
+    Params extends z.ZodMiniObject<any>,
+    Query extends z.ZodMiniObject<any>,
+    Body extends z.ZodMiniType<any>,
+    ResponseSchema extends z.ZodMiniType<any>,
     MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
@@ -259,10 +259,10 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
       {
         method: "PATCH";
         path: Path;
-        params: Params extends z.ZodObject<any> ? z.infer<Params> : {};
-        query: Query extends z.ZodObject<any> ? z.infer<Query> : {};
-        body: Body extends z.ZodType<any> ? z.infer<Body> : unknown;
-        response: ResponseSchema extends z.ZodType<any> ? z.infer<ResponseSchema> : unknown;
+        params: Params extends z.ZodMiniObject<any> ? z.infer<Params> : {};
+        query: Query extends z.ZodMiniObject<any> ? z.infer<Query> : {};
+        body: Body extends z.ZodMiniType<any> ? z.infer<Body> : unknown;
+        response: ResponseSchema extends z.ZodMiniType<any> ? z.infer<ResponseSchema> : unknown;
       },
     ],
     Macros
@@ -288,10 +288,10 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
 
   post<
     Path extends string,
-    Params extends z.ZodObject<any>,
-    Query extends z.ZodObject<any>,
-    Body extends z.ZodType<any>,
-    ResponseSchema extends z.ZodType<any>,
+    Params extends z.ZodMiniObject<any>,
+    Query extends z.ZodMiniObject<any>,
+    Body extends z.ZodMiniType<any>,
+    ResponseSchema extends z.ZodMiniType<any>,
     MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
@@ -310,10 +310,10 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
       {
         method: "POST";
         path: Path;
-        params: Params extends z.ZodObject<any> ? z.infer<Params> : {};
-        query: Query extends z.ZodObject<any> ? z.infer<Query> : {};
-        body: Body extends z.ZodType<any> ? z.infer<Body> : unknown;
-        response: ResponseSchema extends z.ZodType<any> ? z.infer<ResponseSchema> : unknown;
+        params: Params extends z.ZodMiniObject<any> ? z.infer<Params> : {};
+        query: Query extends z.ZodMiniObject<any> ? z.infer<Query> : {};
+        body: Body extends z.ZodMiniType<any> ? z.infer<Body> : unknown;
+        response: ResponseSchema extends z.ZodMiniType<any> ? z.infer<ResponseSchema> : unknown;
       },
     ],
     Macros
@@ -339,10 +339,10 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
 
   put<
     Path extends string,
-    Params extends z.ZodObject<any>,
-    Query extends z.ZodObject<any>,
-    Body extends z.ZodType<any>,
-    ResponseSchema extends z.ZodType<any>,
+    Params extends z.ZodMiniObject<any>,
+    Query extends z.ZodMiniObject<any>,
+    Body extends z.ZodMiniType<any>,
+    ResponseSchema extends z.ZodMiniType<any>,
     MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
@@ -361,10 +361,10 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
       {
         method: "PUT";
         path: Path;
-        params: Params extends z.ZodObject<any> ? z.infer<Params> : {};
-        query: Query extends z.ZodObject<any> ? z.infer<Query> : {};
-        body: Body extends z.ZodType<any> ? z.infer<Body> : unknown;
-        response: ResponseSchema extends z.ZodType<any> ? z.infer<ResponseSchema> : unknown;
+        params: Params extends z.ZodMiniObject<any> ? z.infer<Params> : {};
+        query: Query extends z.ZodMiniObject<any> ? z.infer<Query> : {};
+        body: Body extends z.ZodMiniType<any> ? z.infer<Body> : unknown;
+        response: ResponseSchema extends z.ZodMiniType<any> ? z.infer<ResponseSchema> : unknown;
       },
     ],
     Macros
@@ -390,10 +390,10 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
 
   delete<
     Path extends string,
-    Params extends z.ZodObject<any>,
-    Query extends z.ZodObject<any>,
-    Body extends z.ZodType<any>,
-    ResponseSchema extends z.ZodType<any>,
+    Params extends z.ZodMiniObject<any>,
+    Query extends z.ZodMiniObject<any>,
+    Body extends z.ZodMiniType<any>,
+    ResponseSchema extends z.ZodMiniType<any>,
     MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
@@ -412,10 +412,10 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
       {
         method: "DELETE";
         path: Path;
-        params: Params extends z.ZodObject<any> ? z.infer<Params> : {};
-        query: Query extends z.ZodObject<any> ? z.infer<Query> : {};
-        body: Body extends z.ZodType<any> ? z.infer<Body> : unknown;
-        response: ResponseSchema extends z.ZodType<any> ? z.infer<ResponseSchema> : unknown;
+        params: Params extends z.ZodMiniObject<any> ? z.infer<Params> : {};
+        query: Query extends z.ZodMiniObject<any> ? z.infer<Query> : {};
+        body: Body extends z.ZodMiniType<any> ? z.infer<Body> : unknown;
+        response: ResponseSchema extends z.ZodMiniType<any> ? z.infer<ResponseSchema> : unknown;
       },
     ],
     Macros
@@ -441,7 +441,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
 
   static<
     Path extends string,
-    ResponseSchema extends z.ZodType<any> = z.ZodType<any>,
+    ResponseSchema extends z.ZodMiniType<any> = z.ZodMiniType<any>,
     ContentType extends string = string,
     ResponseBody = any,
   >(
@@ -465,7 +465,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
         path: Path;
         params: {};
         query: {};
-        response: ResponseSchema extends z.ZodType<any> ? z.infer<ResponseSchema> : unknown;
+        response: ResponseSchema extends z.ZodMiniType<any> ? z.infer<ResponseSchema> : unknown;
       },
     ],
     Macros
@@ -583,7 +583,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
           }
 
           let body = undefined;
-          let parsedBody: ReturnType<z.ZodTypeAny["safeParse"]> = {
+          let parsedBody: ReturnType<z.ZodMiniAny["safeParse"]> = {
             success: true,
             data: undefined,
           };

@@ -15,5 +15,5 @@ export default defineConfig(({ watch = false }) => ({
     options.minifyWhitespace = true;
     options.keepNames = false;
   },
-  external: ["zod", "bun"],
+  external: ["@zod/min", "bun"],
 }));

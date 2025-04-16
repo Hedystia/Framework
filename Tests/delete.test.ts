@@ -1,5 +1,4 @@
-import { Framework, createClient } from "../Package/src";
-import { z } from "zod";
+import { Framework, createClient, z } from "../Package/src";
 import { afterAll, describe, expect, it } from "bun:test";
 
 const app = new Framework()
@@ -17,14 +16,14 @@ const app = new Framework()
         id: z.coerce.number(),
       }),
       query: z.object({
-        reason: z.enum(["obsolete", "duplicate", "other"]).optional(),
+        reason: z.optional(z.enum(["obsolete", "duplicate", "other"])),
       }),
       body: z.object({
         confirm: z.boolean(),
       }),
       response: z.object({
         params: z.object({ id: z.number() }),
-        query: z.object({ reason: z.enum(["obsolete", "duplicate", "other"]).optional() }),
+        query: z.object({ reason: z.optional(z.enum(["obsolete", "duplicate", "other"])) }),
         body: z.object({ confirm: z.boolean() }),
       }),
     },
@@ -38,11 +37,11 @@ const app = new Framework()
     },
     {
       query: z.object({
-        force: z.boolean().optional(),
+        force: z.optional(z.boolean()),
       }),
       response: z.object({
         body: z.array(z.number()),
-        query: z.object({ force: z.boolean().optional() }),
+        query: z.object({ force: z.optional(z.boolean()) }),
       }),
     },
   )

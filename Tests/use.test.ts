@@ -1,5 +1,4 @@
-import { Framework, createClient } from "../Package/src";
-import { z } from "zod";
+import { Framework, createClient, z } from "../Package/src";
 import { afterAll, describe, expect, it } from "bun:test";
 
 const apiV1 = new Framework()
@@ -82,7 +81,7 @@ const app = new Framework()
       });
     },
     {
-      response: z.string().optional(),
+      response: z.optional(z.string()),
     },
   )
   .use("/api/v1", apiV1)

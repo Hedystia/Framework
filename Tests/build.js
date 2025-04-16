@@ -1,5 +1,4 @@
-const { Framework, createClient } = require("../Package/dist/index.js");
-const { z } = require("zod");
+const { Framework, createClient, z } = require("../Package/dist/index.js");
 
 console.time("test-time");
 

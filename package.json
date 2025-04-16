@@ -10,7 +10,8 @@
     "build": "bun run --cwd Package build",
     "dev": "concurrently \"bun run --cwd Package dev\" \"bun run --cwd Tests dev\"",
     "test": "bun run --cwd Tests test",
-    "test:build": "bun run --cwd Package build && bun run --cwd Tests build.js"
+    "test:build": "bun run --cwd Package build && bun run --cwd Tests build.js",
+    "test:stress": "bun run --cwd Tests stress.js"
   },
   "workspaces": ["./Package", "./Tests"]
 }
