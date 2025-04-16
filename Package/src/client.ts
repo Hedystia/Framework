@@ -50,9 +50,13 @@ type RouteToTreeInner<T extends string[], Params, Methods> = T extends [
     ? {
         [K in Param]: (value: Params[K & keyof Params]) => RouteToTreeInner<R, Params, Methods>;
       }
-    : {
-        [K in H]: RouteToTreeInner<R, Params, Methods>;
-      }
+    : H extends ""
+      ? {
+          index: RouteToTreeInner<R, Params, Methods>;
+        }
+      : {
+          [K in H]: RouteToTreeInner<R, Params, Methods>;
+        }
   : Methods;
 
 type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void
@@ -139,9 +143,13 @@ type RouteToTree<Path extends string, Params, Methods> = PathParts<Path> extends
     ? {
         [K in Param]: (value: Params[K & keyof Params]) => RouteToTreeInner<T, Params, Methods>;
       }
-    : {
-        [K in H]: RouteToTreeInner<T, Params, Methods>;
-      }
+    : H extends ""
+      ? {
+          index: RouteToTreeInner<T, Params, Methods>;
+        }
+      : {
+          [K in H]: RouteToTreeInner<T, Params, Methods>;
+        }
   : {};
 
 type ClientTree<R> = UnionToIntersection<
@@ -248,6 +256,9 @@ export function createClient<T extends Framework<any>>(
       get(_target, prop: string | symbol, receiver) {
         if (typeof prop !== "string") {
           return Reflect.get(_target, prop, receiver);
+        }
+        if (prop === "index") {
+          return createProxy([...segments, ""]);
         }
         if (prop === "then") {
           return undefined;
