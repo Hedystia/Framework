@@ -219,7 +219,16 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
   > {
     const fullPath = this.prefix + path;
 
-    const wrappedHandler = this.createWrappedHandler(handler, schema);
+    const hasMacros = Object.keys(schema).some(
+      (key) => !["params", "query", "body", "response"].includes(key) && schema[key] === true,
+    );
+
+    const wrappedHandler = hasMacros
+      ? this.createWrappedHandler(handler, schema)
+      : async function (ctx: any) {
+          const result = await handler(ctx);
+          return result instanceof Response ? result : Framework.createResponse(result);
+        };
 
     this.routes.push({
       method: "GET",
@@ -269,7 +278,16 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
   > {
     const fullPath = this.prefix + path;
 
-    const wrappedHandler = this.createWrappedHandler(handler, schema);
+    const hasMacros = Object.keys(schema).some(
+      (key) => !["params", "query", "body", "response"].includes(key) && schema[key] === true,
+    );
+
+    const wrappedHandler = hasMacros
+      ? this.createWrappedHandler(handler, schema)
+      : async function (ctx: any) {
+          const result = await handler(ctx);
+          return result instanceof Response ? result : Framework.createResponse(result);
+        };
 
     this.routes.push({
       method: "PATCH",
@@ -320,7 +338,16 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
   > {
     const fullPath = this.prefix + path;
 
-    const wrappedHandler = this.createWrappedHandler(handler, schema);
+    const hasMacros = Object.keys(schema).some(
+      (key) => !["params", "query", "body", "response"].includes(key) && schema[key] === true,
+    );
+
+    const wrappedHandler = hasMacros
+      ? this.createWrappedHandler(handler, schema)
+      : async function (ctx: any) {
+          const result = await handler(ctx);
+          return result instanceof Response ? result : Framework.createResponse(result);
+        };
 
     this.routes.push({
       method: "POST",
@@ -371,7 +398,16 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
   > {
     const fullPath = this.prefix + path;
 
-    const wrappedHandler = this.createWrappedHandler(handler, schema);
+    const hasMacros = Object.keys(schema).some(
+      (key) => !["params", "query", "body", "response"].includes(key) && schema[key] === true,
+    );
+
+    const wrappedHandler = hasMacros
+      ? this.createWrappedHandler(handler, schema)
+      : async function (ctx: any) {
+          const result = await handler(ctx);
+          return result instanceof Response ? result : Framework.createResponse(result);
+        };
 
     this.routes.push({
       method: "PUT",
@@ -422,7 +458,16 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
   > {
     const fullPath = this.prefix + path;
 
-    const wrappedHandler = this.createWrappedHandler(handler, schema);
+    const hasMacros = Object.keys(schema).some(
+      (key) => !["params", "query", "body", "response"].includes(key) && schema[key] === true,
+    );
+
+    const wrappedHandler = hasMacros
+      ? this.createWrappedHandler(handler, schema)
+      : async function (ctx: any) {
+          const result = await handler(ctx);
+          return result instanceof Response ? result : Framework.createResponse(result);
+        };
 
     this.routes.push({
       method: "DELETE",
