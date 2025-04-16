@@ -1,76 +1,145 @@
-# Framework
+<div align="center">
+  <p>
+    <strong>🚀 Hedystia Framework</strong>
+  </p>
 
-> [!CAUTION]
-> This framework is still in development and does not have all the routes implemented yet.
+  <p>
+    <strong>Next-gen TypeScript framework for building type-safe APIs at lightspeed! ⚡</strong>
+  </p>
 
-## 🌟 Features
+  <p>
+    <a href="https://www.npmjs.com/package/hedystia"><img src="https://img.shields.io/npm/v/hedystia.svg?style=flat-square" alt="npm version"></a>
+    <a href="https://www.npmjs.com/package/hedystia"><img src="https://img.shields.io/npm/dm/hedystia.svg?style=flat-square" alt="npm downloads"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/Hedystia/Framework.svg?style=flat-square" alt="license"></a>
+    <img src="https://img.shields.io/badge/Bun-powered-FFD43B?style=flat-square&logo=bun" alt="Bun powered">
+  </p>
+</div>
 
-- 🔒 **end-to-end type safety**: Type safety for all routes
-- ⚡ **Fast and efficient**: A simple and fast framework for building APIs
+## 🚨 Early Access Notice
+> **Warning**
+> Framework is in active development. Core features are stable but some advanced functionality still being implemented.
 
-## 🚀 Quick Start
+## 🌟 Superpowers
 
-1. Install the package:
+- 🔒 **End-to-end type safety** - From params to response, full TypeScript integration
+- ⚡ **Bun-native performance** - Built for Bun runtime with zod dependency
+- 🧩 **Client integration** - Auto-generated type-safe HTTP client
+- 🛡️ **Validation built-in** - Zod integration for runtime safety
+- 🔌 **Extensible architecture** - Middleware, hooks and macros system
 
+## 🚀 Launch in 30 Seconds
+
+1. Install with Bun:
 ```bash
 bun add hedystia
-npm i hedystia
-pnpm i hedystia
-yarn add hedystia
 ```
 
-2. Create your app:
-
+2. Create your first API:
 ```typescript
-import { Hedystia } from "hedystia";
+import { Hedystia, z } from "hedystia";
 
 const app = new Hedystia()
-    .get("/", () => "Hello World!")
-    .listen(3000);
+  .get("/hello/:name", (ctx) => `Hello ${ctx.params.name}!`, {
+    params: z.object({ name: z.string() }),
+    response: z.string()
+  })
+  .listen(3000);
 ```
 
-3. Run your app:
+3. Generate client and consume API:
+```typescript
+import { createClient } from "@hedystia/client";
 
-```bash
+const client = createClient<typeof app>("http://localhost:3000");
 
+// Fully typed request!
+const { data } = await client.hello.name("World").get();
+console.log(data); // "Hello World!"
 ```
 
-4. That's it! You now have a fully functional API built with the framework.
+## 💡 Why Developers Love Hedystia
 
-## 🌟 Why use this framework?
+### 🔄 Full-stack Type Safety
+```typescript
+// Server-side validation
+.post("/users", (ctx) => {...}, {
+  body: z.object({
+    email: z.string().email(),
+    age: z.number().positive()
+  })
+})
 
-- **End-to-end type safety**: Type safety for all routes
-- **Fast and efficient**: A simple and fast framework for building APIs
-- **Performance optimized**: Efficient query building and data transformation
-- **Client-side integration**: Built-in client-side integration for easy integration with your frontend
+// Client-side types
+await client.users.post({
+  email: "user@example.com", // Autocompletes!
+  age: 25 // Type-checked
+});
+```
 
-## 🕙 Progress
+### ⚡ Performance First
+- Bun runtime optimized
+- Only zod dependency
+- Faster than Express
+- Built-in response compression
 
-- [x] Get route
-- [x] Post route
-- [X] Put route
-- [X] Delete route
-- [X] Patch route
-- [X] Static route
-- [ ] Head route
-- [ ] Options route
-- [x] Use router
-- [x] Group router
-- [x] Macros
-- [ ] Ws integration
-- Response bodies - https://bun.sh/docs/api/fetch#response-bodies
-    - [x] text
-    - [x] json
-    - [x] formData
-    - [x] bytes
-    - [x] arrayBuffer
-    - [x] blob
-- On event functions
-    - [x] onRequest
-    - [x] onParse
-    - [x] onTransform
-    - [x] onBeforeHandle
-    - [x] onAfterHandle
-    - [x] onMapResponse
-    - [x] onError
-    - [x] onAfterResponse
+### 🧩 Modern Feature Set
+```typescript
+// File uploads
+.post("/upload", async (ctx) => {
+  const formData = await ctx.body; // FormData type
+})
+
+// Binary responses
+.get("/pdf", () => new Blob([...]), {
+  response: z.instanceof(Blob)
+})
+
+// Nested routing
+.group("/api/v1", (v1) => v1
+  .group("/users", (users) => users
+    .get("/:id", ...)
+  )
+)
+```
+
+## 🛠️ Development Roadmap
+
+### Core Features
+- ✅ HTTP Methods: GET, POST, PUT, PATCH, DELETE
+- ✅ Response Types: JSON, Text, FormData, Blob, ArrayBuffer
+- ✅ Router Groups & Middleware
+- ✅ Type-safe Client Generation
+- 🚧 WebSocket Support
+
+### Advanced Capabilities
+- ✅ Zod Validation
+- ✅ Hooks System (onRequest, onError, etc)
+- ✅ Macro System for Auth/Rate Limiting
+- 🚧 File System Routing
+- 🚧 OpenAPI Spec Generation
+
+## 💼 Production Ready
+```typescript
+// Error handling
+.onError((err) => {
+  return Response.json({ 
+    error: err.message 
+  }, { status: 500 })
+})
+
+// Rate limiting macro
+.macro({
+  rateLimit: () => ({
+    resolve: async (ctx) => {
+      // Implement your logic
+    }
+  })
+})
+```
+
+## 📜 License
+MIT License © 2024 Hedystia Contributors
+
+## 🫂 Community
+- [GitHub Issues](https://github.com/Hedystia/Framework/issues)
+- [Discord Server](https://hedystia.com/support)
