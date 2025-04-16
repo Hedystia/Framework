@@ -63,6 +63,6 @@ jobs:
         run: |
           for pkg in ${{ steps.packages.outputs.packages }}; do
             cd $pkg
-            npm publish --access public --tag ${{ steps.tag.outputs.npm_tag }}
+            npm publish --provenance --access public --tag ${{ steps.tag.outputs.npm_tag }}
             cd -
           done
