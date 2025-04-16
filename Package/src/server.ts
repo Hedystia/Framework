@@ -775,24 +775,26 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
     handler: (ctx: any) => Response | any,
     schema: Record<string, any>,
   ): RequestHandler {
-    const self = this;
-    return async function (originalCtx: any): Promise<Response> {
-      let ctx: any = { ...originalCtx };
-      for (const key in schema) {
-        if (!["params", "query", "body", "response"].includes(key) && schema[key] === true) {
-          const macro = self.macros[key];
-          if (macro) {
-            try {
-              ctx[key] = await macro.resolve(ctx);
-            } catch (err: any) {
-              if (err.isMacroError) {
-                return new Response(err.message, { status: err.statusCode });
-              }
-              throw err;
+    const macros = Object.entries(schema)
+      .filter(
+        ([key]) => !["params", "query", "body", "response"].includes(key) && schema[key] === true,
+      )
+      .map(([key]) => ({ key, macro: this.macros[key] }));
+
+    return async function (ctx: any): Promise<Response> {
+      if (macros.length > 0) {
+        for (const { key, macro } of macros) {
+          try {
+            ctx[key] = await macro?.resolve(ctx);
+          } catch (err: any) {
+            if (err.isMacroError) {
+              return new Response(err.message, { status: err.statusCode });
             }
+            throw err;
           }
         }
       }
+
       const result = await handler(ctx);
       return result instanceof Response ? result : Framework.createResponse(result);
     };
@@ -826,14 +828,11 @@ function matchRoute(pathname: string, routePath: string): Record<string, string>
   if (pathParts.length !== routeParts.length) return null;
 
   const params: Record<string, string> = {};
-  for (let i = 0; i < pathParts.length; i++) {
+  for (let i = 0; i < routeParts.length; i++) {
     const routePart = routeParts[i];
     const pathPart = pathParts[i];
-    if (
-      typeof routePart === "string" &&
-      routePart.startsWith(":") &&
-      typeof pathPart === "string"
-    ) {
+    if (!routePart) return null;
+    if (routePart[0] === ":" && typeof pathPart === "string") {
       params[routePart.slice(1)] = pathPart;
     } else if (routePart !== pathPart) {
       return null;
