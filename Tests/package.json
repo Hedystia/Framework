@@ -1,11 +1,13 @@
 {
   "name": "tests",
   "devDependencies": {
-    "@types/bun": "latest",
-    "zod": "^4.0.0-beta.20250411T232125"
+    "@types/bun": "latest"
   },
   "scripts": {
     "dev": "bun --watch --no-clear-screen test",
     "test": "bun test"
+  },
+  "dependencies": {
+    "@zod/mini": "^4.0.0-beta.20250415T232143"
   }
 }
