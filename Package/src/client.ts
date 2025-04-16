@@ -158,6 +158,54 @@ type ExtractRoutes<T extends RouteDefinition[]> = T[number];
 
 type ExtractRoutesFromFramework<T> = T extends Framework<infer R> ? ExtractRoutes<R> : never;
 
+async function parseFormData(response: Response): Promise<FormData> {
+  if (!response.ok) {
+    throw new Error(`HTTP error! Status: ${response.status}`);
+  }
+  const contentType = response.headers.get("Content-Type") || "";
+  if (contentType.includes("multipart/form-data")) {
+    const text = await response.text();
+    const formData = new FormData();
+    const boundary = contentType.split("boundary=")[1];
+    if (boundary) {
+      const parts = text.split(`--${boundary}`);
+      for (const part of parts) {
+        if (part.trim() && !part.includes("--\r\n")) {
+          const [headerPart, bodyPart] = part.split("\r\n\r\n");
+          if (headerPart && bodyPart) {
+            const nameMatch = headerPart.match(/name="([^"]+)"/);
+            const filenameMatch = headerPart.match(/filename="([^"]+)"/);
+            if (nameMatch) {
+              const name = nameMatch[1];
+              if (filenameMatch) {
+                const filename = filenameMatch[1];
+                const contentTypeMatch = headerPart.match(/Content-Type: (.+)/);
+                const type = contentTypeMatch ? contentTypeMatch[1]?.trim() : "";
+
+                const blob = new Blob([bodyPart.slice(0, -2)], { type });
+                const file = new File([blob], String(filename), { type });
+
+                formData.append(String(name), file);
+              } else {
+                formData.append(String(name), bodyPart.slice(0, -2));
+              }
+            }
+          }
+        }
+      }
+    }
+    return formData;
+  } else {
+    const text = await response.text();
+    const formData = new FormData();
+    const params = new URLSearchParams(text);
+    for (const [key, value] of params.entries()) {
+      formData.append(key, value);
+    }
+    return formData;
+  }
+}
+
 async function processResponse(response: Response, format: ResponseFormat = "json") {
   try {
     const contentType = response.headers.get("Content-Type") || "";
@@ -173,7 +221,7 @@ async function processResponse(response: Response, format: ResponseFormat = "jso
       case "json":
         return await response.json().catch(() => null);
       case "formData":
-        return await response.formData();
+        return await parseFormData(response);
       case "bytes":
         return new Uint8Array(await response.arrayBuffer());
       case "arrayBuffer":
