@@ -140,6 +140,6 @@ await client.users.post({
 ## 📜 License
 MIT License © 2024 Hedystia Contributors
 
-## 🫂 Community
+## 🗣️ Community
 - [GitHub Issues](https://github.com/Hedystia/Framework/issues)
 - [Discord Server](https://hedystia.com/support)
