@@ -4,22 +4,14 @@ on:
   release:
     types: [published]
 
-defaults:
-  run:
-    shell: bash
-
 permissions:
-  id-token: write
-
-env:
-  ACTIONS_RUNNER_DEBUG: true
+  contents: write
 
 jobs:
-  publish-npm:
-    name: 'Publish changed packages to npm'
+  release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
+      - name: Checkout complete repo
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -28,54 +20,64 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-          registry-url: "https://registry.npmjs.org"
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: 20.x
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Detect changed packages
-        id: detect
-        run: |
-          CHANGED=()
-          for pkg in Packages/*; do
-            if [ -f "$pkg/package.json" ]; then
-              NAME=$(jq -r .name "$pkg/package.json")
-              CURR_VERSION=$(jq -r .version "$pkg/package.json")
-              PREV_VERSION=$(git show HEAD^:"$pkg/package.json" | jq -r .version 2>/dev/null || echo "")
-
-              echo "Checking $NAME: $PREV_VERSION -> $CURR_VERSION"
-
-              if [[ "$CURR_VERSION" != "$PREV_VERSION" ]]; then
-                echo "Package $NAME has a new version"
-                CHANGED+=("$pkg")
-              fi
-            fi
-          done
-
-          echo "changed_packages<<EOF" >> $GITHUB_OUTPUT
-          printf "%s\n" "${CHANGED[@]}" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Install deps
-        if: steps.detect.outputs.changed_packages != ''
+      - name: Install dependencies
         run: bun install
 
-      - name: Build and publish changed packages
-        if: steps.detect.outputs.changed_packages != ''
+      - name: Build
+        run: bun run build
+
+      - name: Determine version and npm tag
+        id: vars
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          if [[ "$VERSION" =~ -(next|canary|beta|rc)\.?[0-9]*$ ]]; then
+            NPM_TAG="${BASH_REMATCH[1]}"
+          else
+            git fetch origin main
+            if git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+              NPM_TAG="latest"
+            else
+              echo "::error ::Releases with the 'latest' npm tag must be based on main"
+              exit 1
+            fi
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "npm_tag=$NPM_TAG" >> $GITHUB_OUTPUT
+
+      - name: Identify packages to publish
+        id: find_pkgs
+        shell: bash
+        run: |
+          VERSION=${{ steps.vars.outputs.version }}
+          TO_PUBLISH=()
+          for pkgdir in Packages/*; do
+            [ -f "$pkgdir/package.json" ] || continue
+            ver=$(jq -r .version "$pkgdir/package.json")
+            if [ "$ver" = "$VERSION" ]; then
+              TO_PUBLISH+=("$(basename $pkgdir)")
+            fi
+          done
+          if [ "${#TO_PUBLISH[@]}" -eq 0 ]; then
+            echo "::error ::No package.json found with version ${VERSION}"
+            exit 1
+          fi
+          echo "packages=${TO_PUBLISH[*]}" >> $GITHUB_OUTPUT
+
+      - name: Publish matching packages
+        shell: bash
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          echo "${{ steps.detect.outputs.changed_packages }}" | while read pkg; do
-            [ -z "$pkg" ] && continue
-            VERSION=$(jq -r .version "$pkg/package.json")
-            TAG="latest"
-            [[ "$VERSION" == *"-beta."* ]] && TAG="beta"
-
-            echo "Publishing $pkg with version $VERSION and tag $TAG"
-            cd "$pkg"
-            bun run build || true
-            npm publish --provenance --access=public --tag "$TAG"
-            cd - > /dev/null
-          done
+          TAG=${{ steps.vars.outputs.npm_tag }}
+          for pkg in ${{ steps.find_pkgs.outputs.packages }}; do
+            echo "Publishing $pkg with tag '${TAG}'"
+            npm publish Packages/$pkg --access public --tag $TAG
