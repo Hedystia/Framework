@@ -4,13 +4,9 @@ on:
   release:
     types: [published]
 
-permissions:
-  contents: write
-
 jobs:
   publish:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -34,44 +30,39 @@ jobs:
       - name: Build packages
         run: bun run build
 
-      - name: Get version info
-        id: version
+      - name: Get version from tag
+        id: tag
         run: |
           TAG=${GITHUB_REF#refs/tags/}
           VERSION=${TAG#v}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "npm_tag=latest" >> $GITHUB_OUTPUT
 
-          # Determinar npm tag
-          if [[ "$TAG" == *"-canary"* ]]; then
-            echo "npm_tag=canary" >> $GITHUB_OUTPUT
-          else
-            echo "npm_tag=latest" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Find packages to publish
+      - name: Find matching packages
         id: packages
         run: |
-          VERSION=${{ steps.version.outputs.version }}
-          PKGS=()
+          VERSION=${{ steps.tag.outputs.version }}
+          MATCHES=()
           for pkg in Packages/*; do
             if [ -f "$pkg/package.json" ]; then
               PKG_VERSION=$(jq -r .version "$pkg/package.json")
               if [ "$PKG_VERSION" = "$VERSION" ]; then
-                PKGS+=("$pkg")
+                MATCHES+=("$pkg")
               fi
             fi
           done
-          if [ ${#PKGS[@]} -eq 0 ]; then
+          if [ ${#MATCHES[@]} -eq 0 ]; then
             echo "::error ::No packages found with version $VERSION"
             exit 1
           fi
-          echo "packages=${PKGS[*]}" >> $GITHUB_OUTPUT
+          echo "packages=${MATCHES[*]}" >> $GITHUB_OUTPUT
 
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           for pkg in ${{ steps.packages.outputs.packages }}; do
-            echo "📦 Publishing $pkg"
-            npm publish "$pkg" --tag ${{ steps.version.outputs.npm_tag }} --access public
+            cd $pkg
+            npm publish --access public --tag ${{ steps.tag.outputs.npm_tag }}
+            cd -
           done
