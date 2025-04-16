@@ -10,22 +10,21 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout complete repo
+      - name: Checkout full repo
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Bun
+      - name: Setup Bun & Node
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20.x
-          registry-url: 'https://registry.npmjs.org'
+          registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
         run: bun install
@@ -37,47 +36,46 @@ jobs:
         id: vars
         shell: bash
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          VERSION="${TAG#v}"
+          TAG=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG#v}
           if [[ "$VERSION" =~ -(next|canary|beta|rc)\.?[0-9]*$ ]]; then
-            NPM_TAG="${BASH_REMATCH[1]}"
+            NPM_TAG=${BASH_REMATCH[1]}
           else
             git fetch origin main
             if git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-              NPM_TAG="latest"
+              NPM_TAG=latest
             else
-              echo "::error ::Releases with the 'latest' npm tag must be based on main"
+              echo "::error ::Releases with the latest tag must be based on main"
               exit 1
             fi
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "npm_tag=$NPM_TAG" >> $GITHUB_OUTPUT
 
-      - name: Identify packages to publish
+      - name: Find packages matching release version
         id: find_pkgs
         shell: bash
         run: |
           VERSION=${{ steps.vars.outputs.version }}
-          TO_PUBLISH=()
-          for pkgdir in Packages/*; do
-            [ -f "$pkgdir/package.json" ] || continue
-            ver=$(jq -r .version "$pkgdir/package.json")
-            if [ "$ver" = "$VERSION" ]; then
-              TO_PUBLISH+=("$(basename $pkgdir)")
-            fi
+          MATCHES=()
+          for d in Packages/*; do
+            [ -f "$d/package.json" ] || continue
+            v=$(jq -r .version "$d/package.json")
+            [ "$v" = "$VERSION" ] && MATCHES+=("$(basename "$d")")
           done
-          if [ "${#TO_PUBLISH[@]}" -eq 0 ]; then
-            echo "::error ::No package.json found with version ${VERSION}"
+          if [ ${#MATCHES[@]} -eq 0 ]; then
+            echo "::error ::No package.json with version ${VERSION}"
             exit 1
           fi
-          echo "packages=${TO_PUBLISH[*]}" >> $GITHUB_OUTPUT
+          echo "packages=${MATCHES[*]}" >> $GITHUB_OUTPUT
 
-      - name: Publish matching packages
+      - name: Publish to npm
         shell: bash
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           TAG=${{ steps.vars.outputs.npm_tag }}
           for pkg in ${{ steps.find_pkgs.outputs.packages }}; do
-            echo "Publishing $pkg with tag '${TAG}'"
-            npm publish Packages/$pkg --access public --tag $TAG
+            echo "publishing $pkg@$TAG"
+            npm publish "Packages/$pkg" --access public --tag $TAG
+          done
