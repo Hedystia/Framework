@@ -8,20 +8,22 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  publish:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout full repo
+      - name: Checkout repo
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Bun & Node
+      - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - uses: actions/setup-node@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20.x
           registry-url: https://registry.npmjs.org
@@ -29,53 +31,47 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build
+      - name: Build packages
         run: bun run build
 
-      - name: Determine version and npm tag
-        id: vars
-        shell: bash
+      - name: Get version info
+        id: version
         run: |
           TAG=${GITHUB_REF#refs/tags/}
           VERSION=${TAG#v}
-          if [[ "$VERSION" =~ -(next|canary|beta|rc)\.?[0-9]*$ ]]; then
-            NPM_TAG=${BASH_REMATCH[1]}
-          else
-            git fetch origin main
-            if git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-              NPM_TAG=latest
-            else
-              echo "::error ::Releases with the latest tag must be based on main"
-              exit 1
-            fi
-          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "npm_tag=$NPM_TAG" >> $GITHUB_OUTPUT
 
-      - name: Find packages matching release version
-        id: find_pkgs
-        shell: bash
+          # Determinar npm tag
+          if [[ "$TAG" == *"-canary"* ]]; then
+            echo "npm_tag=canary" >> $GITHUB_OUTPUT
+          else
+            echo "npm_tag=latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Find packages to publish
+        id: packages
         run: |
-          VERSION=${{ steps.vars.outputs.version }}
-          MATCHES=()
-          for d in Packages/*; do
-            [ -f "$d/package.json" ] || continue
-            v=$(jq -r .version "$d/package.json")
-            [ "$v" = "$VERSION" ] && MATCHES+=("$(basename "$d")")
+          VERSION=${{ steps.version.outputs.version }}
+          PKGS=()
+          for pkg in Packages/*; do
+            if [ -f "$pkg/package.json" ]; then
+              PKG_VERSION=$(jq -r .version "$pkg/package.json")
+              if [ "$PKG_VERSION" = "$VERSION" ]; then
+                PKGS+=("$pkg")
+              fi
+            fi
           done
-          if [ ${#MATCHES[@]} -eq 0 ]; then
-            echo "::error ::No package.json with version ${VERSION}"
+          if [ ${#PKGS[@]} -eq 0 ]; then
+            echo "::error ::No packages found with version $VERSION"
             exit 1
           fi
-          echo "packages=${MATCHES[*]}" >> $GITHUB_OUTPUT
+          echo "packages=${PKGS[*]}" >> $GITHUB_OUTPUT
 
       - name: Publish to npm
-        shell: bash
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          TAG=${{ steps.vars.outputs.npm_tag }}
-          for pkg in ${{ steps.find_pkgs.outputs.packages }}; do
-            echo "publishing $pkg@$TAG"
-            npm publish "Packages/$pkg" --access public --tag $TAG
+          for pkg in ${{ steps.packages.outputs.packages }}; do
+            echo "📦 Publishing $pkg"
+            npm publish "$pkg" --tag ${{ steps.version.outputs.npm_tag }} --access public
           done
