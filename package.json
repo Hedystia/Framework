@@ -7,11 +7,11 @@
     "typescript": "^5.8.3"
   },
   "scripts": {
-    "build": "bun run --cwd Package build",
+    "build": "bun run --cwd Packages/server build && bun run --cwd Packages/client build",
     "dev": "concurrently \"bun run --cwd Package dev\" \"bun run --cwd Tests dev\"",
     "test": "bun run --cwd Tests test",
     "test:build": "bun run --cwd Package build && bun run --cwd Tests build.js",
     "test:stress": "bun run --cwd Tests stress.ts"
   },
-  "workspaces": ["./Package", "./Tests"]
+  "workspaces": ["./Packages/server", "./Packages/client", "./Tests"]
 }

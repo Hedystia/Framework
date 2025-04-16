@@ -1,7 +1,7 @@
 {
-  "name": "@hedystia/framework",
+  "name": "hedystia",
   "module": "index.ts",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "dependencies": {
     "@zod/mini": "^4.0.0-beta.20250415T232143"
   },
@@ -27,5 +27,6 @@
     "dev": "bun --watch --no-clear-screen run src/index.ts"
   },
   "type": "commonjs",
-  "types": "./dist/index.d.ts"
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js"
 }

@@ -8,6 +8,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@zod/mini": "^4.0.0-beta.20250415T232143"
+    "@hedystia/client": "workspace:*",
+    "hedystia": "workspace:*"
   }
 }

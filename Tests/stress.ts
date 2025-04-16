@@ -1,4 +1,4 @@
-import { Framework, z } from "../Package/src";
+import Framework, { z } from "hedystia";
 
 const memory = process.memoryUsage().heapTotal / 1024 / 1024;
 

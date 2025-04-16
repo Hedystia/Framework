@@ -1,4 +1,5 @@
-const { Framework, createClient, z } = require("../Package/dist/index.js");
+const { Hedystia: Framework, z } = require("hedystia");
+const { createClient } = require("@hedystia/client");
 
 console.time("test-time");
 

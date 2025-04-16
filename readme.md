@@ -13,13 +13,20 @@
 1. Install the package:
 
 ```bash
-
+bun add hedystia
+npm i hedystia
+pnpm i hedystia
+yarn add hedystia
 ```
 
 2. Create your app:
 
 ```typescript
+import { Hedystia } from "hedystia";
 
+const app = new Hedystia()
+    .get("/", () => "Hello World!")
+    .listen(3000);
 ```
 
 3. Run your app:

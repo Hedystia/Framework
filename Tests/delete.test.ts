@@ -1,4 +1,5 @@
-import { Framework, createClient, z } from "../Package/src";
+import Framework, { z } from "hedystia";
+import { createClient } from "@hedystia/client";
 import { afterAll, describe, expect, it } from "bun:test";
 
 const app = new Framework()

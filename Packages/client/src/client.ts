@@ -1,4 +1,4 @@
-import type { Framework } from "./server";
+import type { Hedystia } from "hedystia";
 import type { RouteDefinition } from "./types/routes";
 
 type HttpMethod = "GET" | "PATCH" | "POST" | "PUT" | "DELETE";
@@ -164,7 +164,7 @@ type ClientTree<R> = UnionToIntersection<
 
 type ExtractRoutes<T extends RouteDefinition[]> = T[number];
 
-type ExtractRoutesFromFramework<T> = T extends Framework<infer R> ? ExtractRoutes<R> : never;
+type ExtractRoutesFromFramework<T> = T extends Hedystia<infer R> ? ExtractRoutes<R> : never;
 
 async function parseFormData(response: Response): Promise<FormData> {
   if (!response.ok) {
@@ -245,7 +245,7 @@ async function processResponse(response: Response, format: ResponseFormat = "jso
   }
 }
 
-export function createClient<T extends Framework<any>>(
+export function createClient<T extends Hedystia<any>>(
   baseUrl: string,
 ): ClientTree<ExtractRoutesFromFramework<T>> {
   const HTTP_METHODS = ["get", "put", "post", "patch", "delete"];

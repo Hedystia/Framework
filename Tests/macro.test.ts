@@ -1,4 +1,5 @@
-import { Framework, createClient, z } from "../Package/src";
+import Framework, { z } from "hedystia";
+import { createClient } from "@hedystia/client";
 import { describe, expect, it } from "bun:test";
 
 describe("Framework .macro() Tests", () => {

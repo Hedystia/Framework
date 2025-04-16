@@ -10,9 +10,27 @@
         "typescript": "^5.8.3",
       },
     },
-    "Package": {
-      "name": "@hedystia/framework",
-      "version": "0.0.1",
+    "Packages/client": {
+      "name": "@hedystia/client",
+      "version": "1.0.0",
+      "dependencies": {
+        "hedystia": "^1.0.0",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
+        "tsup": "^8.3.5",
+      },
+      "peerDependencies": {
+        "hedystia": ">= 1.0.0",
+        "typescript": ">= 5.0.0",
+      },
+      "optionalPeers": [
+        "typescript",
+      ],
+    },
+    "Packages/server": {
+      "name": "hedystia",
+      "version": "1.0.0",
       "dependencies": {
         "@zod/mini": "^4.0.0-beta.20250415T232143",
       },
@@ -31,7 +49,8 @@
     "Tests": {
       "name": "tests",
       "dependencies": {
-        "@zod/mini": "^4.0.0-beta.20250415T232143",
+        "@hedystia/client": "workspace:*",
+        "hedystia": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "latest",
@@ -107,7 +126,7 @@
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.2", "", { "os": "win32", "cpu": "x64" }, "sha512-kM3HKb16VIXZyIeVrM1ygYmZBKybX8N4p754bw390wGO3Tf2j4L2/WYL+4suWujpgf6GBYs3jv7TyUivdd05JA=="],
 
-    "@hedystia/framework": ["@hedystia/framework@workspace:Package"],
+    "@hedystia/client": ["@hedystia/client@workspace:Packages/client"],
 
     "@isaacs/cliui": ["@isaacs/cliui@8.0.2", "", { "dependencies": { "string-width": "^5.1.2", "string-width-cjs": "npm:string-width@^4.2.0", "strip-ansi": "^7.0.1", "strip-ansi-cjs": "npm:strip-ansi@^6.0.1", "wrap-ansi": "^8.1.0", "wrap-ansi-cjs": "npm:wrap-ansi@^7.0.0" } }, "sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA=="],
 
@@ -230,6 +249,8 @@
     "glob": ["glob@10.4.5", "", { "dependencies": { "foreground-child": "^3.1.0", "jackspeak": "^3.1.2", "minimatch": "^9.0.4", "minipass": "^7.1.2", "package-json-from-dist": "^1.0.0", "path-scurry": "^1.11.1" }, "bin": { "glob": "dist/esm/bin.mjs" } }, "sha512-7Bv8RF0k6xjo7d4A/PxYLbUCfb6c+Vpd2/mB2yRDlew7Jb5hEXiCD9ibfO7wpk8i4sevK6DFny9h7EYbM3/sHg=="],
 
     "has-flag": ["has-flag@4.0.0", "", {}, "sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ=="],
+
+    "hedystia": ["hedystia@workspace:Packages/server"],
 
     "is-fullwidth-code-point": ["is-fullwidth-code-point@3.0.0", "", {}, "sha512-zymm5+u+sCsSWyD9qNaejV3DFvhCKclKdizYaJUuHA83RLjb7nSuGnddCHGv0hk+KY7BMAlsWeK4Ueg6EV6XQg=="],
 

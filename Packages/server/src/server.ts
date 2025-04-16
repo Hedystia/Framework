@@ -55,8 +55,8 @@ type MacroData = Record<string, any>;
 
 type BunRouteRecord = Record<string, any>;
 
-export class Framework<Routes extends RouteDefinition[] = [], Macros extends MacroData = {}> {
-  routes: {
+export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends MacroData = {}> {
+  public routes: {
     method: "GET" | "PATCH" | "POST" | "PUT" | "DELETE";
     path: string;
     schema: RouteSchema;
@@ -83,14 +83,14 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
 
   macro<T extends Record<string, (enabled: boolean) => { resolve: MacroResolveFunction<any> }>>(
     config: T,
-  ): Framework<Routes, Macros & { [K in keyof T]: ReturnType<ReturnType<T[K]>["resolve"]> }> & {
+  ): Hedystia<Routes, Macros & { [K in keyof T]: ReturnType<ReturnType<T[K]>["resolve"]> }> & {
     error: MacroErrorFunction;
   } {
     for (const [key, macroFactory] of Object.entries(config)) {
       this.macros[key] = macroFactory(true);
     }
 
-    const self = this as unknown as Framework<
+    const self = this as unknown as Hedystia<
       Routes,
       Macros & { [K in keyof T]: ReturnType<ReturnType<T[K]>["resolve"]> }
     > & { error: MacroErrorFunction };
@@ -103,9 +103,9 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
 
   group<Prefix extends string, GroupRoutes extends RouteDefinition[]>(
     prefix: Prefix,
-    callback: (app: Framework<[]>) => Framework<GroupRoutes>,
-  ): Framework<[...Routes, ...PrefixRoutes<Prefix, GroupRoutes>]> {
-    const groupApp = new Framework();
+    callback: (app: Hedystia<[]>) => Hedystia<GroupRoutes>,
+  ): Hedystia<[...Routes, ...PrefixRoutes<Prefix, GroupRoutes>]> {
+    const groupApp = new Hedystia();
     groupApp.prefix = this.prefix + prefix;
 
     const configuredApp = callback(groupApp);
@@ -204,7 +204,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
       query?: Query;
       response?: ResponseSchema;
     } & MacroOptions = {} as any,
-  ): Framework<
+  ): Hedystia<
     [
       ...Routes,
       {
@@ -227,7 +227,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
       ? this.createWrappedHandler(handler, schema)
       : async function (ctx: any) {
           const result = await handler(ctx);
-          return result instanceof Response ? result : Framework.createResponse(result);
+          return result instanceof Response ? result : Hedystia.createResponse(result);
         };
 
     this.routes.push({
@@ -262,7 +262,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
       body?: Body;
       response?: ResponseSchema;
     } & MacroOptions = {} as any,
-  ): Framework<
+  ): Hedystia<
     [
       ...Routes,
       {
@@ -286,7 +286,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
       ? this.createWrappedHandler(handler, schema)
       : async function (ctx: any) {
           const result = await handler(ctx);
-          return result instanceof Response ? result : Framework.createResponse(result);
+          return result instanceof Response ? result : Hedystia.createResponse(result);
         };
 
     this.routes.push({
@@ -322,7 +322,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
       body?: Body;
       response?: ResponseSchema;
     } & MacroOptions = {} as any,
-  ): Framework<
+  ): Hedystia<
     [
       ...Routes,
       {
@@ -346,7 +346,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
       ? this.createWrappedHandler(handler, schema)
       : async function (ctx: any) {
           const result = await handler(ctx);
-          return result instanceof Response ? result : Framework.createResponse(result);
+          return result instanceof Response ? result : Hedystia.createResponse(result);
         };
 
     this.routes.push({
@@ -382,7 +382,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
       body?: Body;
       response?: ResponseSchema;
     } & MacroOptions = {} as any,
-  ): Framework<
+  ): Hedystia<
     [
       ...Routes,
       {
@@ -406,7 +406,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
       ? this.createWrappedHandler(handler, schema)
       : async function (ctx: any) {
           const result = await handler(ctx);
-          return result instanceof Response ? result : Framework.createResponse(result);
+          return result instanceof Response ? result : Hedystia.createResponse(result);
         };
 
     this.routes.push({
@@ -442,7 +442,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
       body?: Body;
       response?: ResponseSchema;
     } & MacroOptions = {} as any,
-  ): Framework<
+  ): Hedystia<
     [
       ...Routes,
       {
@@ -466,7 +466,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
       ? this.createWrappedHandler(handler, schema)
       : async function (ctx: any) {
           const result = await handler(ctx);
-          return result instanceof Response ? result : Framework.createResponse(result);
+          return result instanceof Response ? result : Hedystia.createResponse(result);
         };
 
     this.routes.push({
@@ -502,7 +502,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
     schema: {
       response?: ResponseSchema;
     } = {},
-  ): Framework<
+  ): Hedystia<
     [
       ...Routes,
       {
@@ -563,8 +563,8 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
 
   use<Prefix extends string, ChildRoutes extends RouteDefinition[]>(
     prefix: Prefix,
-    childFramework: Framework<ChildRoutes>,
-  ): Framework<[...Routes, ...PrefixRoutes<Prefix, ChildRoutes>]> {
+    childFramework: Hedystia<ChildRoutes>,
+  ): Hedystia<[...Routes, ...PrefixRoutes<Prefix, ChildRoutes>]> {
     for (const route of childFramework.routes) {
       this.routes.push({
         ...route,
@@ -700,7 +700,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
                 }
 
                 if (!(result instanceof Response)) {
-                  result = Framework.createResponse(result);
+                  result = Hedystia.createResponse(result);
                 }
               }
 
@@ -841,7 +841,7 @@ export class Framework<Routes extends RouteDefinition[] = [], Macros extends Mac
       }
 
       const result = await handler(ctx);
-      return result instanceof Response ? result : Framework.createResponse(result);
+      return result instanceof Response ? result : Hedystia.createResponse(result);
     };
   }
 
