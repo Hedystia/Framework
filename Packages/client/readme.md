@@ -109,7 +109,7 @@ await client.users.post({
 - ✅ Response Types: JSON, Text, FormData, Blob, ArrayBuffer
 - ✅ Router Groups & Middleware
 - ✅ Type-safe Client Generation
-- 🚧 WebSocket Support
+- ✅ WebSocket Support
 
 ### Advanced Capabilities
 - ✅ Zod Validation
