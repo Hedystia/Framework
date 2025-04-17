@@ -11,12 +11,12 @@ type PathParts<Path extends string> = Path extends `/${infer Rest}`
 type DeleteRequestFunction<B, Q, ResponseType> = (
   body?: B,
   query?: Q,
-  options?: { responseFormat?: ResponseFormat },
+  options?: { responseFormat?: ResponseFormat; headers?: Record<string, string> },
 ) => Promise<{ error: any | null; data: ResponseType | null }>;
 
 type RequestFunction<Q, ResponseType> = (
   query?: Q,
-  options?: { responseFormat?: ResponseFormat },
+  options?: { responseFormat?: ResponseFormat; headers?: Record<string, string> },
 ) => Promise<{
   error: any | null;
   data: ResponseType | null;
@@ -25,19 +25,19 @@ type RequestFunction<Q, ResponseType> = (
 type PatchRequestFunction<B, Q, ResponseType> = (
   body?: B,
   query?: Q,
-  options?: { responseFormat?: ResponseFormat },
+  options?: { responseFormat?: ResponseFormat; headers?: Record<string, string> },
 ) => Promise<{ error: any | null; data: ResponseType | null }>;
 
 type PostRequestFunction<B, Q, ResponseType> = (
   body?: B,
   query?: Q,
-  options?: { responseFormat?: ResponseFormat },
+  options?: { responseFormat?: ResponseFormat; headers?: Record<string, string> },
 ) => Promise<{ error: any | null; data: ResponseType | null }>;
 
 type PutRequestFunction<B, Q, ResponseType> = (
   body?: B,
   query?: Q,
-  options?: { responseFormat?: ResponseFormat },
+  options?: { responseFormat?: ResponseFormat; headers?: Record<string, string> },
 ) => Promise<{ error: any | null; data: ResponseType | null }>;
 
 type RouteToTreeInner<T extends string[], Params, Methods> = T extends [
@@ -294,6 +294,7 @@ export function createClient<T extends Hedystia<any>>(
             method,
             headers: {
               "Content-Type": "application/json",
+              ...options.headers,
             },
           };
           if (body !== undefined && method !== "GET") {
