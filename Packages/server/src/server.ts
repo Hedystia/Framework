@@ -624,6 +624,13 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       });
     }
 
+    for (const staticRoute of childFramework.staticRoutes) {
+      this.staticRoutes.push({
+        path: prefix + staticRoute.path,
+        response: staticRoute.response,
+      });
+    }
+
     this.onRequestHandlers.push(...childFramework.onRequestHandlers);
     this.onParseHandlers.push(...childFramework.onParseHandlers);
     this.onTransformHandlers.push(...childFramework.onTransformHandlers);
