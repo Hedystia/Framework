@@ -13,5 +13,14 @@
     "test:build": "bun run --cwd Package build && bun run --cwd Tests build.js",
     "test:stress": "bun run --cwd Tests stress.ts"
   },
+  "repository": {
+		"type": "git",
+		"url": "https://github.com/Hedystia/Framework"
+  },
+  "author": {
+    "name": "Zastinian",
+    "email": "contact@zastinian.com",
+    "url": "https://github.com/Zastinian"
+  },
   "workspaces": ["./Packages/server", "./Packages/client", "./Tests"]
 }
