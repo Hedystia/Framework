@@ -1,6 +1,5 @@
 import type { Hedystia, RouteDefinition } from "hedystia";
 
-type HttpMethod = "GET" | "PATCH" | "POST" | "PUT" | "DELETE";
 type ResponseFormat = "json" | "text" | "formData" | "bytes" | "arrayBuffer" | "blob";
 
 type PathParts<Path extends string> = Path extends `/${infer Rest}`
@@ -267,7 +266,7 @@ export function createClient<T extends Hedystia<any>>(
       apply(_target, _thisArg, args) {
         const lastSegment = segments[segments.length - 1];
         if (lastSegment && HTTP_METHODS.includes(lastSegment.toLowerCase())) {
-          const method = lastSegment.toUpperCase() as HttpMethod;
+          const method = lastSegment.toUpperCase() as "GET" | "PATCH" | "POST" | "PUT" | "DELETE";
           const newSegments = segments.slice(0, segments.length - 1);
           const fullPath = newSegments.length ? "/" + newSegments.join("/") : "";
           const url = new URL(fullPath, baseUrl);
