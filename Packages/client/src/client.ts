@@ -1,5 +1,4 @@
-import type { Hedystia } from "hedystia";
-import type { RouteDefinition } from "./types/routes";
+import type { Hedystia, RouteDefinition } from "hedystia";
 
 type HttpMethod = "GET" | "PATCH" | "POST" | "PUT" | "DELETE";
 type ResponseFormat = "json" | "text" | "formData" | "bytes" | "arrayBuffer" | "blob";
