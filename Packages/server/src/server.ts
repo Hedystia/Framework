@@ -55,6 +55,55 @@ type MacroData = Record<string, any>;
 
 type BunRouteRecord = Record<string, any>;
 
+type WebSocketHandler = {
+  message: (ws: ServerWebSocket, message: string | ArrayBuffer | Uint8Array) => void;
+  open?: (ws: ServerWebSocket) => void;
+  close?: (ws: ServerWebSocket, code: number, reason: string) => void;
+  error?: (ws: ServerWebSocket, error: Error) => void;
+  drain?: (ws: ServerWebSocket) => void;
+};
+
+type WebSocketOptions = {
+  maxPayloadLength?: number;
+  idleTimeout?: number;
+  backpressureLimit?: number;
+  closeOnBackpressureLimit?: boolean;
+  sendPings?: boolean;
+  publishToSelf?: boolean;
+  perMessageDeflate?:
+    | boolean
+    | {
+        compress?: boolean | Compressor;
+        decompress?: boolean | Compressor;
+      };
+};
+
+interface ServerWebSocket {
+  readonly data: any;
+  readonly readyState: number;
+  readonly remoteAddress: string;
+  send(message: string | ArrayBuffer | Uint8Array, compress?: boolean): number;
+  close(code?: number, reason?: string): void;
+  subscribe(topic: string): void;
+  unsubscribe(topic: string): void;
+  publish(topic: string, message: string | ArrayBuffer | Uint8Array): void;
+  isSubscribed(topic: string): boolean;
+  cork(cb: (ws: ServerWebSocket) => void): void;
+}
+
+type Compressor =
+  | "disable"
+  | "shared"
+  | "dedicated"
+  | "3KB"
+  | "4KB"
+  | "8KB"
+  | "16KB"
+  | "32KB"
+  | "64KB"
+  | "128KB"
+  | "256KB";
+
 export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends MacroData = {}> {
   public routes: {
     method: "GET" | "PATCH" | "POST" | "PUT" | "DELETE";
@@ -76,6 +125,9 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
   private onMapResponseHandlers: OnMapResponseHandler[] = [];
   private onErrorHandlers: OnErrorHandler[] = [];
   private onAfterResponseHandlers: OnAfterResponseHandler[] = [];
+
+  private wsRoutes: Map<string, WebSocketHandler & WebSocketOptions> = new Map();
+  private wsServer: any = null;
 
   constructor(options?: FrameworkOptions) {
     this.reusePort = options?.reusePort ?? false;
@@ -584,6 +636,30 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return this as any;
   }
 
+  ws<Path extends string, Params extends z.ZodMiniObject<any> = z.ZodMiniObject<any>>(
+    path: Path,
+    handler: WebSocketHandler,
+    options: WebSocketOptions & {
+      params?: Params;
+    } = {},
+  ): Hedystia<
+    [
+      ...Routes,
+      {
+        method: "WS";
+        path: Path;
+        params: Params extends z.ZodMiniObject<any> ? z.infer<Params> : {};
+        query: {};
+        response: unknown;
+      },
+    ],
+    Macros
+  > {
+    const fullPath = this.prefix + path;
+    this.wsRoutes.set(fullPath, { ...handler, ...options });
+    return this as any;
+  }
+
   listen(port: number): this {
     const self = this;
 
@@ -804,13 +880,85 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       }
     }
 
+    const wsConfig: Record<string, any> = {};
+    if (this.wsRoutes.size > 0) {
+      wsConfig.websocket = {
+        message: (ws: ServerWebSocket, message: string | ArrayBuffer | Uint8Array) => {
+          const handler = this.wsRoutes.get(ws.data?.__wsPath);
+          if (handler?.message) {
+            handler.message(ws, message);
+          }
+        },
+        open: (ws: ServerWebSocket) => {
+          const handler = this.wsRoutes.get(ws.data?.__wsPath);
+          if (handler?.open) {
+            handler.open(ws);
+          }
+        },
+        close: (ws: ServerWebSocket, code: number, reason: string) => {
+          const handler = this.wsRoutes.get(ws.data?.__wsPath);
+          if (handler?.close) {
+            handler.close(ws, code, reason);
+          }
+        },
+        error: (ws: ServerWebSocket, error: Error) => {
+          const handler = this.wsRoutes.get(ws.data?.__wsPath);
+          if (handler?.error) {
+            handler.error(ws, error);
+          }
+        },
+        drain: (ws: ServerWebSocket) => {
+          const handler = this.wsRoutes.get(ws.data?.__wsPath);
+          if (handler?.drain) {
+            handler.drain(ws);
+          }
+        },
+      };
+
+      for (const [_path, options] of this.wsRoutes.entries()) {
+        if (options.maxPayloadLength)
+          wsConfig.websocket.maxPayloadLength = options.maxPayloadLength;
+        if (options.idleTimeout) wsConfig.websocket.idleTimeout = options.idleTimeout;
+        if (options.backpressureLimit)
+          wsConfig.websocket.backpressureLimit = options.backpressureLimit;
+        if (options.closeOnBackpressureLimit)
+          wsConfig.websocket.closeOnBackpressureLimit = options.closeOnBackpressureLimit;
+        if (options.sendPings !== undefined) wsConfig.websocket.sendPings = options.sendPings;
+        if (options.publishToSelf !== undefined)
+          wsConfig.websocket.publishToSelf = options.publishToSelf;
+        if (options.perMessageDeflate !== undefined)
+          wsConfig.websocket.perMessageDeflate = options.perMessageDeflate;
+      }
+    }
+
     this.server = serve({
       port,
       reusePort: this.reusePort,
       routes: bunRoutes,
-      fetch: async function (req) {
+      fetch: function (this: any, req: Request, server: any) {
+        const url = new URL(req.url);
+        const path = url.pathname;
+        if (self.wsRoutes.has(path) && req.headers.get("upgrade")?.toLowerCase() === "websocket") {
+          const wsRoute = self.wsRoutes.get(path);
+          const wsParamsSchema = (wsRoute as any)?.params;
+          if (wsParamsSchema) {
+            const rawParams = matchRoute(path, path);
+            const parsedParams = wsParamsSchema.safeParse(rawParams || {});
+            if (!parsedParams.success) {
+              return new Response("Invalid WebSocket parameters", { status: 400 });
+            }
+          }
+          const upgraded = server.upgrade(req, {
+            data: { __wsPath: path },
+          });
+          if (!upgraded) {
+            return new Response("WebSocket upgrade failed", { status: 400 });
+          }
+          return new Response(null, { status: 101 });
+        }
         return new Response("Not found", { status: 404 });
       },
+      ...wsConfig,
     });
 
     return this;
