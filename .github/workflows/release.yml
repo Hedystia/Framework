@@ -12,45 +12,8 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Get changed package.json files
-        id: changed
-        run: |
-          git fetch origin ${{ github.event.before }}
-          changed=$(git diff --name-only origin/${{ github.event.before }} HEAD -- Packages/**/package.json | sort)
-          echo "changed_files<<EOF" >> $GITHUB_OUTPUT
-          echo "$changed" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Check versions
-        id: check_versions
-        run: |
-          set -e
-          packages_dir="Packages"
-          changed_files="${{ steps.changed.outputs.changed_files }}"
-
-          all_packages=$(find $packages_dir -name "package.json" | sort)
-          total_packages=$(echo "$all_packages" | wc -l)
-          changed_packages=$(echo "$changed_files" | wc -l)
-
-          if [ "$total_packages" != "$changed_packages" ]; then
-            echo "Not all package.json files changed"
-            echo "should_run=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          versions=$(jq -r .version <<< "$all_packages" | xargs -n1 jq -r .version)
-          unique_versions=$(echo "$versions" | sort | uniq | wc -l)
-
-          if [ "$unique_versions" -ne 1 ]; then
-            echo "Versions are not all the same"
-            echo "should_run=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          echo "should_run=true" >> $GITHUB_OUTPUT
-
       - name: Run changelogithub
-        if: steps.check_versions.outputs.should_run == 'true'
+        if: github.event.head_commit.message =~ '^chore: release'
         run: npx changelogithub
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
