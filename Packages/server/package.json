@@ -27,8 +27,8 @@
     "dev": "bun --watch --no-clear-screen run src/index.ts"
   },
   "repository": {
-		"type": "git",
-		"url": "https://github.com/Hedystia/Framework"
+    "type": "git",
+    "url": "https://github.com/Hedystia/Framework"
   },
   "author": {
     "name": "Zastinian",

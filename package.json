@@ -14,8 +14,8 @@
     "test:stress": "bun run --cwd Tests stress.ts"
   },
   "repository": {
-		"type": "git",
-		"url": "https://github.com/Hedystia/Framework"
+    "type": "git",
+    "url": "https://github.com/Hedystia/Framework"
   },
   "author": {
     "name": "Zastinian",
