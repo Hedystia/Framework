@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@hedystia/client": "workspace:*",
+    "@hedystia/swagger": "workspace:*",
     "hedystia": "workspace:*"
   }
 }
