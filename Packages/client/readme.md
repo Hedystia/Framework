@@ -76,6 +76,25 @@ await client.users.post({
 });
 ```
 
+### 📖 Swagger Integration
+
+```typescript
+import { swagger } from "@hedystia/swagger";
+
+const swaggerPlugin = swagger({
+  title: "My API",
+  description: "An example API with Swagger",
+  version: "1.0.0",
+  tags: [
+    { name: "users", description: "User operations" },
+  ],
+});
+
+swaggerPlugin.captureRoutes(app);
+
+app.use("/swagger", swaggerPlugin.plugin).listen(3000);
+```
+
 ### ⚡ Performance First
 - Bun runtime optimized
 - Only zod dependency
@@ -116,7 +135,7 @@ await client.users.post({
 - ✅ Hooks System (onRequest, onError, etc)
 - ✅ Macro System for Auth/Rate Limiting
 - 🚧 File System Routing
-- 🚧 OpenAPI Spec Generation
+- ✅ OpenAPI - Swagger Integration
 
 ## 💼 Production Ready
 ```typescript
@@ -138,7 +157,7 @@ await client.users.post({
 ```
 
 ## 📜 License
-MIT License © 2024 Hedystia Contributors
+MIT License © 2025 Hedystia
 
 ## 🗣️ Community
 - [GitHub Issues](https://github.com/Hedystia/Framework/issues)
