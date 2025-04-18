@@ -7,6 +7,8 @@ type RouteSchema = {
   query?: z.ZodMiniObject<any>;
   body?: z.ZodMiniType<any>;
   response?: z.ZodMiniType<any>;
+  description?: string;
+  tags?: string[];
 };
 
 type InferRouteContext<T extends RouteSchema> = {
@@ -255,6 +257,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       params?: Params;
       query?: Query;
       response?: ResponseSchema;
+      description?: string;
+      tags?: string[];
     } & MacroOptions = {} as any,
   ): Hedystia<
     [
@@ -290,6 +294,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         params: schema.params || (z.object({}) as any),
         query: schema.query || (z.object({}) as any),
         response: schema.response,
+        description: schema.description,
+        tags: schema.tags,
       },
     });
 
@@ -313,6 +319,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       query?: Query;
       body?: Body;
       response?: ResponseSchema;
+      description?: string;
+      tags?: string[];
     } & MacroOptions = {} as any,
   ): Hedystia<
     [
@@ -350,6 +358,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         query: schema.query || (z.object({}) as any),
         body: schema.body,
         response: schema.response,
+        description: schema.description,
+        tags: schema.tags,
       },
     });
 
@@ -373,6 +383,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       query?: Query;
       body?: Body;
       response?: ResponseSchema;
+      description?: string;
+      tags?: string[];
     } & MacroOptions = {} as any,
   ): Hedystia<
     [
@@ -410,6 +422,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         query: schema.query || (z.object({}) as any),
         body: schema.body,
         response: schema.response,
+        description: schema.description,
+        tags: schema.tags,
       },
     });
 
@@ -433,6 +447,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       query?: Query;
       body?: Body;
       response?: ResponseSchema;
+      description?: string;
+      tags?: string[];
     } & MacroOptions = {} as any,
   ): Hedystia<
     [
@@ -470,6 +486,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         query: schema.query || (z.object({}) as any),
         body: schema.body,
         response: schema.response,
+        description: schema.description,
+        tags: schema.tags,
       },
     });
 
@@ -493,6 +511,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       query?: Query;
       body?: Body;
       response?: ResponseSchema;
+      description?: string;
+      tags?: string[];
     } & MacroOptions = {} as any,
   ): Hedystia<
     [
@@ -530,6 +550,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         query: schema.query || (z.object({}) as any),
         body: schema.body,
         response: schema.response,
+        description: schema.description,
+        tags: schema.tags,
       },
     });
 
@@ -971,13 +993,19 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return this;
   }
 
+  toJSONSchema(schema: any) {
+    return z.toJSONSchema(schema);
+  }
+
   private createWrappedHandler(
     handler: (ctx: any) => Response | any,
     schema: Record<string, any>,
   ): RequestHandler {
     const macros = Object.entries(schema)
       .filter(
-        ([key]) => !["params", "query", "body", "response"].includes(key) && schema[key] === true,
+        ([key]) =>
+          !["params", "query", "body", "response", "description", "tags"].includes(key) &&
+          schema[key] === true,
       )
       .map(([key]) => ({ key, macro: this.macros[key] }));
 
