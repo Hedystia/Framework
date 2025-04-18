@@ -10,11 +10,11 @@ export default defineConfig(({ watch = false }) => ({
   target: "esnext",
   splitting: false,
   watch,
-  esbuildOptions(options) {
-    options.minifyIdentifiers = true;
-    options.minifySyntax = true;
-    options.minifyWhitespace = true;
-    options.keepNames = false;
-  },
+  minify: true,
+  minifyIdentifiers: true,
+  minifySyntax: true,
+  minifyWhitespace: true,
+  keepNames: false,
+  sourcemap: false,
   external: ["bun", "hedystia"],
 }));
