@@ -1,5 +1,5 @@
 import { Hedystia } from "./server";
-export { z } from "@zod/mini";
+export { h } from "@hedystia/validations";
 
 export { Hedystia };
 export default Hedystia;
