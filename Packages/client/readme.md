@@ -26,6 +26,7 @@
 - 🧩 **Client integration** - Auto-generated type-safe HTTP client
 - 🛡️ **Validation built-in** - Zod integration for runtime safety
 - 🔌 **Extensible architecture** - Middleware, hooks and macros system
+- 📝 **Standard Schema** - Compatibility with the standard schema so you can use it with Zod, Arktype, etc.
 
 ## 🚀 Launch in 30 Seconds
 
@@ -36,12 +37,12 @@ bun add hedystia
 
 2. Create your first API:
 ```typescript
-import { Hedystia, z } from "hedystia";
+import { Hedystia, h } from "hedystia";
 
 const app = new Hedystia()
   .get("/hello/:name", (ctx) => `Hello ${ctx.params.name}!`, {
-    params: z.object({ name: z.string() }),
-    response: z.string()
+    params: h.object({ name: h.string() }),
+    response: h.string()
   })
   .listen(3000);
 ```
@@ -63,9 +64,9 @@ console.log(data); // "Hello World!"
 ```typescript
 // Server-side validation
 .post("/users", (ctx) => {...}, {
-  body: z.object({
-    email: z.string().email(),
-    age: z.number().positive()
+  body: h.object({
+    email: h.email(),
+    age: h.number()
   })
 })
 
@@ -110,7 +111,7 @@ app.use("/swagger", swaggerPlugin.plugin).listen(3000);
 
 // Binary responses
 .get("/pdf", () => new Blob([...]), {
-  response: z.instanceof(Blob)
+  response: h.instanceof(Blob)
 })
 
 // Nested routing
@@ -129,12 +130,12 @@ app.use("/swagger", swaggerPlugin.plugin).listen(3000);
 - ✅ Router Groups & Middleware
 - ✅ Type-safe Client Generation
 - ✅ WebSocket Support
+- ✅ Standard Schema Compatibility
 
 ### Advanced Capabilities
-- ✅ Zod Validation
+- ✅ Zod Validation - Changed to native validation plugin
 - ✅ Hooks System (onRequest, onError, etc)
 - ✅ Macro System for Auth/Rate Limiting
-- 🚧 File System Routing
 - ✅ OpenAPI - Swagger Integration
 
 ## 💼 Production Ready
