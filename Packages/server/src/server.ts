@@ -129,7 +129,6 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
   private onAfterResponseHandlers: OnAfterResponseHandler[] = [];
 
   private wsRoutes: Map<string, WebSocketHandler & WebSocketOptions> = new Map();
-  private wsServer: any = null;
 
   constructor(options?: FrameworkOptions) {
     this.reusePort = options?.reusePort ?? false;
