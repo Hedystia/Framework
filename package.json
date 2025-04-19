@@ -7,7 +7,7 @@
     "typescript": "^5.8.3"
   },
   "scripts": {
-    "build": "bun run --cwd Packages/server build && bun run --cwd Packages/client build && bun run --cwd Packages/swagger build && bun run --cwd Packages/validations build",
+    "build": " bun run --cwd Packages/validations build && bun run --cwd Packages/server build && bun run --cwd Packages/client build && bun run --cwd Packages/swagger build",
     "dev": "concurrently \"bun run --cwd Packages/server dev\" \"bun run --cwd Tests dev\"",
     "test": "bun run --cwd Tests test",
     "test:build": "bun run build && bun run --cwd Tests build.js",
