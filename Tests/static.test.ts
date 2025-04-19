@@ -1,4 +1,4 @@
-import Framework, { z } from "hedystia";
+import Framework, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
 
 import { afterAll, describe, expect, it } from "bun:test";
@@ -12,11 +12,11 @@ const app = new Framework()
       });
     },
     {
-      response: z.object({ type: z.literal("dynamic") }),
+      response: h.object({ type: h.literal("dynamic") }),
     },
   )
   .static("/static-json", Response.json({ type: "static" }), {
-    response: z.object({ type: z.literal("static") }),
+    response: h.object({ type: h.literal("static") }),
   })
   .static(
     "/static-text",
@@ -24,7 +24,7 @@ const app = new Framework()
       headers: { "Content-Type": "text/plain" },
     }),
     {
-      response: z.string(),
+      response: h.string(),
     },
   )
   .static(
@@ -33,7 +33,7 @@ const app = new Framework()
       headers: { "Content-Type": "text/html" },
     }),
     {
-      response: z.string(),
+      response: h.string(),
     },
   )
   .listen(3020);

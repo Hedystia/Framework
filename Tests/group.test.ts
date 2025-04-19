@@ -1,4 +1,4 @@
-import Framework, { z } from "hedystia";
+import Framework, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
 import { describe, expect, it } from "bun:test";
 
@@ -18,11 +18,11 @@ describe("Framework .group() Tests", () => {
               });
             },
             {
-              response: z.object({
-                products: z.array(
-                  z.object({
-                    id: z.number(),
-                    name: z.string(),
+              response: h.object({
+                products: h.array(
+                  h.object({
+                    id: h.number(),
+                    name: h.string(),
                   }),
                 ),
               }),
@@ -35,12 +35,12 @@ describe("Framework .group() Tests", () => {
               return Response.json({ id: productId, name: `Product ${productId}` });
             },
             {
-              params: z.object({
-                id: z.coerce.number(),
+              params: h.object({
+                id: h.number().coerce(),
               }),
-              response: z.object({
-                id: z.number(),
-                name: z.string(),
+              response: h.object({
+                id: h.number(),
+                name: h.string(),
               }),
             },
           )
@@ -51,8 +51,8 @@ describe("Framework .group() Tests", () => {
                 return Response.json({ categories: ["Electronics", "Clothing", "Books"] });
               },
               {
-                response: z.object({
-                  categories: z.array(z.string()),
+                response: h.object({
+                  categories: h.array(h.string()),
                 }),
               },
             );

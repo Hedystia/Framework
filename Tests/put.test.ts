@@ -1,4 +1,4 @@
-import Framework, { z } from "hedystia";
+import Framework, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
 
 import { afterAll, describe, expect, it } from "bun:test";
@@ -13,20 +13,20 @@ const app = new Framework()
       });
     },
     {
-      params: z.object({
-        id: z.coerce.number(),
+      params: h.object({
+        id: h.number().coerce(),
       }),
-      body: z.object({
-        title: z.string(),
-        content: z.string(),
-        published: z.optional(z.boolean()),
+      body: h.object({
+        title: h.string(),
+        content: h.string(),
+        published: h.optional(h.boolean()),
       }),
-      response: z.object({
-        params: z.object({ id: z.number() }),
-        body: z.object({
-          title: z.string(),
-          content: z.string(),
-          published: z.optional(z.boolean()),
+      response: h.object({
+        params: h.object({ id: h.number() }),
+        body: h.object({
+          title: h.string(),
+          content: h.string(),
+          published: h.optional(h.boolean()),
         }),
       }),
     },
@@ -41,20 +41,20 @@ const app = new Framework()
       });
     },
     {
-      params: z.object({
-        id: z.coerce.number(),
+      params: h.object({
+        id: h.number().coerce(),
       }),
-      query: z.object({
-        notify: z.optional(z.enum(["yes", "no"])),
+      query: h.object({
+        notify: h.optional(h.enum(["yes", "no"])),
       }),
-      body: z.object({
-        status: z.enum(["draft", "published", "archived"]),
+      body: h.object({
+        status: h.enum(["draft", "published", "archived"]),
       }),
-      response: z.object({
-        params: z.object({ id: z.number() }),
-        query: z.object({ notify: z.optional(z.enum(["yes", "no"])) }),
-        body: z.object({
-          status: z.enum(["draft", "published", "archived"]),
+      response: h.object({
+        params: h.object({ id: h.number() }),
+        query: h.object({ notify: h.optional(h.enum(["yes", "no"])) }),
+        body: h.object({
+          status: h.enum(["draft", "published", "archived"]),
         }),
       }),
     },
@@ -67,17 +67,17 @@ const app = new Framework()
       });
     },
     {
-      body: z.array(
-        z.object({
-          id: z.number(),
-          title: z.string(),
+      body: h.array(
+        h.object({
+          id: h.number(),
+          title: h.string(),
         }),
       ),
-      response: z.object({
-        body: z.array(
-          z.object({
-            id: z.number(),
-            title: z.string(),
+      response: h.object({
+        body: h.array(
+          h.object({
+            id: h.number(),
+            title: h.string(),
           }),
         ),
       }),

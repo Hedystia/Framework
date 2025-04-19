@@ -1,4 +1,4 @@
-import Framework, { z } from "hedystia";
+import Framework, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
 
 import { afterAll, describe, expect, it } from "bun:test";
@@ -12,16 +12,16 @@ const app = new Framework()
       });
     },
     {
-      query: z.object({
-        category: z.optional(z.string()),
-        limit: z.optional(z.coerce.number()),
-        sort: z.optional(z.enum(["asc", "desc"])),
+      query: h.object({
+        category: h.optional(h.string()),
+        limit: h.optional(h.number().coerce()),
+        sort: h.optional(h.enum(["asc", "desc"])),
       }),
-      response: z.object({
-        query: z.object({
-          category: z.optional(z.string()),
-          limit: z.optional(z.number()),
-          sort: z.optional(z.enum(["asc", "desc"])),
+      response: h.object({
+        query: h.object({
+          category: h.optional(h.string()),
+          limit: h.optional(h.number()),
+          sort: h.optional(h.enum(["asc", "desc"])),
         }),
       }),
     },
@@ -35,18 +35,18 @@ const app = new Framework()
       });
     },
     {
-      params: z.object({
-        id: z.coerce.number(),
+      params: h.object({
+        id: h.number().coerce(),
       }),
-      query: z.object({
-        fields: z.optional(z.string()),
-        include: z.optional(z.string()),
+      query: h.object({
+        fields: h.optional(h.string()),
+        include: h.optional(h.string()),
       }),
-      response: z.object({
-        params: z.object({ id: z.number() }),
-        query: z.object({
-          fields: z.optional(z.string()),
-          include: z.optional(z.string()),
+      response: h.object({
+        params: h.object({ id: h.number() }),
+        query: h.object({
+          fields: h.optional(h.string()),
+          include: h.optional(h.string()),
         }),
       }),
     },

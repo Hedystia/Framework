@@ -1,4 +1,4 @@
-import Framework, { z } from "hedystia";
+import Framework, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
 import { afterAll, describe, expect, it } from "bun:test";
 
@@ -13,19 +13,19 @@ const app = new Framework()
       });
     },
     {
-      params: z.object({
-        id: z.coerce.number(),
+      params: h.object({
+        id: h.number().coerce(),
       }),
-      query: z.object({
-        reason: z.optional(z.enum(["obsolete", "duplicate", "other"])),
+      query: h.object({
+        reason: h.optional(h.enum(["obsolete", "duplicate", "other"])),
       }),
-      body: z.object({
-        confirm: z.boolean(),
+      body: h.object({
+        confirm: h.boolean(),
       }),
-      response: z.object({
-        params: z.object({ id: z.number() }),
-        query: z.object({ reason: z.optional(z.enum(["obsolete", "duplicate", "other"])) }),
-        body: z.object({ confirm: z.boolean() }),
+      response: h.object({
+        params: h.object({ id: h.number() }),
+        query: h.object({ reason: h.optional(h.enum(["obsolete", "duplicate", "other"])) }),
+        body: h.object({ confirm: h.boolean() }),
       }),
     },
   )
@@ -37,12 +37,12 @@ const app = new Framework()
       });
     },
     {
-      query: z.object({
-        force: z.optional(z.boolean()),
+      query: h.object({
+        force: h.optional(h.boolean()),
       }),
-      response: z.object({
-        body: z.array(z.number()),
-        query: z.object({ force: z.optional(z.boolean()) }),
+      response: h.object({
+        body: h.array(h.number()),
+        query: h.object({ force: h.optional(h.boolean()) }),
       }),
     },
   )

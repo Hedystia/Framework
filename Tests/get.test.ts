@@ -1,4 +1,4 @@
-import Framework, { z } from "hedystia";
+import Framework, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
 
 import { afterAll, describe, expect, it } from "bun:test";
@@ -12,7 +12,7 @@ const app = new Framework()
       });
     },
     {
-      response: z.object({ status: z.literal("ok") }),
+      response: h.object({ status: h.literal("ok") }),
     },
   )
   .get(
@@ -21,10 +21,10 @@ const app = new Framework()
       return Response.json(context.params);
     },
     {
-      params: z.object({
-        name: z.string(),
+      params: h.object({
+        name: h.string(),
       }),
-      response: z.object({ name: z.string() }),
+      response: h.object({ name: h.string() }),
     },
   )
   .get(
@@ -33,11 +33,11 @@ const app = new Framework()
       return Response.json(context.params);
     },
     {
-      params: z.object({
-        id: z.coerce.number(),
-        name: z.string(),
+      params: h.object({
+        id: h.number().coerce(),
+        name: h.string(),
       }),
-      response: z.object({ id: z.coerce.number(), name: z.string() }),
+      response: h.object({ id: h.number(), name: h.string() }),
     },
   )
   .listen(3000);
@@ -52,13 +52,18 @@ describe("Test get route", () => {
   });
 
   it("should return a response with params", async () => {
-    const { data: test } = await client.test.test.new.random.name("sally").id(123).get();
+    const { data: test, error } = await client.test.test.new.random.name("sally").id(123).get();
+
+    expect(error).toBeNull();
 
     expect(test).toEqual({ id: 123, name: "sally" });
   });
 
   it("should return a response for path ending in 'get'", async () => {
-    const { data: response } = await client.users.get.get();
+    const { error, data: response } = await client.users.get.get();
+
+    expect(error).toBeNull();
+
     expect(response).toEqual({ status: "ok" });
   });
 

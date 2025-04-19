@@ -1,4 +1,4 @@
-import Framework, { z } from "hedystia";
+import Framework, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
 
 import { afterAll, describe, expect, it } from "bun:test";
@@ -14,10 +14,10 @@ const app = new Framework()
       });
     },
     {
-      response: z.object({
-        message: z.string(),
-        success: z.boolean(),
-        data: z.array(z.number()),
+      response: h.object({
+        message: h.string(),
+        success: h.boolean(),
+        data: h.array(h.number()),
       }),
     },
   )
@@ -30,15 +30,15 @@ const app = new Framework()
       });
     },
     {
-      body: z.object({
-        name: z.string(),
-        age: z.number(),
+      body: h.object({
+        name: h.string(),
+        age: h.number(),
       }),
-      response: z.object({
-        message: z.optional(z.string()),
-        receivedData: z.object({
-          name: z.optional(z.string()),
-          age: z.optional(z.number()),
+      response: h.object({
+        message: h.optional(h.string()),
+        receivedData: h.object({
+          name: h.optional(h.string()),
+          age: h.optional(h.number()),
         }),
       }),
     },
@@ -52,7 +52,7 @@ const app = new Framework()
       });
     },
     {
-      response: z.optional(z.string()),
+      response: h.optional(h.string()),
     },
   )
   .post(
@@ -63,10 +63,10 @@ const app = new Framework()
       });
     },
     {
-      body: z.object({
-        message: z.string(),
+      body: h.object({
+        message: h.string(),
       }),
-      response: z.optional(z.string()),
+      response: h.optional(h.string()),
     },
   )
 
@@ -80,7 +80,7 @@ const app = new Framework()
       return new Response(formData);
     },
     {
-      response: z.optional(z.instanceof(FormData)),
+      response: h.optional(h.instanceOf(FormData)),
     },
   )
   .post(
@@ -92,10 +92,10 @@ const app = new Framework()
       return new Response(formData);
     },
     {
-      body: z.object({
-        message: z.string(),
+      body: h.object({
+        message: h.string(),
       }),
-      response: z.optional(z.instanceof(FormData)),
+      response: h.optional(h.instanceOf(FormData)),
     },
   )
 
@@ -107,7 +107,7 @@ const app = new Framework()
       return new Response(bytes);
     },
     {
-      response: z.optional(z.instanceof(Uint8Array)),
+      response: h.optional(h.instanceOf(Uint8Array)),
     },
   )
   .post(
@@ -118,10 +118,10 @@ const app = new Framework()
       return new Response(bytes);
     },
     {
-      body: z.object({
-        message: z.string(),
+      body: h.object({
+        message: h.string(),
       }),
-      response: z.optional(z.instanceof(Uint8Array)),
+      response: h.optional(h.instanceOf(Uint8Array)),
     },
   )
 
@@ -133,7 +133,7 @@ const app = new Framework()
       return new Response(buffer);
     },
     {
-      response: z.optional(z.instanceof(ArrayBuffer)),
+      response: h.optional(h.instanceOf(ArrayBuffer)),
     },
   )
   .post(
@@ -144,10 +144,10 @@ const app = new Framework()
       return new Response(buffer);
     },
     {
-      body: z.object({
-        message: z.string(),
+      body: h.object({
+        message: h.string(),
       }),
-      response: z.optional(z.instanceof(ArrayBuffer)),
+      response: h.optional(h.instanceOf(ArrayBuffer)),
     },
   )
 
@@ -158,7 +158,7 @@ const app = new Framework()
       return new Response(blob);
     },
     {
-      response: z.optional(z.instanceof(Blob)),
+      response: h.optional(h.instanceOf(Blob)),
     },
   )
   .post(
@@ -168,10 +168,10 @@ const app = new Framework()
       return new Response(blob);
     },
     {
-      body: z.object({
-        message: z.string(),
+      body: h.object({
+        message: h.string(),
       }),
-      response: z.optional(z.instanceof(Blob)),
+      response: h.optional(h.instanceOf(Blob)),
     },
   )
 
@@ -183,10 +183,10 @@ const app = new Framework()
       });
     },
     {
-      params: z.object({
-        id: z.coerce.number(),
+      params: h.object({
+        id: h.number().coerce(),
       }),
-      response: z.optional(z.string()),
+      response: h.optional(h.string()),
     },
   )
 
@@ -199,18 +199,18 @@ const app = new Framework()
       });
     },
     {
-      params: z.object({
-        id: z.coerce.number(),
+      params: h.object({
+        id: h.number().coerce(),
       }),
-      body: z.object({
-        name: z.optional(z.string()),
-        status: z.optional(z.string()),
+      body: h.object({
+        name: h.optional(h.string()),
+        status: h.optional(h.string()),
       }),
-      response: z.object({
-        message: z.optional(z.string()),
-        updatedFields: z.object({
-          name: z.optional(z.string()),
-          status: z.optional(z.string()),
+      response: h.object({
+        message: h.optional(h.string()),
+        updatedFields: h.object({
+          name: h.optional(h.string()),
+          status: h.optional(h.string()),
         }),
       }),
     },
@@ -226,22 +226,22 @@ const app = new Framework()
       });
     },
     {
-      params: z.object({
-        id: z.coerce.number(),
+      params: h.object({
+        id: h.number().coerce(),
       }),
-      query: z.object({
-        notify: z.optional(z.enum(["yes", "no"])),
+      query: h.object({
+        notify: h.optional(h.enum(["yes", "no"])),
       }),
-      body: z.object({
-        name: z.string(),
-        description: z.optional(z.string()),
+      body: h.object({
+        name: h.string(),
+        description: h.optional(h.string()),
       }),
-      response: z.object({
-        message: z.optional(z.string()),
-        notify: z.optional(z.enum(["yes", "no"])),
-        data: z.object({
-          name: z.optional(z.string()),
-          description: z.optional(z.string()),
+      response: h.object({
+        message: h.optional(h.string()),
+        notify: h.optional(h.enum(["yes", "no"])),
+        data: h.object({
+          name: h.optional(h.string()),
+          description: h.optional(h.string()),
         }),
       }),
     },

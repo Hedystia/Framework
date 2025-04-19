@@ -1,4 +1,4 @@
-const { Hedystia: Framework, z } = require("hedystia");
+const { Hedystia: Framework, h } = require("hedystia");
 const { createClient } = require("@hedystia/client");
 
 console.time("test-time");
@@ -12,7 +12,7 @@ const app = new Framework()
       });
     },
     {
-      response: z.object({ status: z.literal("ok") }),
+      response: h.object({ status: h.literal("ok") }),
     },
   )
   .get(
@@ -21,10 +21,10 @@ const app = new Framework()
       return Response.json(context.params);
     },
     {
-      params: z.object({
-        name: z.string(),
+      params: h.object({
+        name: h.string(),
       }),
-      response: z.object({ name: z.string() }),
+      response: h.object({ name: h.string() }),
     },
   )
   .get(
@@ -33,11 +33,11 @@ const app = new Framework()
       return Response.json(context.params);
     },
     {
-      params: z.object({
-        id: z.coerce.number(),
-        name: z.string(),
+      params: h.object({
+        id: h.number().coerce(),
+        name: h.string(),
       }),
-      response: z.object({ id: z.coerce.number(), name: z.string() }),
+      response: h.object({ id: h.number(), name: h.string() }),
     },
   )
   .listen(3021);

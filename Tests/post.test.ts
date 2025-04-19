@@ -1,4 +1,4 @@
-import Framework, { z } from "hedystia";
+import Framework, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
 
 import { afterAll, describe, expect, it } from "bun:test";
@@ -10,10 +10,10 @@ const app = new Framework()
       return Response.json(context.params);
     },
     {
-      params: z.object({
-        id: z.coerce.number(),
+      params: h.object({
+        id: h.number().coerce(),
       }),
-      response: z.object({ id: z.coerce.number() }),
+      response: h.object({ id: h.number().coerce() }),
     },
   )
   .post(
@@ -25,16 +25,16 @@ const app = new Framework()
       });
     },
     {
-      params: z.object({
-        id: z.coerce.number(),
+      params: h.object({
+        id: h.number().coerce(),
       }),
-      body: z.object({
-        name: z.string(),
-        email: z.email(),
+      body: h.object({
+        name: h.string(),
+        email: h.email(),
       }),
-      response: z.object({
-        params: z.object({ id: z.coerce.number() }),
-        body: z.object({ name: z.string(), email: z.email() }),
+      response: h.object({
+        params: h.object({ id: h.number().coerce() }),
+        body: h.object({ name: h.string(), email: h.email() }),
       }),
     },
   )
@@ -46,10 +46,10 @@ const app = new Framework()
       });
     },
     {
-      body: z.object({
-        name: z.string(),
+      body: h.object({
+        name: h.string(),
       }),
-      response: z.object({ body: z.object({ name: z.string() }) }),
+      response: h.object({ body: h.object({ name: h.string() }) }),
     },
   )
   .post(
@@ -61,12 +61,12 @@ const app = new Framework()
       });
     },
     {
-      params: z.object({
-        userId: z.string(),
+      params: h.object({
+        userId: h.string(),
       }),
-      response: z.object({
-        params: z.object({ userId: z.string() }),
-        body: z.optional(z.object()),
+      response: h.object({
+        params: h.object({ userId: h.string() }),
+        body: h.optional(h.object()),
       }),
     },
   )
@@ -78,7 +78,7 @@ const app = new Framework()
       });
     },
     {
-      response: z.object({ body: z.optional(z.string()) }),
+      response: h.object({ body: h.optional(h.string()) }),
     },
   )
   .post(
@@ -89,7 +89,7 @@ const app = new Framework()
       });
     },
     {
-      response: z.object({ body: z.optional(z.object()) }),
+      response: h.object({ body: h.optional(h.object()) }),
     },
   )
   .listen(3001);

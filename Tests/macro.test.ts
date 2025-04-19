@@ -1,4 +1,4 @@
-import Framework, { z } from "hedystia";
+import Framework, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
 import { describe, expect, it } from "bun:test";
 
@@ -38,10 +38,10 @@ describe("Framework .macro() Tests", () => {
         },
         {
           auth: true,
-          response: z.object({
-            message: z.string(),
-            user: z.number(),
-            token: z.string(),
+          response: h.object({
+            message: h.string(),
+            user: h.number(),
+            token: h.string(),
           }),
         },
       )
@@ -53,8 +53,8 @@ describe("Framework .macro() Tests", () => {
         },
         {
           logger: true,
-          response: z.object({
-            message: z.string(),
+          response: h.object({
+            message: h.string(),
           }),
         },
       )
@@ -126,10 +126,10 @@ describe("Framework .macro() Tests", () => {
         {
           premiumUser: true,
           rateLimit: true,
-          response: z.object({
-            feature: z.string(),
-            tier: z.string(),
-            requestsRemaining: z.number(),
+          response: h.object({
+            feature: h.string(),
+            tier: h.string(),
+            requestsRemaining: h.number(),
           }),
         },
       )

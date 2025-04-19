@@ -1,4 +1,4 @@
-import Framework, { z } from "hedystia";
+import Framework, { h } from "hedystia";
 
 const memory = process.memoryUsage().heapTotal / 1024 / 1024;
 
@@ -9,7 +9,7 @@ const app = new Framework();
 const plugin = new Framework();
 
 const responseHandler = () => new Response("hi");
-const responseSchema = { response: z.string() };
+const responseSchema = { response: h.string() };
 
 const paths = Array(total * sub);
 for (let i = 0; i < total * sub; i++) {

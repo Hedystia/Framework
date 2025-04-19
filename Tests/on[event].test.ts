@@ -1,4 +1,4 @@
-import Framework, { z } from "hedystia";
+import Framework, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
 import { describe, expect, it } from "bun:test";
 
@@ -35,7 +35,7 @@ describe("Framework .on() Hooks Tests", () => {
           return Response.json({ parsedBody: ctx.body });
         },
         {
-          body: z.any(),
+          body: h.any(),
         },
       )
       .listen(3010);
@@ -132,7 +132,7 @@ describe("Framework .on() Hooks Tests", () => {
         expect(a).toBeInstanceOf(Response);
       })
       .get("/after-response", () => Response.json({ success: true }), {
-        response: z.object({ success: z.boolean() }),
+        response: h.object({ success: h.boolean() }),
       })
       .listen(3015);
 

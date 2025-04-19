@@ -1,4 +1,4 @@
-import Framework, { z } from "hedystia";
+import Framework, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
 import { afterAll, describe, expect, it } from "bun:test";
 
@@ -14,12 +14,12 @@ const apiV1 = new Framework()
       });
     },
     {
-      response: z.object({
-        users: z.array(
-          z.object({
-            id: z.number(),
-            name: z.string(),
-            role: z.string(),
+      response: h.object({
+        users: h.array(
+          h.object({
+            id: h.number(),
+            name: h.string(),
+            role: h.string(),
           }),
         ),
       }),
@@ -36,13 +36,13 @@ const apiV1 = new Framework()
       });
     },
     {
-      params: z.object({
-        id: z.coerce.number(),
+      params: h.object({
+        id: h.number().coerce(),
       }),
-      response: z.object({
-        userId: z.number(),
-        name: z.string(),
-        role: z.string(),
+      response: h.object({
+        userId: h.number(),
+        name: h.string(),
+        role: h.string(),
       }),
     },
   );
@@ -58,14 +58,14 @@ const apiV2 = new Framework().get(
     });
   },
   {
-    response: z.object({
-      users: z.array(
-        z.object({
-          id: z.number(),
-          name: z.string(),
-          role: z.string(),
-          metadata: z.object({
-            lastLogin: z.string(),
+    response: h.object({
+      users: h.array(
+        h.object({
+          id: h.number(),
+          name: h.string(),
+          role: h.string(),
+          metadata: h.object({
+            lastLogin: h.string(),
           }),
         }),
       ),
@@ -82,7 +82,7 @@ const app = new Framework()
       });
     },
     {
-      response: z.optional(z.string()),
+      response: h.optional(h.string()),
     },
   )
   .use("/api/v1", apiV1)
