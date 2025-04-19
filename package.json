@@ -1,5 +1,6 @@
 {
   "name": "framework",
+  "license": "MIT",
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@types/bun": "^1.2.9",
