@@ -1,9 +1,9 @@
 {
   "name": "hedystia",
   "module": "index.ts",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "dependencies": {
-    "@hedystia/validations": "^1.2.0"
+    "@hedystia/validations": "^1.2.1"
   },
   "devDependencies": {
     "@standard-schema/spec": "^1.0.0",
