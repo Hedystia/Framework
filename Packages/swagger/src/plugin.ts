@@ -21,10 +21,10 @@ export function swagger(options: SwaggerOptions = {}) {
       if (app && app.routes) {
         for (const route of app.routes) {
           const routeSchema = {
-            params: route.schema.params ? app.toJSONSchema(route.schema.params) : undefined,
-            query: route.schema.query ? app.toJSONSchema(route.schema.query) : undefined,
-            body: route.schema.body ? app.toJSONSchema(route.schema.body) : undefined,
-            response: route.schema.response ? app.toJSONSchema(route.schema.response) : undefined,
+            params: route.schema.params ? route.schema.params.jsonSchema : undefined,
+            query: route.schema.query ? route.schema.query.jsonSchema : undefined,
+            body: route.schema.body ? route.schema.body.jsonSchema : undefined,
+            response: route.schema.response ? route.schema.response.jsonSchema : undefined,
           };
 
           swaggerInstance.addRoute(
