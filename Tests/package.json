@@ -10,6 +10,7 @@
   "dependencies": {
     "@hedystia/client": "workspace:*",
     "@hedystia/swagger": "workspace:*",
+    "@zod/mini": "4.0.0-beta.20250418T202744",
     "hedystia": "workspace:*"
   }
 }
