@@ -1,4 +1,4 @@
-import Hedystia, { z } from "hedystia";
+import Hedystia, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
 
 const app = new Hedystia()
@@ -10,11 +10,11 @@ const app = new Hedystia()
       });
     },
     {
-      query: z.object({
-        id: z.coerce.number(),
+      query: h.object({
+        id: h.number().coerce(),
       }),
-      response: z.object({
-        query: z.object({ id: z.number() }),
+      response: h.object({
+        query: h.object({ id: h.number() }),
       }),
     },
   )

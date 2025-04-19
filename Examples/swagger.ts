@@ -1,4 +1,4 @@
-import { Hedystia, z } from "hedystia";
+import { Hedystia, h } from "hedystia";
 import { swagger } from "@hedystia/swagger";
 
 const swaggerPlugin = swagger({
@@ -20,10 +20,10 @@ const app = new Hedystia()
       ];
     },
     {
-      response: z.array(
-        z.object({
-          id: z.number(),
-          name: z.string(),
+      response: h.array(
+        h.object({
+          id: h.number(),
+          name: h.string(),
         }),
       ),
       tags: ["users"],
@@ -35,14 +35,14 @@ const app = new Hedystia()
       return { id: 3, name: ctx.body.name, created: true };
     },
     {
-      body: z.object({
-        name: z.string(),
-        email: z.email(),
+      body: h.object({
+        name: h.string(),
+        email: h.email(),
       }),
-      response: z.object({
-        id: z.number(),
-        name: z.string(),
-        created: z.boolean(),
+      response: h.object({
+        id: h.number(),
+        name: h.string(),
+        created: h.boolean(),
       }),
     },
   );

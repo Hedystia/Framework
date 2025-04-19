@@ -1,4 +1,4 @@
-import Hedystia, { z } from "hedystia";
+import Hedystia, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
 
 const app = new Hedystia()
@@ -11,10 +11,10 @@ const app = new Hedystia()
       return new Response(formData);
     },
     {
-      body: z.object({
-        message: z.string(),
+      body: h.object({
+        message: h.string(),
       }),
-      response: z.optional(z.instanceof(FormData)),
+      response: h.optional(h.instanceof(FormData)),
     },
   )
   .listen(3000);

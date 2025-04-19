@@ -1,4 +1,4 @@
-import Hedystia, { z } from "hedystia";
+import Hedystia, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
 
 const app = new Hedystia().get(
@@ -9,8 +9,8 @@ const app = new Hedystia().get(
     });
   },
   {
-    response: z.object({
-      message: z.string(),
+    response: h.object({
+      message: h.string(),
     }),
   },
 );

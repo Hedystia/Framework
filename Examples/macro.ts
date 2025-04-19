@@ -1,4 +1,4 @@
-import Hedystia, { z } from "hedystia";
+import Hedystia, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
 
 const app = new Hedystia()
@@ -25,10 +25,10 @@ const app = new Hedystia()
     },
     {
       auth: true,
-      response: z.object({
-        message: z.string(),
-        user: z.number(),
-        token: z.string(),
+      response: h.object({
+        message: h.string(),
+        user: h.number(),
+        token: h.string(),
       }),
     },
   )
