@@ -1,7 +1,7 @@
 {
   "name": "@hedystia/validations",
   "module": "index.ts",
-  "version": "1.1.5",
+  "version": "1.2.0",
   "devDependencies": {
     "@standard-schema/spec": "^1.0.0",
     "@types/bun": "latest",
