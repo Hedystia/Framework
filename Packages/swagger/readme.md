@@ -98,7 +98,8 @@ app.use("/swagger", swaggerPlugin.plugin).listen(3000);
 
 ### ⚡ Performance First
 - Bun runtime optimized
-- Only zod dependency
+- Faster by default
+- Own type validation system
 - Faster than Express
 - Built-in response compression
 
