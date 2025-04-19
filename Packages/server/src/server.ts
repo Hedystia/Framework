@@ -1,21 +1,25 @@
-import { z } from "@zod/mini";
 import { serve, type BunRequest } from "bun";
 import type { RouteDefinition } from "./types/routes";
+import type { StandardSchemaV1 } from "@standard-schema/spec";
+
+type ValidationSchema = StandardSchemaV1<any, any>;
+
+type InferOutput<T extends ValidationSchema> = StandardSchemaV1.InferOutput<T>;
 
 type RouteSchema = {
-  params?: z.ZodMiniObject<any>;
-  query?: z.ZodMiniObject<any>;
-  body?: z.ZodMiniType<any>;
-  response?: z.ZodMiniType<any>;
+  params?: ValidationSchema;
+  query?: ValidationSchema;
+  body?: ValidationSchema;
+  response?: ValidationSchema & { _type?: any };
   description?: string;
   tags?: string[];
 };
 
 type InferRouteContext<T extends RouteSchema> = {
   req: BunRequest;
-  params: T["params"] extends z.ZodMiniObject<any> ? z.infer<T["params"]> : {};
-  query: T["query"] extends z.ZodMiniObject<any> ? z.infer<T["query"]> : {};
-  body: T["body"] extends z.ZodMiniType<any> ? z.infer<T["body"]> : unknown;
+  params: T["params"] extends ValidationSchema ? InferOutput<T["params"]> : {};
+  query: T["query"] extends ValidationSchema ? InferOutput<T["query"]> : {};
+  body: T["body"] extends ValidationSchema ? InferOutput<T["body"]> : unknown;
 };
 
 interface FrameworkOptions {
@@ -245,9 +249,9 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
   get<
     Path extends string,
-    Params extends z.ZodMiniObject<any>,
-    Query extends z.ZodMiniObject<any>,
-    ResponseSchema extends z.ZodMiniType<any>,
+    Params extends ValidationSchema,
+    Query extends ValidationSchema,
+    ResponseSchema extends ValidationSchema,
     MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
@@ -265,9 +269,9 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       {
         method: "GET";
         path: Path;
-        params: Params extends z.ZodMiniObject<any> ? z.infer<Params> : {};
-        query: Query extends z.ZodMiniObject<any> ? z.infer<Query> : {};
-        response: ResponseSchema extends z.ZodMiniType<any> ? z.infer<ResponseSchema> : unknown;
+        params: Params extends ValidationSchema ? InferOutput<Params> : {};
+        query: Query extends ValidationSchema ? InferOutput<Query> : {};
+        response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : unknown;
       },
     ],
     Macros
@@ -290,8 +294,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       path: fullPath,
       handler: wrappedHandler,
       schema: {
-        params: schema.params || (z.object({}) as any),
-        query: schema.query || (z.object({}) as any),
+        params: schema.params || ({} as any),
+        query: schema.query || ({} as any),
         response: schema.response,
         description: schema.description,
         tags: schema.tags,
@@ -303,10 +307,10 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
   patch<
     Path extends string,
-    Params extends z.ZodMiniObject<any>,
-    Query extends z.ZodMiniObject<any>,
-    Body extends z.ZodMiniType<any>,
-    ResponseSchema extends z.ZodMiniType<any>,
+    Params extends ValidationSchema,
+    Query extends ValidationSchema,
+    Body extends ValidationSchema,
+    ResponseSchema extends ValidationSchema,
     MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
@@ -327,10 +331,10 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       {
         method: "PATCH";
         path: Path;
-        params: Params extends z.ZodMiniObject<any> ? z.infer<Params> : {};
-        query: Query extends z.ZodMiniObject<any> ? z.infer<Query> : {};
-        body: Body extends z.ZodMiniType<any> ? z.infer<Body> : unknown;
-        response: ResponseSchema extends z.ZodMiniType<any> ? z.infer<ResponseSchema> : unknown;
+        params: Params extends ValidationSchema ? InferOutput<Params> : {};
+        query: Query extends ValidationSchema ? InferOutput<Query> : {};
+        body: Body extends ValidationSchema ? InferOutput<Body> : unknown;
+        response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : unknown;
       },
     ],
     Macros
@@ -353,8 +357,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       path: fullPath,
       handler: wrappedHandler,
       schema: {
-        params: schema.params || (z.object({}) as any),
-        query: schema.query || (z.object({}) as any),
+        params: schema.params || ({} as any),
+        query: schema.query || ({} as any),
         body: schema.body,
         response: schema.response,
         description: schema.description,
@@ -367,10 +371,10 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
   post<
     Path extends string,
-    Params extends z.ZodMiniObject<any>,
-    Query extends z.ZodMiniObject<any>,
-    Body extends z.ZodMiniType<any>,
-    ResponseSchema extends z.ZodMiniType<any>,
+    Params extends ValidationSchema,
+    Query extends ValidationSchema,
+    Body extends ValidationSchema,
+    ResponseSchema extends ValidationSchema,
     MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
@@ -391,10 +395,10 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       {
         method: "POST";
         path: Path;
-        params: Params extends z.ZodMiniObject<any> ? z.infer<Params> : {};
-        query: Query extends z.ZodMiniObject<any> ? z.infer<Query> : {};
-        body: Body extends z.ZodMiniType<any> ? z.infer<Body> : unknown;
-        response: ResponseSchema extends z.ZodMiniType<any> ? z.infer<ResponseSchema> : unknown;
+        params: Params extends ValidationSchema ? InferOutput<Params> : {};
+        query: Query extends ValidationSchema ? InferOutput<Query> : {};
+        body: Body extends ValidationSchema ? InferOutput<Body> : unknown;
+        response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : unknown;
       },
     ],
     Macros
@@ -417,8 +421,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       path: fullPath,
       handler: wrappedHandler,
       schema: {
-        params: schema.params || (z.object({}) as any),
-        query: schema.query || (z.object({}) as any),
+        params: schema.params || ({} as any),
+        query: schema.query || ({} as any),
         body: schema.body,
         response: schema.response,
         description: schema.description,
@@ -431,10 +435,10 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
   put<
     Path extends string,
-    Params extends z.ZodMiniObject<any>,
-    Query extends z.ZodMiniObject<any>,
-    Body extends z.ZodMiniType<any>,
-    ResponseSchema extends z.ZodMiniType<any>,
+    Params extends ValidationSchema,
+    Query extends ValidationSchema,
+    Body extends ValidationSchema,
+    ResponseSchema extends ValidationSchema,
     MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
@@ -455,10 +459,10 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       {
         method: "PUT";
         path: Path;
-        params: Params extends z.ZodMiniObject<any> ? z.infer<Params> : {};
-        query: Query extends z.ZodMiniObject<any> ? z.infer<Query> : {};
-        body: Body extends z.ZodMiniType<any> ? z.infer<Body> : unknown;
-        response: ResponseSchema extends z.ZodMiniType<any> ? z.infer<ResponseSchema> : unknown;
+        params: Params extends ValidationSchema ? InferOutput<Params> : {};
+        query: Query extends ValidationSchema ? InferOutput<Query> : {};
+        body: Body extends ValidationSchema ? InferOutput<Body> : unknown;
+        response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : unknown;
       },
     ],
     Macros
@@ -481,8 +485,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       path: fullPath,
       handler: wrappedHandler,
       schema: {
-        params: schema.params || (z.object({}) as any),
-        query: schema.query || (z.object({}) as any),
+        params: schema.params || ({} as any),
+        query: schema.query || ({} as any),
         body: schema.body,
         response: schema.response,
         description: schema.description,
@@ -495,10 +499,10 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
   delete<
     Path extends string,
-    Params extends z.ZodMiniObject<any>,
-    Query extends z.ZodMiniObject<any>,
-    Body extends z.ZodMiniType<any>,
-    ResponseSchema extends z.ZodMiniType<any>,
+    Params extends ValidationSchema,
+    Query extends ValidationSchema,
+    Body extends ValidationSchema,
+    ResponseSchema extends ValidationSchema,
     MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
@@ -519,10 +523,10 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       {
         method: "DELETE";
         path: Path;
-        params: Params extends z.ZodMiniObject<any> ? z.infer<Params> : {};
-        query: Query extends z.ZodMiniObject<any> ? z.infer<Query> : {};
-        body: Body extends z.ZodMiniType<any> ? z.infer<Body> : unknown;
-        response: ResponseSchema extends z.ZodMiniType<any> ? z.infer<ResponseSchema> : unknown;
+        params: Params extends ValidationSchema ? InferOutput<Params> : {};
+        query: Query extends ValidationSchema ? InferOutput<Query> : {};
+        body: Body extends ValidationSchema ? InferOutput<Body> : unknown;
+        response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : unknown;
       },
     ],
     Macros
@@ -545,8 +549,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       path: fullPath,
       handler: wrappedHandler,
       schema: {
-        params: schema.params || (z.object({}) as any),
-        query: schema.query || (z.object({}) as any),
+        params: schema.params || ({} as any),
+        query: schema.query || ({} as any),
         body: schema.body,
         response: schema.response,
         description: schema.description,
@@ -559,7 +563,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
   static<
     Path extends string,
-    ResponseSchema extends z.ZodMiniType<any> = z.ZodMiniType<any>,
+    ResponseSchema extends ValidationSchema = ValidationSchema,
     ContentType extends string = string,
     ResponseBody = any,
   >(
@@ -583,7 +587,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         path: Path;
         params: {};
         query: {};
-        response: ResponseSchema extends z.ZodMiniType<any> ? z.infer<ResponseSchema> : unknown;
+        response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : unknown;
       },
     ],
     Macros
@@ -595,13 +599,19 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     } else {
       const { body, contentType, status = 200, headers = {} } = response;
 
-      if (schema.response) {
-        const validationResult = schema.response.safeParse(body);
-        if (!validationResult.success) {
-          throw new Error(
-            `Static route response validation failed: ${JSON.stringify(validationResult.error)}`,
-          );
-        }
+      const result = schema.response?.["~standard"]?.validate?.(body);
+      if (result && typeof (result as any).then === "function") {
+        (result as Promise<any>).then((validationResult) => {
+          if ("issues" in validationResult) {
+            throw new Error(
+              `Static route response validation failed: ${JSON.stringify(validationResult.issues)}`,
+            );
+          }
+        });
+      } else if (result && "issues" in result) {
+        throw new Error(
+          `Static route response validation failed: ${JSON.stringify(result.issues)}`,
+        );
       }
 
       if (
@@ -664,7 +674,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return this as any;
   }
 
-  ws<Path extends string, Params extends z.ZodMiniObject<any> = z.ZodMiniObject<any>>(
+  ws<Path extends string, Params extends ValidationSchema = ValidationSchema>(
     path: Path,
     handler: WebSocketHandler,
     options: WebSocketOptions & {
@@ -676,7 +686,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       {
         method: "WS";
         path: Path;
-        params: Params extends z.ZodMiniObject<any> ? z.infer<Params> : {};
+        params: Params extends ValidationSchema ? ValidationSchema : {};
         query: {};
         response: unknown;
       },
@@ -715,27 +725,34 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
             return new Response("Invalid route parameters", { status: 400 });
           }
 
-          const parsedParams = route.schema.params
-            ? route.schema.params.safeParse(rawParams)
-            : { success: true, data: {} };
-
-          if (!parsedParams.success) {
-            return new Response("Invalid params", { status: 400 });
+          let paramsValidationResult;
+          if (route.schema.params?.["~standard"]?.validate) {
+            paramsValidationResult = await route.schema.params["~standard"].validate(rawParams);
+            if ("issues" in paramsValidationResult) {
+              return new Response(
+                "Invalid params: " + JSON.stringify(paramsValidationResult.issues),
+                { status: 400 },
+              );
+            }
+          } else {
+            paramsValidationResult = { value: rawParams };
           }
 
-          const parsedQuery = route.schema.query
-            ? route.schema.query.safeParse(queryParams)
-            : { success: true, data: {} };
-
-          if (!parsedQuery.success) {
-            return new Response("Invalid query parameters", { status: 400 });
+          let queryValidationResult;
+          if (route.schema.query?.["~standard"]?.validate) {
+            queryValidationResult = await route.schema.query["~standard"].validate(queryParams);
+            if ("issues" in queryValidationResult) {
+              return new Response(
+                "Invalid query parameters: " + JSON.stringify(queryValidationResult.issues),
+                { status: 400 },
+              );
+            }
+          } else {
+            queryValidationResult = { value: queryParams };
           }
 
           let body = undefined;
-          let parsedBody: ReturnType<z.ZodMiniAny["safeParse"]> = {
-            success: true,
-            data: undefined,
-          };
+          let bodyValidationResult: StandardSchemaV1.Result<any> = { value: undefined };
 
           if (
             route.method === "PATCH" ||
@@ -756,12 +773,15 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
                 body = await parseRequestBody(modifiedReq);
               }
 
-              if (route.schema.body) {
-                parsedBody = route.schema.body.safeParse(body);
-                if (!parsedBody.success) {
-                  return new Response("Invalid body", { status: 400 });
+              if (route.schema.body?.["~standard"]?.validate) {
+                bodyValidationResult = await route.schema.body["~standard"].validate(body);
+                if ("issues" in bodyValidationResult) {
+                  return new Response(
+                    "Invalid body: " + JSON.stringify(bodyValidationResult.issues),
+                    { status: 400 },
+                  );
                 }
-                body = parsedBody.data;
+                body = bodyValidationResult.value;
               }
             } catch (e) {
               if (route.schema.body) {
@@ -772,9 +792,9 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
           let ctx = {
             req: modifiedReq,
-            params: parsedParams.data,
-            query: parsedQuery.data,
-            body: parsedBody.success ? parsedBody.data : body,
+            params: "value" in paramsValidationResult ? paramsValidationResult.value : {},
+            query: "value" in queryValidationResult ? queryValidationResult.value : {},
+            body: "value" in bodyValidationResult ? bodyValidationResult.value : body,
             route: routePath,
             method: route.method,
           };
@@ -990,10 +1010,6 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     });
 
     return this;
-  }
-
-  toJSONSchema(schema: any) {
-    return z.toJSONSchema(schema);
   }
 
   private createWrappedHandler(
