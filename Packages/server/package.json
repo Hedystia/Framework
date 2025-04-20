@@ -1,6 +1,5 @@
 {
   "name": "hedystia",
-  "module": "index.ts",
   "version": "1.2.2",
   "dependencies": {
     "@hedystia/validations": "^1.2.2"
