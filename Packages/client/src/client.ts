@@ -3,9 +3,13 @@ import type { Hedystia, RouteDefinition } from "hedystia";
 type ResponseFormat = "json" | "text" | "formData" | "bytes" | "arrayBuffer" | "blob";
 
 type PathParts<Path extends string> = Path extends `/${infer Rest}`
-  ? Rest extends `${infer Head}/${infer Tail}`
-    ? [Head, ...PathParts<`/${Tail}`>]
-    : [Rest]
+  ? Rest extends ""
+    ? [""]
+    : Rest extends `${infer Head}/${infer Tail}`
+      ? Tail extends ""
+        ? [Head]
+        : [Head, ...PathParts<`/${Tail}`>]
+      : [Rest]
   : [];
 
 type DeleteRequestFunction<B, Q, ResponseType> = (
