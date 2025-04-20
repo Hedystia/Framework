@@ -62,7 +62,7 @@ describe("Framework .group() Tests", () => {
 
     const client = createClient<typeof app>("http://localhost:3016");
 
-    const productsResponse = await client.products.index.get();
+    const productsResponse = await client.products.get();
     expect(productsResponse.error).toBeNull();
     expect(productsResponse.data?.products).toHaveLength(2);
     expect(productsResponse.data?.products[0]?.name).toBe("Product 1");

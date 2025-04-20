@@ -4,6 +4,17 @@ import { afterAll, describe, expect, it } from "bun:test";
 
 const apiV1 = new Framework()
   .get(
+    "/",
+    () => {
+      return new Response("Welcome to API Server", {
+        headers: { "Content-Type": "text/plain" },
+      });
+    },
+    {
+      response: h.string(),
+    },
+  )
+  .get(
     "/users",
     () => {
       return Response.json({
@@ -129,6 +140,13 @@ describe("Framework .use() Tests", () => {
     expect(data?.users).toHaveLength(2);
     expect(data?.users[0]?.metadata).toBeDefined();
     expect(data?.users[0]?.metadata.lastLogin).toBeDefined();
+  });
+
+  it("should access root v1 endpoint", async () => {
+    const { data, error } = await client.api.v1.get();
+
+    expect(error).toBeNull();
+    expect(data).toBe("Welcome to API Server");
   });
 
   afterAll(() => {

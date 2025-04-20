@@ -5,6 +5,17 @@ import { afterAll, describe, expect, it } from "bun:test";
 
 const app = new Framework()
   .get(
+    "/",
+    () => {
+      return new Response("Welcome to API Server", {
+        headers: { "Content-Type": "text/plain" },
+      });
+    },
+    {
+      response: h.string(),
+    },
+  )
+  .get(
     "/users/get",
     () => {
       return Response.json({
@@ -65,6 +76,13 @@ describe("Test get route", () => {
     expect(error).toBeNull();
 
     expect(response).toEqual({ status: "ok" });
+  });
+
+  it("should handle root endpoint", async () => {
+    const { data, error } = await client.index.get()
+
+    expect(error).toBeNull();
+    expect(data).toBe("Welcome to API Server");
   });
 
   afterAll(() => {
