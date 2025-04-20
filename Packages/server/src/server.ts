@@ -41,6 +41,7 @@ type PrefixRoutes<Prefix extends string, T extends RouteDefinition[]> = {
 
 type RequestHandler = (ctx: any) => Response | Promise<Response>;
 type NextFunction = () => Promise<Response>;
+type GenericRequestHandler = (request: Request) => Response | Promise<Response>;
 
 type OnRequestHandler = (req: BunRequest) => BunRequest | Promise<BunRequest>;
 type OnParseHandler = (req: BunRequest) => Promise<any> | any;
@@ -122,6 +123,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
   private server: any = null;
   public macros: Record<string, { resolve: MacroResolveFunction<any> }> = {};
   private staticRoutes: { path: string; response: Response }[] = [];
+  private genericHandlers: GenericRequestHandler[] = [];
 
   private onRequestHandlers: OnRequestHandler[] = [];
   private onParseHandlers: OnParseHandler[] = [];
@@ -166,10 +168,13 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     groupApp.prefix = this.prefix + prefix;
 
     const configuredApp = callback(groupApp);
+    const prefixPath = groupApp.prefix;
 
     for (const route of configuredApp.routes) {
+      const path = route.path === prefixPath + "/" ? prefixPath : route.path;
       this.routes.push({
         ...route,
+        path,
       });
     }
 
@@ -644,22 +649,58 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return this as any;
   }
 
+  handle(handler: GenericRequestHandler): this {
+    this.genericHandlers.push(handler);
+    return this;
+  }
+
+  use<ChildRoutes extends RouteDefinition[]>(
+    childFramework: Hedystia<ChildRoutes>,
+  ): Hedystia<[...Routes, ...ChildRoutes]>;
   use<Prefix extends string, ChildRoutes extends RouteDefinition[]>(
     prefix: Prefix,
     childFramework: Hedystia<ChildRoutes>,
-  ): Hedystia<[...Routes, ...PrefixRoutes<Prefix, ChildRoutes>]> {
+  ): Hedystia<[...Routes, ...PrefixRoutes<Prefix, ChildRoutes>]>;
+  use<Prefix extends string, ChildRoutes extends RouteDefinition[]>(
+    prefixOrChildFramework: Prefix | Hedystia<ChildRoutes>,
+    maybeChildFramework?: Hedystia<ChildRoutes>,
+  ): Hedystia<any> {
+    let prefix = "";
+    let childFramework: Hedystia<any>;
+
+    if (prefixOrChildFramework instanceof Hedystia) {
+      childFramework = prefixOrChildFramework;
+    } else {
+      prefix = prefixOrChildFramework;
+      childFramework = maybeChildFramework as Hedystia<any>;
+    }
+
     for (const route of childFramework.routes) {
-      this.routes.push({
-        ...route,
-        path: prefix + route.path,
-      });
+      if (route.path === "/" && prefix !== "") {
+        this.routes.push({
+          ...route,
+          path: prefix,
+        });
+      } else {
+        this.routes.push({
+          ...route,
+          path: prefix + route.path,
+        });
+      }
     }
 
     for (const staticRoute of childFramework.staticRoutes) {
-      this.staticRoutes.push({
-        path: prefix + staticRoute.path,
-        response: staticRoute.response,
-      });
+      if (staticRoute.path === "/" && prefix !== "") {
+        this.staticRoutes.push({
+          path: prefix,
+          response: staticRoute.response,
+        });
+      } else {
+        this.staticRoutes.push({
+          path: prefix + staticRoute.path,
+          response: staticRoute.response,
+        });
+      }
     }
 
     this.onRequestHandlers.push(...childFramework.onRequestHandlers);
@@ -1004,12 +1045,39 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
           }
           return new Response(null, { status: 101 });
         }
+        if (self.genericHandlers.length > 0) {
+          return this.processGenericHandlers(req, self.genericHandlers, 0);
+        }
         return new Response("Not found", { status: 404 });
       },
       ...wsConfig,
     });
 
     return this;
+  }
+
+  private async processGenericHandlers(
+    req: Request,
+    handlers: GenericRequestHandler[],
+    index: number,
+  ): Promise<Response> {
+    if (index >= handlers.length) {
+      return new Response("Not found", { status: 404 });
+    }
+    try {
+      const handler = handlers[index];
+      if (!handler) {
+        return new Response("Not found", { status: 404 });
+      }
+      const response = await handler(req);
+      if (response instanceof Response) {
+        return response;
+      }
+      return this.processGenericHandlers(req, handlers, index + 1);
+    } catch (error) {
+      console.error(`Error in generic handler: ${error}`);
+      return this.processGenericHandlers(req, handlers, index + 1);
+    }
   }
 
   private createWrappedHandler(
