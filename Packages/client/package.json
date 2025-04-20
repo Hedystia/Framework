@@ -1,12 +1,12 @@
 {
   "name": "@hedystia/client",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "devDependencies": {
     "@types/bun": "latest",
     "tsup": "^8.3.5"
   },
   "dependencies": {
-    "hedystia": "^1.2.2"
+    "hedystia": "^1.2.3"
   },
   "peerDependencies": {
     "typescript": ">= 5.0.0",
