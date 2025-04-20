@@ -285,6 +285,64 @@ class OptionalSchema<I, O> extends BaseSchema<I, O | undefined> {
   };
 }
 
+class NullSchemaType extends BaseSchema<unknown, null> {
+  readonly type: "null" = "null";
+  constructor() {
+    super();
+    this.jsonSchema = { type: "null" };
+  }
+
+  readonly "~standard": StandardSchemaV1.Props<unknown, null> = {
+    version: 1,
+    vendor: "h-schema",
+    validate: (value: unknown) => {
+      if (value !== null) {
+        return {
+          issues: [
+            {
+              message: `Expected null, received ${value === undefined ? "undefined" : typeof value}`,
+            },
+          ],
+        };
+      }
+      return { value: null };
+    },
+    types: {
+      input: {} as unknown,
+      output: {} as unknown as null,
+    },
+  };
+}
+
+class UnionSchema<I, O> extends BaseSchema<I, O> {
+  private readonly schemas: Schema<I, any>[];
+  constructor(...schemas: Schema<I, any>[]) {
+    super();
+    this.schemas = schemas;
+    this.jsonSchema = { anyOf: schemas.map((s) => s.jsonSchema) };
+  }
+
+  readonly "~standard": StandardSchemaV1.Props<I, O> = {
+    version: 1,
+    vendor: "h-schema",
+    validate: async (value: unknown) => {
+      const issuesAccum: StandardSchemaV1.Issue[] = [];
+      for (const schema of this.schemas) {
+        const result = await schema["~standard"].validate(value);
+        if (!("issues" in result)) {
+          return { value: result.value };
+        }
+        issuesAccum.push(...result.issues!);
+      }
+      return { issues: issuesAccum };
+    },
+    types: {
+      input: {} as I,
+      output: {} as O,
+    },
+  };
+}
+
 class EnumSchema<I, O> extends BaseSchema<I, O> {
   private readonly innerSchema: Schema<I, any>;
   private readonly values: readonly O[];
@@ -567,6 +625,7 @@ export const h = {
   string: (): StringSchemaType => new StringSchemaType(),
   number: (): NumberSchemaType => new NumberSchemaType(),
   boolean: (): BooleanSchemaType => new BooleanSchemaType(),
+  null: (): NullSchemaType => new NullSchemaType(),
 
   any: (): AnySchemaType => new AnySchemaType(),
 
@@ -603,6 +662,11 @@ export const h = {
     schema: S,
   ): OptionalSchema<unknown, InferSchema<S> | undefined> => {
     return toStandard<InferSchema<S>>(schema).optional();
+  },
+
+  options: <S extends AnySchema[]>(...schemas: S): UnionSchema<unknown, InferSchema<S[number]>> => {
+    const stdSchemas = schemas.map((s) => toStandard<InferSchema<S[number]>>(s).schema);
+    return new UnionSchema<unknown, InferSchema<S[number]>>(...stdSchemas);
   },
 
   instanceOf: <C extends new (...args: any[]) => any>(
