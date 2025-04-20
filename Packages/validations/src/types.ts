@@ -7,7 +7,13 @@ interface SchemaLike {
 }
 
 type InferSchema<S> = S extends BaseSchema<any, infer O>
-  ? O
+  ? O extends object
+    ? {
+        [K in keyof O as undefined extends O[K] ? K : never]?: O[K];
+      } & {
+        [K in keyof O as undefined extends O[K] ? never : K]: O[K];
+      }
+    : O
   : S extends "string"
     ? string
     : S extends "number"
@@ -15,7 +21,11 @@ type InferSchema<S> = S extends BaseSchema<any, infer O>
       : S extends "boolean"
         ? boolean
         : S extends { [key: string]: any }
-          ? { [K in keyof S]: InferSchema<S[K]> }
+          ? {
+              [K in keyof S as undefined extends InferSchema<S[K]> ? K : never]?: InferSchema<S[K]>;
+            } & {
+              [K in keyof S as undefined extends InferSchema<S[K]> ? never : K]: InferSchema<S[K]>;
+            }
           : unknown;
 
 type SchemaDefinition = SchemaLike;
