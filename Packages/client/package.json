@@ -1,17 +1,17 @@
 {
   "name": "@hedystia/client",
   "module": "index.ts",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "devDependencies": {
     "@types/bun": "latest",
     "tsup": "^8.3.5"
   },
   "dependencies": {
-    "hedystia": "^1.2.1"
+    "hedystia": "^1.2.2"
   },
   "peerDependencies": {
     "typescript": ">= 5.0.0",
-    "hedystia": ">= 1.1.0"
+    "hedystia": ">= 1.2.0"
   },
   "peerDependenciesMeta": {
     "typescript": {

@@ -1,9 +1,9 @@
 {
   "name": "hedystia",
   "module": "index.ts",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "dependencies": {
-    "@hedystia/validations": "^1.2.1"
+    "@hedystia/validations": "^1.2.2"
   },
   "devDependencies": {
     "@standard-schema/spec": "^1.0.0",
@@ -11,7 +11,7 @@
     "tsup": "^8.3.5"
   },
   "peerDependencies": {
-    "@hedystia/validations": ">= 1.1.0",
+    "@hedystia/validations": ">= 1.2.0",
     "typescript": ">= 5.0.0"
   },
   "peerDependenciesMeta": {
