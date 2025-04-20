@@ -632,8 +632,8 @@ export const h = {
   literal: <T extends string | number | boolean>(value: T): LiteralSchema<T> =>
     new LiteralSchema<T>(value),
 
-  object: <S extends SchemaDefinition>(schemaDef: S): ObjectSchemaType<InferSchema<S>> => {
-    return new ObjectSchemaType<InferSchema<S>>(schemaDef);
+  object: <S extends SchemaDefinition>(schemaDef?: S): ObjectSchemaType<InferSchema<S>> => {
+    return new ObjectSchemaType<InferSchema<S>>(schemaDef || {});
   },
 
   array: <S extends AnySchema>(schema: S): ArraySchema<unknown, InferSchema<S>[]> => {
