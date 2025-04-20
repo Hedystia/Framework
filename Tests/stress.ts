@@ -23,7 +23,7 @@ for (let i = 0; i < paths.length; i++) {
   routeFn.call(plugin, paths[i], responseHandler, responseSchema);
 }
 
-app.use("/", plugin);
+app.use(plugin);
 
 const t2 = performance.now();
 
