@@ -1,6 +1,6 @@
 {
   "name": "@hedystia/validations",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "devDependencies": {
     "@standard-schema/spec": "^1.0.0",
     "@types/bun": "latest",
@@ -31,5 +31,6 @@
   },
   "type": "commonjs",
   "types": "./dist/index.d.ts",
-  "main": "./dist/index.js"
+  "main": "./dist/index.js",
+  "module": "./dist/index.js"
 }
