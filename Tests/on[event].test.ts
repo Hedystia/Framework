@@ -69,11 +69,11 @@ describe("Framework .on() Hooks Tests", () => {
 
   it("should chain multiple onBeforeHandle hooks", async () => {
     const app = new Framework()
-      .onBeforeHandle(async (ctx, next) => {
+      .onBeforeHandle(async (ctx: any, next) => {
         ctx.modified = "first";
         return next();
       })
-      .onBeforeHandle(async (ctx, next) => {
+      .onBeforeHandle(async (ctx: any, next) => {
         ctx.modified += "-second";
         return next();
       })

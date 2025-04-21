@@ -86,7 +86,7 @@ describe("Framework .group() Tests", () => {
     const app = new Framework()
       .group("/api", (api) => {
         return api
-          .onBeforeHandle(async (ctx, next) => {
+          .onBeforeHandle(async (ctx: any, next) => {
             middlewareExecutions++;
             ctx.groupShared = "shared-value";
             return next();
