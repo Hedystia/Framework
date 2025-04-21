@@ -16,7 +16,11 @@ type RouteSchema = {
   tags?: string[];
 };
 
-type InferRouteContext<T extends RouteSchema> = {
+type InferRouteContext<
+  T extends RouteSchema,
+  M extends MacroData = {},
+  EnabledMacros extends keyof M = never,
+> = {
   req: BunRequest;
   params: T["params"] extends ValidationSchema ? InferOutput<T["params"]> : {};
   query: T["query"] extends ValidationSchema ? InferOutput<T["query"]> : {};
@@ -24,7 +28,7 @@ type InferRouteContext<T extends RouteSchema> = {
   headers: T["headers"] extends ValidationSchema
     ? InferOutput<T["headers"]>
     : Record<string, string | null>;
-};
+} & Pick<M, EnabledMacros>;
 
 interface FrameworkOptions {
   reusePort?: boolean;
@@ -286,11 +290,15 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     Query extends ValidationSchema,
     Headers extends ValidationSchema,
     ResponseSchema extends ValidationSchema,
-    MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
+    EnabledMacros extends keyof Macros = never,
   >(
     path: Path,
     handler: (
-      ctx: InferRouteContext<{ params: Params; query: Query; headers: Headers }> & Macros,
+      ctx: InferRouteContext<
+        { params: Params; query: Query; headers: Headers },
+        Macros,
+        EnabledMacros
+      >,
     ) => Response | any,
     schema: {
       params?: Params;
@@ -299,7 +307,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
-    } & MacroOptions = {} as any,
+    } & { [K in EnabledMacros]: true } = {} as any,
   ): Hedystia<
     [
       ...Routes,
@@ -320,7 +328,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
     const hasMacros = Object.keys(schema).some(
       (key) =>
-        !["params", "query", "body", "headers", "response"].includes(key) && schema[key] === true,
+        !["params", "query", "body", "headers", "response", "description", "tags"].includes(key) &&
+        schema[key as keyof typeof schema] === true,
     );
 
     const wrappedHandler = hasMacros
@@ -354,12 +363,15 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     Body extends ValidationSchema,
     Headers extends ValidationSchema,
     ResponseSchema extends ValidationSchema,
-    MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
+    EnabledMacros extends keyof Macros = never,
   >(
     path: Path,
     handler: (
-      ctx: InferRouteContext<{ params: Params; query: Query; body: Body; headers: Headers }> &
+      ctx: InferRouteContext<
+        { params: Params; query: Query; body: Body; headers: Headers },
         Macros,
+        EnabledMacros
+      >,
     ) => Response | any,
     schema: {
       params?: Params;
@@ -369,7 +381,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
-    } & MacroOptions = {} as any,
+    } & { [K in EnabledMacros]: true } = {} as any,
   ): Hedystia<
     [
       ...Routes,
@@ -391,7 +403,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
     const hasMacros = Object.keys(schema).some(
       (key) =>
-        !["params", "query", "body", "headers", "response"].includes(key) && schema[key] === true,
+        !["params", "query", "body", "headers", "response", "description", "tags"].includes(key) &&
+        schema[key as keyof typeof schema] === true,
     );
 
     const wrappedHandler = hasMacros
@@ -426,12 +439,15 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     Body extends ValidationSchema,
     Headers extends ValidationSchema,
     ResponseSchema extends ValidationSchema,
-    MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
+    EnabledMacros extends keyof Macros = never,
   >(
     path: Path,
     handler: (
-      ctx: InferRouteContext<{ params: Params; query: Query; body: Body; headers: Headers }> &
+      ctx: InferRouteContext<
+        { params: Params; query: Query; body: Body; headers: Headers },
         Macros,
+        EnabledMacros
+      >,
     ) => Response | any,
     schema: {
       params?: Params;
@@ -441,7 +457,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
-    } & MacroOptions = {} as any,
+    } & { [K in EnabledMacros]: true } = {} as any,
   ): Hedystia<
     [
       ...Routes,
@@ -463,7 +479,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
     const hasMacros = Object.keys(schema).some(
       (key) =>
-        !["params", "query", "body", "headers", "response"].includes(key) && schema[key] === true,
+        !["params", "query", "body", "headers", "response", "description", "tags"].includes(key) &&
+        schema[key as keyof typeof schema] === true,
     );
 
     const wrappedHandler = hasMacros
@@ -498,12 +515,15 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     Body extends ValidationSchema,
     Headers extends ValidationSchema,
     ResponseSchema extends ValidationSchema,
-    MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
+    EnabledMacros extends keyof Macros = never,
   >(
     path: Path,
     handler: (
-      ctx: InferRouteContext<{ params: Params; query: Query; body: Body; headers: Headers }> &
+      ctx: InferRouteContext<
+        { params: Params; query: Query; body: Body; headers: Headers },
         Macros,
+        EnabledMacros
+      >,
     ) => Response | any,
     schema: {
       params?: Params;
@@ -513,7 +533,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
-    } & MacroOptions = {} as any,
+    } & { [K in EnabledMacros]: true } = {} as any,
   ): Hedystia<
     [
       ...Routes,
@@ -535,7 +555,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
     const hasMacros = Object.keys(schema).some(
       (key) =>
-        !["params", "query", "body", "headers", "response"].includes(key) && schema[key] === true,
+        !["params", "query", "body", "headers", "response", "description", "tags"].includes(key) &&
+        schema[key as keyof typeof schema] === true,
     );
 
     const wrappedHandler = hasMacros
@@ -570,12 +591,15 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     Body extends ValidationSchema,
     Headers extends ValidationSchema,
     ResponseSchema extends ValidationSchema,
-    MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
+    EnabledMacros extends keyof Macros = never,
   >(
     path: Path,
     handler: (
-      ctx: InferRouteContext<{ params: Params; query: Query; body: Body; headers: Headers }> &
+      ctx: InferRouteContext<
+        { params: Params; query: Query; body: Body; headers: Headers },
         Macros,
+        EnabledMacros
+      >,
     ) => Response | any,
     schema: {
       params?: Params;
@@ -585,7 +609,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
-    } & MacroOptions = {} as any,
+    } & { [K in EnabledMacros]: true } = {} as any,
   ): Hedystia<
     [
       ...Routes,
@@ -607,7 +631,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
     const hasMacros = Object.keys(schema).some(
       (key) =>
-        !["params", "query", "body", "headers", "response"].includes(key) && schema[key] === true,
+        !["params", "query", "body", "headers", "response", "description", "tags"].includes(key) &&
+        schema[key as keyof typeof schema] === true,
     );
 
     const wrappedHandler = hasMacros
