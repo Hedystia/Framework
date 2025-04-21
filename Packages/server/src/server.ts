@@ -39,23 +39,44 @@ type PrefixRoutes<Prefix extends string, T extends RouteDefinition[]> = {
     : never;
 };
 
-type RequestHandler = (ctx: any) => Response | Promise<Response>;
+type ContextTypes<T extends RouteSchema = {}> = {
+  req: BunRequest;
+  params: T["params"] extends ValidationSchema ? InferOutput<T["params"]> : Record<string, any>;
+  query: T["query"] extends ValidationSchema ? InferOutput<T["query"]> : Record<string, any>;
+  body: T["body"] extends ValidationSchema ? InferOutput<T["body"]> : any;
+  route?: string;
+  method?: string;
+};
+
+type RequestHandler = (ctx: ContextTypes) => Response | Promise<Response>;
 type NextFunction = () => Promise<Response>;
 type GenericRequestHandler = (request: Request) => Response | Promise<Response>;
 
 type OnRequestHandler = (req: BunRequest) => BunRequest | Promise<BunRequest>;
 type OnParseHandler = (req: BunRequest) => Promise<any> | any;
-type OnTransformHandler = (ctx: any) => any | Promise<any>;
-type OnBeforeHandleHandler = (
-  ctx: any,
+type OnTransformHandler<T extends RouteSchema = {}> = (ctx: ContextTypes<T>) => any | Promise<any>;
+type OnBeforeHandleHandler<T extends RouteSchema = {}> = (
+  ctx: ContextTypes<T>,
   next: NextFunction,
 ) => Response | Promise<Response> | void | Promise<void>;
-type OnAfterHandleHandler = (response: Response, ctx: any) => Response | Promise<Response>;
-type OnMapResponseHandler = (result: any, ctx: any) => Response | Promise<Response>;
-type OnErrorHandler = (error: Error, ctx: any) => Response | Promise<Response>;
-type OnAfterResponseHandler = (response: Response, ctx: any) => void | Promise<void>;
+type OnAfterHandleHandler<T extends RouteSchema = {}> = (
+  response: Response,
+  ctx: ContextTypes<T>,
+) => Response | Promise<Response>;
+type OnMapResponseHandler<T extends RouteSchema = {}> = (
+  result: ContextTypes<T>,
+  ctx: ContextTypes<T>,
+) => Response | Promise<Response>;
+type OnErrorHandler<T extends RouteSchema = {}> = (
+  error: Error,
+  ctx: ContextTypes<T>,
+) => Response | Promise<Response>;
+type OnAfterResponseHandler<T extends RouteSchema = {}> = (
+  response: Response,
+  ctx: ContextTypes<T>,
+) => void | Promise<void>;
 
-type MacroResolveFunction<T> = (ctx: any) => T | Promise<T>;
+type MacroResolveFunction<T extends RouteSchema = {}> = (ctx: ContextTypes<T>) => T | Promise<T>;
 type MacroErrorFunction = (statusCode: number, message?: string) => never;
 
 type MacroData = Record<string, any>;
@@ -200,33 +221,33 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return this;
   }
 
-  onTransform(handler: OnTransformHandler): this {
-    this.onTransformHandlers.push(handler);
+  onTransform<T extends RouteSchema = {}>(handler: OnTransformHandler<T>): this {
+    this.onTransformHandlers.push(handler as OnTransformHandler);
     return this;
   }
 
-  onBeforeHandle(handler: OnBeforeHandleHandler): this {
-    this.onBeforeHandleHandlers.push(handler);
+  onBeforeHandle<T extends RouteSchema = {}>(handler: OnBeforeHandleHandler<T>): this {
+    this.onBeforeHandleHandlers.push(handler as OnBeforeHandleHandler);
     return this;
   }
 
-  onAfterHandle(handler: OnAfterHandleHandler): this {
-    this.onAfterHandleHandlers.push(handler);
+  onAfterHandle<T extends RouteSchema = {}>(handler: OnAfterHandleHandler<T>): this {
+    this.onAfterHandleHandlers.push(handler as OnAfterHandleHandler);
     return this;
   }
 
-  onMapResponse(handler: OnMapResponseHandler): this {
-    this.onMapResponseHandlers.push(handler);
+  onMapResponse<T extends RouteSchema = {}>(handler: OnMapResponseHandler<T>): this {
+    this.onMapResponseHandlers.push(handler as OnMapResponseHandler);
     return this;
   }
 
-  onError(handler: OnErrorHandler): this {
-    this.onErrorHandlers.push(handler);
+  onError<T extends RouteSchema = {}>(handler: OnErrorHandler<T>): this {
+    this.onErrorHandlers.push(handler as OnErrorHandler);
     return this;
   }
 
-  onAfterResponse(handler: OnAfterResponseHandler): this {
-    this.onAfterResponseHandlers.push(handler);
+  onAfterResponse<T extends RouteSchema = {}>(handler: OnAfterResponseHandler<T>): this {
+    this.onAfterResponseHandlers.push(handler as OnAfterResponseHandler);
     return this;
   }
 
@@ -654,17 +675,31 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return this;
   }
 
-  use<ChildRoutes extends RouteDefinition[]>(
-    childFramework: Hedystia<ChildRoutes>,
-  ): Hedystia<[...Routes, ...ChildRoutes]>;
-  use<Prefix extends string, ChildRoutes extends RouteDefinition[]>(
+  use<ChildRoutes extends RouteDefinition[], ChildMacros extends MacroData = {}>(
+    childFramework: Hedystia<ChildRoutes, ChildMacros>,
+  ): Hedystia<[...Routes, ...ChildRoutes], Macros & ChildMacros>;
+  use<
+    Prefix extends string,
+    ChildRoutes extends RouteDefinition[],
+    ChildMacros extends MacroData = {},
+  >(
     prefix: Prefix,
-    childFramework: Hedystia<ChildRoutes>,
-  ): Hedystia<[...Routes, ...PrefixRoutes<Prefix, ChildRoutes>]>;
-  use<Prefix extends string, ChildRoutes extends RouteDefinition[]>(
-    prefixOrChildFramework: Prefix | Hedystia<ChildRoutes>,
-    maybeChildFramework?: Hedystia<ChildRoutes>,
-  ): Hedystia<any> {
+    childFramework: Hedystia<ChildRoutes, ChildMacros>,
+  ): Hedystia<[...Routes, ...PrefixRoutes<Prefix, ChildRoutes>], Macros & ChildMacros>;
+  use<
+    PrefixOrChild extends string | Hedystia<any, any>,
+    MaybeChild extends Hedystia<any, any> | undefined = undefined,
+  >(
+    prefixOrChildFramework: PrefixOrChild,
+    maybeChildFramework?: MaybeChild,
+  ): PrefixOrChild extends Hedystia<infer ChildRoutes, infer ChildMacros>
+    ? Hedystia<[...Routes, ...ChildRoutes], Macros & ChildMacros>
+    : MaybeChild extends Hedystia<infer ChildRoutes, infer ChildMacros>
+      ? Hedystia<
+          [...Routes, ...PrefixRoutes<PrefixOrChild & string, ChildRoutes>],
+          Macros & ChildMacros
+        >
+      : never {
     let prefix = "";
     let childFramework: Hedystia<any>;
 
@@ -673,6 +708,15 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     } else {
       prefix = prefixOrChildFramework;
       childFramework = maybeChildFramework as Hedystia<any>;
+    }
+
+    for (const [key, macro] of Object.entries(childFramework.macros)) {
+      if (this.macros[key] && !Object.is(this.macros[key], macro)) {
+        console.warn(
+          `Warning: Macro '${key}' already exists in parent framework and is being overwritten.`,
+        );
+      }
+      this.macros[key] = macro;
     }
 
     for (const route of childFramework.routes) {
@@ -1046,7 +1090,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
           return new Response(null, { status: 101 });
         }
         if (self.genericHandlers.length > 0) {
-          return this.processGenericHandlers(req, self.genericHandlers, 0);
+          return self.processGenericHandlers(req, self.genericHandlers, 0);
         }
         return new Response("Not found", { status: 404 });
       },
