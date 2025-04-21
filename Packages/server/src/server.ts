@@ -1,4 +1,4 @@
-import { serve, type BunRequest } from "bun";
+import { serve } from "bun";
 import type { RouteDefinition } from "./types/routes";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 
@@ -21,7 +21,7 @@ type InferRouteContext<
   M extends MacroData = {},
   EnabledMacros extends keyof M = never,
 > = {
-  req: BunRequest;
+  req: Request;
   params: T["params"] extends ValidationSchema ? InferOutput<T["params"]> : {};
   query: T["query"] extends ValidationSchema ? InferOutput<T["query"]> : {};
   body: T["body"] extends ValidationSchema ? InferOutput<T["body"]> : unknown;
@@ -48,7 +48,7 @@ type PrefixRoutes<Prefix extends string, T extends RouteDefinition[]> = {
 };
 
 type ContextTypes<T extends RouteSchema = {}> = {
-  req: BunRequest;
+  req: Request;
   params: T["params"] extends ValidationSchema ? InferOutput<T["params"]> : Record<string, any>;
   query: T["query"] extends ValidationSchema ? InferOutput<T["query"]> : Record<string, any>;
   body: T["body"] extends ValidationSchema ? InferOutput<T["body"]> : any;
@@ -63,8 +63,8 @@ type RequestHandler = (ctx: ContextTypes) => Response | Promise<Response>;
 type NextFunction = () => Promise<Response>;
 type GenericRequestHandler = (request: Request) => Response | Promise<Response>;
 
-type OnRequestHandler = (req: BunRequest) => BunRequest | Promise<BunRequest>;
-type OnParseHandler = (req: BunRequest) => Promise<any> | any;
+type OnRequestHandler = (req: Request) => Request | Promise<Request>;
+type OnParseHandler = (req: Request) => Promise<any> | any;
 type OnTransformHandler<T extends RouteSchema = {}> = (ctx: ContextTypes<T>) => any | Promise<any>;
 type OnBeforeHandleHandler<T extends RouteSchema = {}> = (
   ctx: ContextTypes<T>,
@@ -90,7 +90,7 @@ type OnAfterResponseHandler<T extends RouteSchema = {}> = (
 type MacroResolveFunction<T extends RouteSchema = {}> = (ctx: ContextTypes<T>) => T | Promise<T>;
 type MacroErrorFunction = (statusCode: number, message?: string) => never;
 
-type MacroData = Record<string, any>;
+export type MacroData = Record<string, any>;
 
 type BunRouteRecord = Record<string, any>;
 
@@ -154,7 +154,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
   private prefix: string = "";
   private server: any = null;
   public macros: Record<string, { resolve: MacroResolveFunction<any> }> = {};
-  private staticRoutes: { path: string; response: Response }[] = [];
+  public staticRoutes: { path: string; response: Response }[] = [];
   private genericHandlers: GenericRequestHandler[] = [];
 
   private onRequestHandlers: OnRequestHandler[] = [];
@@ -307,7 +307,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
-    } & { [K in EnabledMacros]: true } = {} as any,
+    } & { [K in EnabledMacros]?: true } = {} as any,
   ): Hedystia<
     [
       ...Routes,
@@ -381,7 +381,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
-    } & { [K in EnabledMacros]: true } = {} as any,
+    } & { [K in EnabledMacros]?: true } = {} as any,
   ): Hedystia<
     [
       ...Routes,
@@ -457,7 +457,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
-    } & { [K in EnabledMacros]: true } = {} as any,
+    } & { [K in EnabledMacros]?: true } = {} as any,
   ): Hedystia<
     [
       ...Routes,
@@ -533,7 +533,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
-    } & { [K in EnabledMacros]: true } = {} as any,
+    } & { [K in EnabledMacros]?: true } = {} as any,
   ): Hedystia<
     [
       ...Routes,
@@ -609,7 +609,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
-    } & { [K in EnabledMacros]: true } = {} as any,
+    } & { [K in EnabledMacros]?: true } = {} as any,
   ): Hedystia<
     [
       ...Routes,
@@ -869,7 +869,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         bunRoutes[routePath] = {};
       }
 
-      bunRoutes[routePath][route.method] = async (req: BunRequest) => {
+      bunRoutes[routePath][route.method] = async (req: Request) => {
         try {
           let modifiedReq = req;
           for (const handler of self.onRequestHandlers) {
@@ -1291,7 +1291,7 @@ function matchRoute(pathname: string, routePath: string): Record<string, string>
   return params;
 }
 
-async function parseRequestBody(req: BunRequest): Promise<any> {
+async function parseRequestBody(req: Request): Promise<any> {
   const contentType = req.headers.get("Content-Type") || "";
   if (contentType.includes("application/json")) return req.json();
   if (contentType.includes("multipart/form-data")) return req.formData();
