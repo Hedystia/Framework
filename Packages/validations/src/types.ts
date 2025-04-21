@@ -7,13 +7,7 @@ interface SchemaLike {
 }
 
 type InferSchema<S> = S extends BaseSchema<any, infer O>
-  ? O extends object
-    ? {
-        [K in keyof O as undefined extends O[K] ? K : never]?: O[K];
-      } & {
-        [K in keyof O as undefined extends O[K] ? never : K]: O[K];
-      }
-    : O
+  ? O
   : S extends "string"
     ? string
     : S extends "number"
@@ -642,8 +636,24 @@ export const h = {
   literal: <T extends string | number | boolean>(value: T): LiteralSchema<T> =>
     new LiteralSchema<T>(value),
 
-  object: <S extends SchemaDefinition>(schemaDef?: S): ObjectSchemaType<InferSchema<S>> => {
-    return new ObjectSchemaType<InferSchema<S>>(schemaDef || {});
+  object: <S extends SchemaDefinition>(
+    schemaDef?: S,
+  ): ObjectSchemaType<{
+    [K in keyof S]: S[K] extends BaseSchema<any, infer O>
+      ? O
+      : S[K] extends SchemaPrimitive
+        ? S[K] extends "string"
+          ? string
+          : S[K] extends "number"
+            ? number
+            : S[K] extends "boolean"
+              ? boolean
+              : unknown
+        : S[K] extends Record<string, any>
+          ? InferSchema<S[K]>
+          : unknown;
+  }> => {
+    return new ObjectSchemaType(schemaDef || {});
   },
 
   array: <S extends AnySchema>(schema: S): ArraySchema<unknown, InferSchema<S>[]> => {
