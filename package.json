@@ -8,7 +8,9 @@
     "typescript": "^5.8.3"
   },
   "scripts": {
-    "build": "bun run --cwd Packages/validations build && bun run --cwd Packages/server build && bun run --cwd Packages/client build && bun run --cwd Packages/swagger build",
+    "build:core": "bun run --cwd Packages/validations build && bun run --cwd Packages/server build",
+    "build:rest": "concurrently \"bun run --cwd Packages/client build\" \"bun run --cwd Packages/swagger build\" \"bun run --cwd Packages/adapter build\"",
+    "build": "bun run build:core && bun run build:rest",
     "dev": "concurrently \"bun run --cwd Packages/server dev\" \"bun run --cwd Tests dev\"",
     "test": "bun run --cwd Tests test",
     "test:build": "bun run build && bun run --cwd Tests build.js",
@@ -24,6 +26,7 @@
     "url": "https://github.com/Zastinian"
   },
   "workspaces": [
+    "./Packages/adapter",
     "./Packages/server",
     "./Packages/client",
     "./Packages/swagger",
