@@ -10,6 +10,7 @@ type RouteSchema = {
   params?: ValidationSchema;
   query?: ValidationSchema;
   body?: ValidationSchema;
+  headers?: ValidationSchema;
   response?: ValidationSchema & { _type?: any };
   description?: string;
   tags?: string[];
@@ -20,6 +21,9 @@ type InferRouteContext<T extends RouteSchema> = {
   params: T["params"] extends ValidationSchema ? InferOutput<T["params"]> : {};
   query: T["query"] extends ValidationSchema ? InferOutput<T["query"]> : {};
   body: T["body"] extends ValidationSchema ? InferOutput<T["body"]> : unknown;
+  headers: T["headers"] extends ValidationSchema
+    ? InferOutput<T["headers"]>
+    : Record<string, string | null>;
 };
 
 interface FrameworkOptions {
@@ -44,6 +48,9 @@ type ContextTypes<T extends RouteSchema = {}> = {
   params: T["params"] extends ValidationSchema ? InferOutput<T["params"]> : Record<string, any>;
   query: T["query"] extends ValidationSchema ? InferOutput<T["query"]> : Record<string, any>;
   body: T["body"] extends ValidationSchema ? InferOutput<T["body"]> : any;
+  headers: T["headers"] extends ValidationSchema
+    ? InferOutput<T["headers"]>
+    : Record<string, string | null>;
   route?: string;
   method?: string;
 };
@@ -277,14 +284,18 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     Path extends string,
     Params extends ValidationSchema,
     Query extends ValidationSchema,
+    Headers extends ValidationSchema,
     ResponseSchema extends ValidationSchema,
     MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
-    handler: (ctx: InferRouteContext<{ params: Params; query: Query }> & Macros) => Response | any,
+    handler: (
+      ctx: InferRouteContext<{ params: Params; query: Query; headers: Headers }> & Macros,
+    ) => Response | any,
     schema: {
       params?: Params;
       query?: Query;
+      headers?: Headers;
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
@@ -297,6 +308,9 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         path: Path;
         params: Params extends ValidationSchema ? InferOutput<Params> : {};
         query: Query extends ValidationSchema ? InferOutput<Query> : {};
+        headers: Headers extends ValidationSchema
+          ? InferOutput<Headers>
+          : Record<string, string | null>;
         response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : unknown;
       },
     ],
@@ -305,7 +319,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     const fullPath = this.prefix + path;
 
     const hasMacros = Object.keys(schema).some(
-      (key) => !["params", "query", "body", "response"].includes(key) && schema[key] === true,
+      (key) =>
+        !["params", "query", "body", "headers", "response"].includes(key) && schema[key] === true,
     );
 
     const wrappedHandler = hasMacros
@@ -322,6 +337,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       schema: {
         params: schema.params || ({} as any),
         query: schema.query || ({} as any),
+        headers: schema.headers || ({} as any),
         response: schema.response,
         description: schema.description,
         tags: schema.tags,
@@ -336,17 +352,20 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     Params extends ValidationSchema,
     Query extends ValidationSchema,
     Body extends ValidationSchema,
+    Headers extends ValidationSchema,
     ResponseSchema extends ValidationSchema,
     MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
     handler: (
-      ctx: InferRouteContext<{ params: Params; query: Query; body: Body }> & Macros,
+      ctx: InferRouteContext<{ params: Params; query: Query; body: Body; headers: Headers }> &
+        Macros,
     ) => Response | any,
     schema: {
       params?: Params;
       query?: Query;
       body?: Body;
+      headers?: Headers;
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
@@ -360,6 +379,9 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         params: Params extends ValidationSchema ? InferOutput<Params> : {};
         query: Query extends ValidationSchema ? InferOutput<Query> : {};
         body: Body extends ValidationSchema ? InferOutput<Body> : unknown;
+        headers: Headers extends ValidationSchema
+          ? InferOutput<Headers>
+          : Record<string, string | null>;
         response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : unknown;
       },
     ],
@@ -368,7 +390,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     const fullPath = this.prefix + path;
 
     const hasMacros = Object.keys(schema).some(
-      (key) => !["params", "query", "body", "response"].includes(key) && schema[key] === true,
+      (key) =>
+        !["params", "query", "body", "headers", "response"].includes(key) && schema[key] === true,
     );
 
     const wrappedHandler = hasMacros
@@ -386,6 +409,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         params: schema.params || ({} as any),
         query: schema.query || ({} as any),
         body: schema.body,
+        headers: schema.headers || ({} as any),
         response: schema.response,
         description: schema.description,
         tags: schema.tags,
@@ -400,17 +424,20 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     Params extends ValidationSchema,
     Query extends ValidationSchema,
     Body extends ValidationSchema,
+    Headers extends ValidationSchema,
     ResponseSchema extends ValidationSchema,
     MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
     handler: (
-      ctx: InferRouteContext<{ params: Params; query: Query; body: Body }> & Macros,
+      ctx: InferRouteContext<{ params: Params; query: Query; body: Body; headers: Headers }> &
+        Macros,
     ) => Response | any,
     schema: {
       params?: Params;
       query?: Query;
       body?: Body;
+      headers?: Headers;
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
@@ -424,6 +451,9 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         params: Params extends ValidationSchema ? InferOutput<Params> : {};
         query: Query extends ValidationSchema ? InferOutput<Query> : {};
         body: Body extends ValidationSchema ? InferOutput<Body> : unknown;
+        headers: Headers extends ValidationSchema
+          ? InferOutput<Headers>
+          : Record<string, string | null>;
         response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : unknown;
       },
     ],
@@ -432,7 +462,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     const fullPath = this.prefix + path;
 
     const hasMacros = Object.keys(schema).some(
-      (key) => !["params", "query", "body", "response"].includes(key) && schema[key] === true,
+      (key) =>
+        !["params", "query", "body", "headers", "response"].includes(key) && schema[key] === true,
     );
 
     const wrappedHandler = hasMacros
@@ -450,6 +481,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         params: schema.params || ({} as any),
         query: schema.query || ({} as any),
         body: schema.body,
+        headers: schema.headers || ({} as any),
         response: schema.response,
         description: schema.description,
         tags: schema.tags,
@@ -464,17 +496,20 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     Params extends ValidationSchema,
     Query extends ValidationSchema,
     Body extends ValidationSchema,
+    Headers extends ValidationSchema,
     ResponseSchema extends ValidationSchema,
     MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
     handler: (
-      ctx: InferRouteContext<{ params: Params; query: Query; body: Body }> & Macros,
+      ctx: InferRouteContext<{ params: Params; query: Query; body: Body; headers: Headers }> &
+        Macros,
     ) => Response | any,
     schema: {
       params?: Params;
       query?: Query;
       body?: Body;
+      headers?: Headers;
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
@@ -488,6 +523,9 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         params: Params extends ValidationSchema ? InferOutput<Params> : {};
         query: Query extends ValidationSchema ? InferOutput<Query> : {};
         body: Body extends ValidationSchema ? InferOutput<Body> : unknown;
+        headers: Headers extends ValidationSchema
+          ? InferOutput<Headers>
+          : Record<string, string | null>;
         response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : unknown;
       },
     ],
@@ -496,7 +534,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     const fullPath = this.prefix + path;
 
     const hasMacros = Object.keys(schema).some(
-      (key) => !["params", "query", "body", "response"].includes(key) && schema[key] === true,
+      (key) =>
+        !["params", "query", "body", "headers", "response"].includes(key) && schema[key] === true,
     );
 
     const wrappedHandler = hasMacros
@@ -514,6 +553,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         params: schema.params || ({} as any),
         query: schema.query || ({} as any),
         body: schema.body,
+        headers: schema.headers || ({} as any),
         response: schema.response,
         description: schema.description,
         tags: schema.tags,
@@ -528,17 +568,20 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     Params extends ValidationSchema,
     Query extends ValidationSchema,
     Body extends ValidationSchema,
+    Headers extends ValidationSchema,
     ResponseSchema extends ValidationSchema,
     MacroOptions extends Partial<{ [K in keyof Macros]: true }> = {},
   >(
     path: Path,
     handler: (
-      ctx: InferRouteContext<{ params: Params; query: Query; body: Body }> & Macros,
+      ctx: InferRouteContext<{ params: Params; query: Query; body: Body; headers: Headers }> &
+        Macros,
     ) => Response | any,
     schema: {
       params?: Params;
       query?: Query;
       body?: Body;
+      headers?: Headers;
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
@@ -552,6 +595,9 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         params: Params extends ValidationSchema ? InferOutput<Params> : {};
         query: Query extends ValidationSchema ? InferOutput<Query> : {};
         body: Body extends ValidationSchema ? InferOutput<Body> : unknown;
+        headers: Headers extends ValidationSchema
+          ? InferOutput<Headers>
+          : Record<string, string | null>;
         response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : unknown;
       },
     ],
@@ -560,7 +606,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     const fullPath = this.prefix + path;
 
     const hasMacros = Object.keys(schema).some(
-      (key) => !["params", "query", "body", "response"].includes(key) && schema[key] === true,
+      (key) =>
+        !["params", "query", "body", "headers", "response"].includes(key) && schema[key] === true,
     );
 
     const wrappedHandler = hasMacros
@@ -578,6 +625,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         params: schema.params || ({} as any),
         query: schema.query || ({} as any),
         body: schema.body,
+        headers: schema.headers || ({} as any),
         response: schema.response,
         description: schema.description,
         tags: schema.tags,
@@ -590,6 +638,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
   static<
     Path extends string,
     ResponseSchema extends ValidationSchema = ValidationSchema,
+    Headers extends ValidationSchema = ValidationSchema,
     ContentType extends string = string,
     ResponseBody = any,
   >(
@@ -600,7 +649,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
           body: ResponseBody;
           contentType?: ContentType;
           status?: number;
-          headers?: Record<string, string>;
+          headers?: Headers;
         },
     schema: {
       response?: ResponseSchema;
@@ -836,6 +885,24 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
             queryValidationResult = { value: queryParams };
           }
 
+          const rawHeaders: Record<string, string | null> = {};
+          for (const [key, value] of modifiedReq.headers.entries()) {
+            rawHeaders[key.toLowerCase()] = value;
+          }
+
+          let headersValidationResult;
+          if (route.schema.headers?.["~standard"]?.validate) {
+            headersValidationResult = await route.schema.headers["~standard"].validate(rawHeaders);
+            if ("issues" in headersValidationResult) {
+              return new Response(
+                "Invalid headers: " + JSON.stringify(headersValidationResult.issues),
+                { status: 400 },
+              );
+            }
+          } else {
+            headersValidationResult = { value: rawHeaders };
+          }
+
           let body = undefined;
           let bodyValidationResult: StandardSchemaV1.Result<any> = { value: undefined };
 
@@ -879,6 +946,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
             req: modifiedReq,
             params: "value" in paramsValidationResult ? paramsValidationResult.value : {},
             query: "value" in queryValidationResult ? queryValidationResult.value : {},
+            headers:
+              "value" in headersValidationResult ? headersValidationResult.value : rawHeaders,
             body: "value" in bodyValidationResult ? bodyValidationResult.value : body,
             route: routePath,
             method: route.method,

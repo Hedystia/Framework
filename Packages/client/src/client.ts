@@ -12,36 +12,36 @@ type PathParts<Path extends string> = Path extends `/${infer Rest}`
       : [Rest]
   : [];
 
-type DeleteRequestFunction<B, Q, ResponseType> = (
+type DeleteRequestFunction<B, Q, ResponseType, H> = (
   body?: B,
   query?: Q,
-  options?: { responseFormat?: ResponseFormat; headers?: Record<string, string> },
+  options?: { responseFormat?: ResponseFormat; headers?: H },
 ) => Promise<{ error: any | null; data: ResponseType | null }>;
 
-type RequestFunction<Q, ResponseType> = (
+type RequestFunction<Q, ResponseType, H> = (
   query?: Q,
-  options?: { responseFormat?: ResponseFormat; headers?: Record<string, string> },
+  options?: { responseFormat?: ResponseFormat; headers?: H },
 ) => Promise<{
   error: any | null;
   data: ResponseType | null;
 }>;
 
-type PatchRequestFunction<B, Q, ResponseType> = (
+type PatchRequestFunction<B, Q, ResponseType, H> = (
   body?: B,
   query?: Q,
-  options?: { responseFormat?: ResponseFormat; headers?: Record<string, string> },
+  options?: { responseFormat?: ResponseFormat; headers?: H },
 ) => Promise<{ error: any | null; data: ResponseType | null }>;
 
-type PostRequestFunction<B, Q, ResponseType> = (
+type PostRequestFunction<B, Q, ResponseType, H> = (
   body?: B,
   query?: Q,
-  options?: { responseFormat?: ResponseFormat; headers?: Record<string, string> },
+  options?: { responseFormat?: ResponseFormat; headers?: H },
 ) => Promise<{ error: any | null; data: ResponseType | null }>;
 
-type PutRequestFunction<B, Q, ResponseType> = (
+type PutRequestFunction<B, Q, ResponseType, H> = (
   body?: B,
   query?: Q,
-  options?: { responseFormat?: ResponseFormat; headers?: Record<string, string> },
+  options?: { responseFormat?: ResponseFormat; headers?: H },
 ) => Promise<{ error: any | null; data: ResponseType | null }>;
 
 type RouteToTreeInner<T extends string[], Params, Methods> = T extends [
@@ -76,61 +76,124 @@ type RouteDefinitionsToMethodsObjects<Routes> = Routes extends {
   query?: infer Query;
   body?: infer Body;
   response?: infer Response;
+  headers?: infer Headers;
 }
-  ? [M, P, Params, Query, Body, Response]
+  ? [M, P, Params, Query, Body, Response, Headers]
   : never;
 
 type GroupedRoutes<Routes> = {
   [P in RouteDefinitionsToMethodsObjects<Routes>[1]]: {
-    params: Extract<RouteDefinitionsToMethodsObjects<Routes>, [any, P, any, any, any, any]>[2];
+    params: Extract<RouteDefinitionsToMethodsObjects<Routes>, [any, P, any, any, any, any, any]>[2];
     methods: MergeMethodObjects<{
       get: Extract<
         RouteDefinitionsToMethodsObjects<Routes>,
-        ["GET", P, any, any, any, any]
+        ["GET", P, any, any, any, any, any]
       >[0] extends "GET"
         ? RequestFunction<
-            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["GET", P, any, any, any, any]>[3],
-            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["GET", P, any, any, any, any]>[5]
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["GET", P, any, any, any, any, any]
+            >[3],
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["GET", P, any, any, any, any, any]
+            >[5],
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["GET", P, any, any, any, any, any]
+            >[6]
           >
         : never;
       patch: Extract<
         RouteDefinitionsToMethodsObjects<Routes>,
-        ["PATCH", P, any, any, any, any]
+        ["PATCH", P, any, any, any, any, any]
       >[0] extends "PATCH"
         ? PatchRequestFunction<
-            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["PATCH", P, any, any, any, any]>[4],
-            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["PATCH", P, any, any, any, any]>[3],
-            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["PATCH", P, any, any, any, any]>[5]
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["PATCH", P, any, any, any, any, any]
+            >[4],
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["PATCH", P, any, any, any, any, any]
+            >[3],
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["PATCH", P, any, any, any, any, any]
+            >[5],
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["PATCH", P, any, any, any, any, any]
+            >[6]
           >
         : never;
       post: Extract<
         RouteDefinitionsToMethodsObjects<Routes>,
-        ["POST", P, any, any, any, any]
+        ["POST", P, any, any, any, any, any]
       >[0] extends "POST"
         ? PostRequestFunction<
-            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["POST", P, any, any, any, any]>[4],
-            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["POST", P, any, any, any, any]>[3],
-            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["POST", P, any, any, any, any]>[5]
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["POST", P, any, any, any, any, any]
+            >[4],
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["POST", P, any, any, any, any, any]
+            >[3],
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["POST", P, any, any, any, any, any]
+            >[5],
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["POST", P, any, any, any, any, any]
+            >[6]
           >
         : never;
       put: Extract<
         RouteDefinitionsToMethodsObjects<Routes>,
-        ["PUT", P, any, any, any, any]
+        ["PUT", P, any, any, any, any, any]
       >[0] extends "PUT"
         ? PutRequestFunction<
-            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["PUT", P, any, any, any, any]>[4],
-            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["PUT", P, any, any, any, any]>[3],
-            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["PUT", P, any, any, any, any]>[5]
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["PUT", P, any, any, any, any, any]
+            >[4],
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["PUT", P, any, any, any, any, any]
+            >[3],
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["PUT", P, any, any, any, any, any]
+            >[5],
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["PUT", P, any, any, any, any, any]
+            >[6]
           >
         : never;
       delete: Extract<
         RouteDefinitionsToMethodsObjects<Routes>,
-        ["DELETE", P, any, any, any, any]
+        ["DELETE", P, any, any, any, any, any]
       >[0] extends "DELETE"
         ? DeleteRequestFunction<
-            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["DELETE", P, any, any, any, any]>[4],
-            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["DELETE", P, any, any, any, any]>[3],
-            Extract<RouteDefinitionsToMethodsObjects<Routes>, ["DELETE", P, any, any, any, any]>[5]
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["DELETE", P, any, any, any, any, any]
+            >[4],
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["DELETE", P, any, any, any, any, any]
+            >[3],
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["DELETE", P, any, any, any, any, any]
+            >[5],
+            Extract<
+              RouteDefinitionsToMethodsObjects<Routes>,
+              ["DELETE", P, any, any, any, any, any]
+            >[6]
           >
         : never;
     }>;
