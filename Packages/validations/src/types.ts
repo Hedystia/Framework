@@ -6,6 +6,39 @@ interface SchemaLike {
   [key: string]: SchemaPrimitive | SchemaLike | BaseSchema<any, any>;
 }
 
+type Simplify<T> = T extends any ? { [K in keyof T]: T[K] } : never;
+
+type RequiredKeys<S> = {
+  [K in keyof S]: S[K] extends OptionalSchema<any, any> ? never : K;
+}[keyof S];
+
+type OptionalKeys<S> = {
+  [K in keyof S]: S[K] extends OptionalSchema<any, any> ? K : never;
+}[keyof S];
+
+type SchemaPrimitiveMap = {
+  string: string;
+  number: number;
+  boolean: boolean;
+  any: unknown;
+};
+
+type SchemaType<S> = S extends BaseSchema<any, infer O>
+  ? O
+  : S extends keyof SchemaPrimitiveMap
+    ? SchemaPrimitiveMap[S]
+    : S extends Record<string, any>
+      ? InferSchema<S>
+      : unknown;
+
+type InferObject<S extends SchemaDefinition> = Simplify<
+  {
+    [K in RequiredKeys<S>]: SchemaType<S[K]>;
+  } & {
+    [K in OptionalKeys<S>]?: SchemaType<S[K]>;
+  }
+>;
+
 type InferSchema<S> = S extends BaseSchema<any, infer O>
   ? O
   : S extends "string"
@@ -636,24 +669,8 @@ export const h = {
   literal: <T extends string | number | boolean>(value: T): LiteralSchema<T> =>
     new LiteralSchema<T>(value),
 
-  object: <S extends SchemaDefinition>(
-    schemaDef?: S,
-  ): ObjectSchemaType<{
-    [K in keyof S]: S[K] extends BaseSchema<any, infer O>
-      ? O
-      : S[K] extends SchemaPrimitive
-        ? S[K] extends "string"
-          ? string
-          : S[K] extends "number"
-            ? number
-            : S[K] extends "boolean"
-              ? boolean
-              : unknown
-        : S[K] extends Record<string, any>
-          ? InferSchema<S[K]>
-          : unknown;
-  }> => {
-    return new ObjectSchemaType(schemaDef || {});
+  object: <S extends SchemaDefinition>(schemaDef?: S): ObjectSchemaType<InferObject<S>> => {
+    return new ObjectSchemaType(schemaDef || {}) as ObjectSchemaType<InferObject<S>>;
   },
 
   array: <S extends AnySchema>(schema: S): ArraySchema<unknown, InferSchema<S>[]> => {
