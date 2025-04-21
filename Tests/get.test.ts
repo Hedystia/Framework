@@ -51,6 +51,18 @@ const app = new Framework()
       response: h.object({ id: h.number(), name: h.string() }),
     },
   )
+  .get(
+    "/headers",
+    (context) => {
+      return Response.json(context.headers);
+    },
+    {
+      headers: h.object({
+        "x-test-header": h.string(),
+      }),
+      response: h.object({ "x-test-header": h.string() }),
+    },
+  )
   .listen(3000);
 
 const client = createClient<typeof app>("http://localhost:3000");
@@ -79,10 +91,21 @@ describe("Test get route", () => {
   });
 
   it("should handle root endpoint", async () => {
-    const { data, error } = await client.index.get()
+    const { data, error } = await client.index.get();
 
     expect(error).toBeNull();
     expect(data).toBe("Welcome to API Server");
+  });
+
+  it("should work with headers", async () => {
+    const { data, error } = await client.headers.get(undefined, {
+      headers: {
+        "x-test-header": "test-value",
+      },
+    });
+
+    expect(error).toBeNull();
+    expect(data).toEqual({ "x-test-header": "test-value" });
   });
 
   afterAll(() => {
