@@ -131,10 +131,9 @@ app.use("/swagger", swaggerPlugin.plugin).listen(3000);
 - ✅ Router Groups & Middleware
 - ✅ Type-safe Client Generation
 - ✅ WebSocket Support
-- ✅ Standard Schema Compatibility
 
 ### Advanced Capabilities
-- ✅ Zod Validation - Changed to native validation plugin
+- ✅ Standard Schema Compatibility
 - ✅ Hooks System (onRequest, onError, etc)
 - ✅ Macro System for Auth/Rate Limiting
 - ✅ OpenAPI - Swagger Integration
