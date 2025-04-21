@@ -5,3 +5,4 @@ export { Hedystia };
 export default Hedystia;
 
 export type { RouteDefinition } from "./types/routes";
+export type { MacroData } from "./server";
