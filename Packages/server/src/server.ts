@@ -1,4 +1,3 @@
-import { serve } from "bun";
 import type { RouteDefinition } from "./types/routes";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 
@@ -1172,6 +1171,14 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         if (options.perMessageDeflate !== undefined)
           wsConfig.websocket.perMessageDeflate = options.perMessageDeflate;
       }
+    }
+
+    const serve = globalThis.Bun?.serve;
+
+    if (!serve) {
+      throw new Error(
+        "Listen only works in Bun runtime, please use @hedystia/adapter to work with other environments",
+      );
     }
 
     this.server = serve({
