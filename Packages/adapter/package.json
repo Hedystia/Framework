@@ -1,0 +1,42 @@
+{
+  "name": "@hedystia/adapter",
+  "version": "1.2.6",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "tsup": "^8.3.5"
+  },
+  "dependencies": {
+    "hedystia": "^1.2.6"
+  },
+  "peerDependencies": {
+    "typescript": ">= 5.0.0",
+    "hedystia": ">= 1.2.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    },
+    "hedystia": {
+      "optional": false
+    }
+  },
+  "private": false,
+  "license": "MIT",
+  "scripts": {
+    "build": "tsup",
+    "dev": "bun --watch --no-clear-screen run src/index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Hedystia/Framework"
+  },
+  "author": {
+    "name": "Zastinian",
+    "email": "contact@zastinian.com",
+    "url": "https://github.com/Zastinian"
+  },
+  "type": "commonjs",
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js"
+}
