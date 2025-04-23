@@ -21,8 +21,9 @@
 
 ## 🌟 Superpowers
 
+- 🌐 **Multi-runtime support** - Bun (default), Deno, Node.js, Vercel, Cloudflare Workers, Fastly Compute, Lambda, etc.
 - 🔒 **End-to-end type safety** - From params to response, full TypeScript integration
-- ⚡ **Bun-native performance** - Built for Bun runtime with zod dependency
+- ⚡ **Bun-native performance** - Built for Bun runtime with native validation
 - 🧩 **Client integration** - Auto-generated type-safe HTTP client
 - 🛡️ **Validation built-in** - Zod integration for runtime safety
 - 🔌 **Extensible architecture** - Middleware, hooks and macros system
@@ -131,6 +132,7 @@ app.use("/swagger", swaggerPlugin.plugin).listen(3000);
 - ✅ Router Groups & Middleware
 - ✅ Type-safe Client Generation
 - ✅ WebSocket Support
+- ✅ Adapter System to work with other frameworks
 
 ### Advanced Capabilities
 - ✅ Standard Schema Compatibility
