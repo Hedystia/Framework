@@ -515,10 +515,55 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
     }
   }
 
+  private async parseFormData(req: Request): Promise<FormData> {
+    const contentType = req.headers.get("Content-Type") || "";
+    if (contentType.includes("multipart/form-data")) {
+      const text = await req.text();
+      const formData = new FormData();
+      const boundary = contentType.split("boundary=")[1];
+      if (boundary) {
+        const parts = text.split(`--${boundary}`);
+        for (const part of parts) {
+          if (part.trim() && !part.includes("--\r\n")) {
+            const [headerPart, bodyPart] = part.split("\r\n\r\n");
+            if (headerPart && bodyPart) {
+              const nameMatch = headerPart.match(/name="([^"]+)"/);
+              const filenameMatch = headerPart.match(/filename="([^"]+)"/);
+              if (nameMatch) {
+                const name = nameMatch[1];
+                if (filenameMatch) {
+                  const filename = filenameMatch[1];
+                  const contentTypeMatch = headerPart.match(/Content-Type: (.+)/);
+                  const type = contentTypeMatch ? contentTypeMatch[1]?.trim() : "";
+
+                  const blob = new Blob([bodyPart.slice(0, -2)], { type });
+                  const file = new File([blob], String(filename), { type });
+
+                  formData.append(String(name), file);
+                } else {
+                  formData.append(String(name), bodyPart.slice(0, -2));
+                }
+              }
+            }
+          }
+        }
+      }
+      return formData;
+    } else {
+      const text = await req.text();
+      const formData = new FormData();
+      const params = new URLSearchParams(text);
+      for (const [key, value] of params.entries()) {
+        formData.append(key, value);
+      }
+      return formData;
+    }
+  }
+
   private async parseRequestBody(req: Request): Promise<any> {
     const contentType = req.headers.get("Content-Type") || "";
     if (contentType.includes("application/json")) return req.json();
-    if (contentType.includes("multipart/form-data")) return req.formData();
+    if (contentType.includes("multipart/form-data")) return this.parseFormData(req);
     if (contentType.includes("text/")) return req.text();
     try {
       return await req.json();
