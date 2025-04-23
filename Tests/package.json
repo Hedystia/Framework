@@ -1,19 +1,22 @@
 {
   "name": "tests",
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/express": "^5.0.1"
   },
   "scripts": {
     "dev": "bun --watch --no-clear-screen test",
     "test": "bun test"
   },
   "dependencies": {
+    "@hedystia/adapter": "workspace:*",
     "@hedystia/better-auth-typeorm": "^0.2.0",
     "@hedystia/client": "workspace:*",
     "@hedystia/swagger": "workspace:*",
     "@hedystia/validations": "workspace:*",
     "@zod/mini": "4.0.0-beta.20250418T202744",
     "better-auth": "^1.2.7",
+    "express": "^5.1.0",
     "hedystia": "workspace:*",
     "reflect-metadata": "^0.2.2",
     "sqlite3": "^5.1.7",
