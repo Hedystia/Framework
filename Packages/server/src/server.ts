@@ -335,8 +335,11 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     const wrappedHandler = hasMacros
       ? this.createWrappedHandler(handler, schema)
       : async function (ctx: any) {
-          const result = await handler(ctx);
-          return result instanceof Response ? result : Hedystia.createResponse(result);
+          const result = handler(ctx);
+          const finalResult = result instanceof Promise ? await result : result;
+          return finalResult instanceof Response
+            ? finalResult
+            : Hedystia.createResponse(finalResult);
         };
 
     this.routes.push({
@@ -410,8 +413,11 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     const wrappedHandler = hasMacros
       ? this.createWrappedHandler(handler, schema)
       : async function (ctx: any) {
-          const result = await handler(ctx);
-          return result instanceof Response ? result : Hedystia.createResponse(result);
+          const result = handler(ctx);
+          const finalResult = result instanceof Promise ? await result : result;
+          return finalResult instanceof Response
+            ? finalResult
+            : Hedystia.createResponse(finalResult);
         };
 
     this.routes.push({
@@ -486,8 +492,11 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     const wrappedHandler = hasMacros
       ? this.createWrappedHandler(handler, schema)
       : async function (ctx: any) {
-          const result = await handler(ctx);
-          return result instanceof Response ? result : Hedystia.createResponse(result);
+          const result = handler(ctx);
+          const finalResult = result instanceof Promise ? await result : result;
+          return finalResult instanceof Response
+            ? finalResult
+            : Hedystia.createResponse(finalResult);
         };
 
     this.routes.push({
@@ -562,8 +571,11 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     const wrappedHandler = hasMacros
       ? this.createWrappedHandler(handler, schema)
       : async function (ctx: any) {
-          const result = await handler(ctx);
-          return result instanceof Response ? result : Hedystia.createResponse(result);
+          const result = handler(ctx);
+          const finalResult = result instanceof Promise ? await result : result;
+          return finalResult instanceof Response
+            ? finalResult
+            : Hedystia.createResponse(finalResult);
         };
 
     this.routes.push({
@@ -638,8 +650,11 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     const wrappedHandler = hasMacros
       ? this.createWrappedHandler(handler, schema)
       : async function (ctx: any) {
-          const result = await handler(ctx);
-          return result instanceof Response ? result : Hedystia.createResponse(result);
+          const result = handler(ctx);
+          const finalResult = result instanceof Promise ? await result : result;
+          return finalResult instanceof Response
+            ? finalResult
+            : Hedystia.createResponse(finalResult);
         };
 
     this.routes.push({
@@ -873,7 +888,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         try {
           let modifiedReq = req;
           for (const handler of self.onRequestHandlers) {
-            modifiedReq = await handler(modifiedReq);
+            const reqResult = handler(modifiedReq);
+            modifiedReq = reqResult instanceof Promise ? await reqResult : reqResult;
           }
 
           const url = new URL(req.url);
@@ -1207,7 +1223,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       if (!handler) {
         return new Response("Not found", { status: 404 });
       }
-      const response = await handler(req);
+      const responseResult = handler(req);
+      const response = responseResult instanceof Promise ? await responseResult : responseResult;
       if (response instanceof Response) {
         return response;
       }
@@ -1219,14 +1236,15 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
   }
 
   private createWrappedHandler(
-    handler: (ctx: any) => Response | any,
+    handler: (ctx: any) => Response | Promise<Response> | any,
     schema: Record<string, any>,
   ): RequestHandler {
     const macros = Object.entries(schema)
       .filter(
         ([key]) =>
-          !["params", "query", "body", "response", "description", "tags"].includes(key) &&
-          schema[key] === true,
+          !["params", "query", "body", "headers", "response", "description", "tags"].includes(
+            key,
+          ) && schema[key] === true,
       )
       .map(([key]) => ({ key, macro: this.macros[key] }));
 
@@ -1234,7 +1252,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       if (macros.length > 0) {
         for (const { key, macro } of macros) {
           try {
-            ctx[key] = await macro?.resolve(ctx);
+            const macroResult = macro?.resolve(ctx);
+            ctx[key] = macroResult instanceof Promise ? await macroResult : macroResult;
           } catch (err: any) {
             if (err.isMacroError) {
               return new Response(err.message, { status: err.statusCode });
@@ -1244,8 +1263,9 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         }
       }
 
-      const result = await handler(ctx);
-      return result instanceof Response ? result : Hedystia.createResponse(result);
+      const result = handler(ctx);
+      const finalResult = result instanceof Promise ? await result : result;
+      return finalResult instanceof Response ? finalResult : Hedystia.createResponse(finalResult);
     };
   }
 
