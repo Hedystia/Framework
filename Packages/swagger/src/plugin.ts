@@ -1,6 +1,11 @@
 import { Hedystia } from "hedystia";
 import { Swagger, type SwaggerOptions } from "./swagger";
 
+/**
+ * Create Swagger plugin
+ * @param {SwaggerOptions} [options] - Swagger options
+ * @returns Plugin instance
+ */
 export function swagger(options: SwaggerOptions = {}) {
   const swaggerInstance = new Swagger(options);
 

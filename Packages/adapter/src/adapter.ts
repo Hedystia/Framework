@@ -7,10 +7,19 @@ interface AdapterOptions {
 export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros extends MacroData = {}> {
   private app: Hedystia<Routes, Macros>;
 
+  /**
+   * Create new instance of Hedystia adapter
+   * @param {Hedystia<Routes, Macros>} app - Hedystia instance
+   */
   constructor(app: Hedystia<Routes, Macros>) {
     this.app = app;
   }
 
+  /**
+   * Create Cloudflare Worker adapter
+   * @param {AdapterOptions} [options] - Adapter configuration
+   * @returns Cloudflare Worker adapter
+   */
   toCloudflareWorker(options: AdapterOptions = {}) {
     const prefix = options.prefix || "";
 
@@ -55,6 +64,11 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
     };
   }
 
+  /**
+   * Create Node.js handler adapter
+   * @param {AdapterOptions} [options] - Adapter configuration
+   * @returns Node.js handler adapter
+   */
   toNodeHandler(options: AdapterOptions = {}) {
     const prefix = options.prefix || "";
 
@@ -102,6 +116,11 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
     };
   }
 
+  /**
+   * Create Fastly Compute adapter
+   * @param {AdapterOptions} [options] - Adapter configuration
+   * @returns Fastly Compute adapter
+   */
   toFastlyCompute(options: AdapterOptions = {}) {
     const prefix = options.prefix || "";
 
@@ -141,6 +160,11 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
     };
   }
 
+  /**
+   * Create Deno adapter
+   * @param {AdapterOptions} [options] - Adapter configuration
+   * @returns Deno adapter
+   */
   toDeno(options: AdapterOptions = {}) {
     const prefix = options.prefix || "";
 
@@ -180,6 +204,11 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
     };
   }
 
+  /**
+   * Create AWS Lambda adapter
+   * @param {AdapterOptions} [options] - Adapter configuration
+   * @returns AWS Lambda adapter
+   */
   toLambda(options: AdapterOptions = {}) {
     const prefix = options.prefix || "";
 
@@ -231,6 +260,11 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
     };
   }
 
+  /**
+   * Create Vercel adapter
+   * @param {AdapterOptions} [options] - Adapter configuration
+   * @returns Vercel adapter
+   */
   toVercel(options: AdapterOptions = {}) {
     const prefix = options.prefix || "";
 
@@ -744,8 +778,13 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
   }
 }
 
+/**
+ * Create Hedystia adapter
+ * @param {Hedystia<Routes, Macros>} app - Hedystia instance
+ * @returns {HedystiaAdapter<Routes, Macros>} Adapter instance
+ */
 export function adapter<Routes extends RouteDefinition[] = [], Macros extends MacroData = {}>(
   app: Hedystia<Routes, Macros>,
-) {
+): HedystiaAdapter<Routes, Macros> {
   return new HedystiaAdapter(app);
 }

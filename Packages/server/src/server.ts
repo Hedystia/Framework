@@ -171,6 +171,11 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     this.reusePort = options?.reusePort ?? false;
   }
 
+  /**
+   * Register a macro configuration to extend request context
+   * @param {T} config - Macro configuration object
+   * @returns {Hedystia<Routes, Macros & { [K in keyof T]: ReturnType<ReturnType<T[K]>["resolve"]> }>} Instance with extended macros
+   */
   macro<T extends Record<string, (enabled: boolean) => { resolve: MacroResolveFunction<any> }>>(
     config: T,
   ): Hedystia<Routes, Macros & { [K in keyof T]: ReturnType<ReturnType<T[K]>["resolve"]> }> & {
@@ -191,6 +196,12 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return self;
   }
 
+  /**
+   * Group routes with a common prefix
+   * @param {Prefix} prefix - Path prefix for the group
+   * @param {(app: Hedystia<[]>)} callback - Function defining group routes
+   * @returns {Hedystia<[...Routes, ...PrefixRoutes<Prefix, GroupRoutes>]>} Instance with grouped routes
+   */
   group<Prefix extends string, GroupRoutes extends RouteDefinition[]>(
     prefix: Prefix,
     callback: (app: Hedystia<[]>) => Hedystia<GroupRoutes>,
@@ -221,41 +232,81 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return this as any;
   }
 
+  /**
+   * Register a handler for the 'request' lifecycle event
+   * @param {OnRequestHandler} handler - Function to handle request event
+   * @returns {this} Current instance
+   */
   onRequest(handler: OnRequestHandler): this {
     this.onRequestHandlers.push(handler);
     return this;
   }
 
+  /**
+   * Register a handler for the 'parse' lifecycle event
+   * @param {OnParseHandler} handler - Function to handle parse event
+   * @returns {this} Current instance
+   */
   onParse(handler: OnParseHandler): this {
     this.onParseHandlers.push(handler);
     return this;
   }
 
+  /**
+   * Register a handler for the 'transform' lifecycle event
+   * @param {OnTransformHandler<T>} handler - Function to handle transform event
+   * @returns {this} Current instance
+   */
   onTransform<T extends RouteSchema = {}>(handler: OnTransformHandler<T>): this {
     this.onTransformHandlers.push(handler as OnTransformHandler);
     return this;
   }
 
+  /**
+   * Register a handler for the 'beforeHandle' lifecycle event
+   * @param {OnBeforeHandleHandler<T>} handler - Function to handle beforeHandle event
+   * @returns {this} Current instance
+   */
   onBeforeHandle<T extends RouteSchema = {}>(handler: OnBeforeHandleHandler<T>): this {
     this.onBeforeHandleHandlers.push(handler as OnBeforeHandleHandler);
     return this;
   }
 
+  /**
+   * Register a handler for the 'afterHandle' lifecycle event
+   * @param {OnAfterHandleHandler<T>} handler - Function to handle afterHandle event
+   * @returns {this} Current instance
+   */
   onAfterHandle<T extends RouteSchema = {}>(handler: OnAfterHandleHandler<T>): this {
     this.onAfterHandleHandlers.push(handler as OnAfterHandleHandler);
     return this;
   }
 
+  /**
+   * Register a handler for the 'mapResponse' lifecycle event
+   * @param {OnMapResponseHandler<T>} handler - Function to handle mapResponse event
+   * @returns {this} Current instance
+   */
   onMapResponse<T extends RouteSchema = {}>(handler: OnMapResponseHandler<T>): this {
     this.onMapResponseHandlers.push(handler as OnMapResponseHandler);
     return this;
   }
 
+  /**
+   * Register a handler for the 'error' lifecycle event
+   * @param {OnErrorHandler<T>} handler - Function to handle error event
+   * @returns {this} Current instance
+   */
   onError<T extends RouteSchema = {}>(handler: OnErrorHandler<T>): this {
     this.onErrorHandlers.push(handler as OnErrorHandler);
     return this;
   }
 
+  /**
+   * Register a handler for the 'afterResponse' lifecycle event
+   * @param {OnAfterResponseHandler<T>} handler - Function to handle afterResponse event
+   * @returns {this} Current instance
+   */
   onAfterResponse<T extends RouteSchema = {}>(handler: OnAfterResponseHandler<T>): this {
     this.onAfterResponseHandlers.push(handler as OnAfterResponseHandler);
     return this;
@@ -283,6 +334,19 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return Response.json(data);
   }
 
+  /**
+   * Register a GET route handler
+   * @param {Path} path - Route path
+   * @param {(ctx: InferRouteContext)} handler - Request handler function
+   * @param {Object} schema - Validation schemas configuration
+   * @param {Params} [schema.params] - Path parameters schema
+   * @param {Query} [schema.query] - Query parameters schema
+   * @param {Headers} [schema.headers] - Headers schema
+   * @param {ResponseSchema} [schema.response] - Response schema
+   * @param {string} [schema.description] - Route description
+   * @param {string[]} [schema.tags] - Route tags
+   * @returns {Hedystia<[...Routes, ...], Macros>} Instance with new route
+   */
   get<
     Path extends string,
     Params extends ValidationSchema,
@@ -358,6 +422,20 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return this as any;
   }
 
+  /**
+   * Register a PATCH route handler
+   * @param {Path} path - Route path
+   * @param {(ctx: InferRouteContext)} handler - Request handler function
+   * @param {Object} schema - Validation schemas configuration
+   * @param {Params} [schema.params] - Path parameters schema
+   * @param {Query} [schema.query] - Query parameters schema
+   * @param {Body} [schema.body] - Body schema
+   * @param {Headers} [schema.headers] - Headers schema
+   * @param {ResponseSchema} [schema.response] - Response schema
+   * @param {string} [schema.description] - Route description
+   * @param {string[]} [schema.tags] - Route tags
+   * @returns {Hedystia<[...Routes, ...], Macros>} Instance with new route
+   */
   patch<
     Path extends string,
     Params extends ValidationSchema,
@@ -437,6 +515,20 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return this as any;
   }
 
+  /**
+   * Register a POST route handler
+   * @param {Path} path - Route path
+   * @param {(ctx: InferRouteContext)} handler - Request handler function
+   * @param {Object} schema - Validation schemas configuration
+   * @param {Params} [schema.params] - Path parameters schema
+   * @param {Query} [schema.query] - Query parameters schema
+   * @param {Body} [schema.body] - Body schema
+   * @param {Headers} [schema.headers] - Headers schema
+   * @param {ResponseSchema} [schema.response] - Response schema
+   * @param {string} [schema.description] - Route description
+   * @param {string[]} [schema.tags] - Route tags
+   * @returns {Hedystia<[...Routes, ...], Macros>} Instance with new route
+   */
   post<
     Path extends string,
     Params extends ValidationSchema,
@@ -516,6 +608,20 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return this as any;
   }
 
+  /**
+   * Register a PUT route handler
+   * @param {Path} path - Route path
+   * @param {(ctx: InferRouteContext)} handler - Request handler function
+   * @param {Object} schema - Validation schemas configuration
+   * @param {Params} [schema.params] - Path parameters schema
+   * @param {Query} [schema.query] - Query parameters schema
+   * @param {Body} [schema.body] - Body schema
+   * @param {Headers} [schema.headers] - Headers schema
+   * @param {ResponseSchema} [schema.response] - Response schema
+   * @param {string} [schema.description] - Route description
+   * @param {string[]} [schema.tags] - Route tags
+   * @returns {Hedystia<[...Routes, ...], Macros>} Instance with new route
+   */
   put<
     Path extends string,
     Params extends ValidationSchema,
@@ -595,6 +701,20 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return this as any;
   }
 
+  /**
+   * Register a DELETE route handler
+   * @param {Path} path - Route path
+   * @param {(ctx: InferRouteContext)} handler - Request handler function
+   * @param {Object} schema - Validation schemas configuration
+   * @param {Params} [schema.params] - Path parameters schema
+   * @param {Query} [schema.query] - Query parameters schema
+   * @param {Body} [schema.body] - Body schema
+   * @param {Headers} [schema.headers] - Headers schema
+   * @param {ResponseSchema} [schema.response] - Response schema
+   * @param {string} [schema.description] - Route description
+   * @param {string[]} [schema.tags] - Route tags
+   * @returns {Hedystia<[...Routes, ...], Macros>} Instance with new route
+   */
   delete<
     Path extends string,
     Params extends ValidationSchema,
@@ -674,6 +794,14 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return this as any;
   }
 
+  /**
+   * Register a static route handler
+   * @param {Path} path - Route path
+   * @param {Response | Object} response - Static response configuration
+   * @param {Object} schema - Response validation schema
+   * @param {ResponseSchema} [schema.response] - Response schema
+   * @returns {Hedystia<[...Routes, ...], Macros>} Instance with static route
+   */
   static<
     Path extends string,
     ResponseSchema extends ValidationSchema = ValidationSchema,
@@ -758,14 +886,30 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return this as any;
   }
 
+  /**
+   * Register a generic request handler
+   * @param {GenericRequestHandler} handler - Fallback request handler
+   * @returns {this} Current instance
+   */
   handle(handler: GenericRequestHandler): this {
     this.genericHandlers.push(handler);
     return this;
   }
 
+  /**
+   * Mount child framework instance
+   * @param {Hedystia<ChildRoutes, ChildMacros>} childFramework - Child framework instance
+   * @returns {Hedystia<[...Routes, ...ChildRoutes], Macros & ChildMacros>} Combined instance
+   */
   use<ChildRoutes extends RouteDefinition[], ChildMacros extends MacroData = {}>(
     childFramework: Hedystia<ChildRoutes, ChildMacros>,
   ): Hedystia<[...Routes, ...ChildRoutes], Macros & ChildMacros>;
+  /**
+   * Mount child framework instance with prefix
+   * @param {Prefix} prefix - Path prefix
+   * @param {Hedystia<ChildRoutes, ChildMacros>} childFramework - Child framework instance
+   * @returns {Hedystia<[...Routes, ...], Macros & ChildMacros>} Combined instance
+   */
   use<
     Prefix extends string,
     ChildRoutes extends RouteDefinition[],
@@ -847,6 +991,13 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return this as any;
   }
 
+  /**
+   * Register WebSocket handler
+   * @param {Path} path - WebSocket path
+   * @param {WebSocketHandler} handler - WebSocket event handlers
+   * @param {WebSocketOptions & { params?: Params }} [options] - WebSocket configuration
+   * @returns {Hedystia<[...Routes, ...], Macros>} Instance with WebSocket route
+   */
   ws<Path extends string, Params extends ValidationSchema = ValidationSchema>(
     path: Path,
     handler: WebSocketHandler,
@@ -871,6 +1022,12 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return this as any;
   }
 
+  /**
+   * Start HTTP server
+   * @param {number} port - Server port number
+   * @returns {this} Current instance
+   * @throws {Error} If not running in Bun runtime
+   */
   listen(port: number): this {
     const self = this;
 
@@ -1285,6 +1442,10 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return "application/json";
   }
 
+  /**
+   * Stop HTTP server
+   * @returns {void}
+   */
   close(): void {
     if (this.server) {
       this.server.stop();
@@ -1292,6 +1453,12 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     }
   }
 
+  /**
+   * Throw error with status code and message
+   * @param {number} statusCode - Error status code
+   * @param {string} message - Error message
+   * @returns {never} Never type
+   */
   error(statusCode: number, message: string): never {
     throw { statusCode, message };
   }

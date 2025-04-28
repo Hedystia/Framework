@@ -310,6 +310,11 @@ async function processResponse(response: Response, format: ResponseFormat = "jso
   }
 }
 
+/**
+ * Create client for Hedystia framework
+ * @param {string} baseUrl - Base URL for client
+ * @returns {ClientTree<ExtractRoutesFromFramework<T>>} Client instance
+ */
 export function createClient<T extends Hedystia<any>>(
   baseUrl: string,
 ): ClientTree<ExtractRoutesFromFramework<T>> {

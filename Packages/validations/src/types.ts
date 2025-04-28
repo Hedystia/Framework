@@ -658,26 +658,70 @@ function toStandard<T>(schema: AnySchema): Schema<unknown, T> {
   };
 }
 
+/**
+ * Create standard schema types
+ * @returns {typeof h} Standard schema types
+ */
 export const h = {
+  /**
+   * Create string schema type
+   * @returns {StringSchemaType} String schema type
+   */
   string: (): StringSchemaType => new StringSchemaType(),
+  /**
+   * Create number schema type
+   * @returns {NumberSchemaType} Number schema type
+   */
   number: (): NumberSchemaType => new NumberSchemaType(),
+  /**
+   * Create boolean schema type
+   * @returns {BooleanSchemaType} Boolean schema type
+   */
   boolean: (): BooleanSchemaType => new BooleanSchemaType(),
+  /**
+   * Create null schema type
+   * @returns {NullSchemaType} Null schema type
+   */
   null: (): NullSchemaType => new NullSchemaType(),
 
+  /**
+   * Create any schema type
+   * @returns {AnySchemaType} Any schema type
+   */
   any: (): AnySchemaType => new AnySchemaType(),
 
+  /**
+   * Create literal schema type
+   * @param {T} value - Literal value
+   * @returns {LiteralSchema<T>} Literal schema type
+   */
   literal: <T extends string | number | boolean>(value: T): LiteralSchema<T> =>
     new LiteralSchema<T>(value),
 
+  /**
+   * Create object schema type
+   * @param {S} [schemaDef] - Schema definition
+   * @returns {ObjectSchemaType<InferObject<S>>} Object schema type
+   */
   object: <S extends SchemaDefinition>(schemaDef?: S): ObjectSchemaType<InferObject<S>> => {
     return new ObjectSchemaType(schemaDef || {}) as ObjectSchemaType<InferObject<S>>;
   },
 
+  /**
+   * Create array schema type
+   * @param {S} schema - Schema
+   * @returns {ArraySchema<unknown, InferSchema<S>[]>} Array schema type
+   */
   array: <S extends AnySchema>(schema: S): ArraySchema<unknown, InferSchema<S>[]> => {
     const base = toStandard<InferSchema<S>>(schema);
     return base.array();
   },
 
+  /**
+   * Create enum schema type
+   * @param {T} values - Enum values
+   * @returns {EnumSchema<unknown, T[number]>} Enum schema type
+   */
   enum: <T extends readonly [any, ...any[]]>(values: T): EnumSchema<unknown, T[number]> => {
     const firstValue = values[0];
     let baseSchema: Schema<unknown, any>;
@@ -695,17 +739,32 @@ export const h = {
     return baseSchema.enum(values);
   },
 
+  /**
+   * Create optional schema type
+   * @param {S} schema - Schema
+   * @returns {OptionalSchema<unknown, InferSchema<S> | undefined>} Optional schema type
+   */
   optional: <S extends AnySchema>(
     schema: S,
   ): OptionalSchema<unknown, InferSchema<S> | undefined> => {
     return toStandard<InferSchema<S>>(schema).optional();
   },
 
+  /**
+   * Create options schema type
+   * @param {S} schemas - Schemas
+   * @returns {UnionSchema<unknown, InferSchema<S[number]>>} Options schema type
+   */
   options: <S extends AnySchema[]>(...schemas: S): UnionSchema<unknown, InferSchema<S[number]>> => {
     const stdSchemas = schemas.map((s) => toStandard<InferSchema<S[number]>>(s).schema);
     return new UnionSchema<unknown, InferSchema<S[number]>>(...stdSchemas);
   },
 
+  /**
+   * Create instance of schema type
+   * @param {C} constructor - Constructor function
+   * @returns {InstanceOfSchema<unknown, InstanceType<C>>} Instance of schema type
+   */
   instanceOf: <C extends new (...args: any[]) => any>(
     constructor: C,
   ): InstanceOfSchema<unknown, InstanceType<C>> => {
@@ -713,9 +772,22 @@ export const h = {
     return baseSchema.instanceOf(constructor);
   },
 
+  /**
+   * Create email schema type
+   * @returns {StringSchemaType} Email schema type
+   */
   email: (): StringSchemaType => h.string().email(),
 
+  /**
+   * Create phone schema type
+   * @returns {StringSchemaType} Phone schema type
+   */
   phone: (): StringSchemaType => h.string().phone(),
 
+  /**
+   * Convert schema to standard schema
+   * @param {AnySchema} schema - Schema
+   * @returns {Schema<unknown, any>} Standard schema
+   */
   toStandard: toStandard,
 };
