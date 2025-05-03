@@ -41,9 +41,9 @@ const app = new Framework()
       response: z.object({ id: z.number(), name: z.string() }),
     },
   )
-  .listen(3000);
+  .listen(3023);
 
-const client = createClient<typeof app>("http://localhost:3000");
+const client = createClient<typeof app>("http://localhost:3023");
 
 describe("Test zod wrapper", () => {
   it("should return a response", async () => {
