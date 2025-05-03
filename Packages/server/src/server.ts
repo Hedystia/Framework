@@ -207,17 +207,23 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     callback: (app: Hedystia<[]>) => Hedystia<GroupRoutes>,
   ): Hedystia<[...Routes, ...PrefixRoutes<Prefix, GroupRoutes>]> {
     const groupApp = new Hedystia();
-    groupApp.prefix = this.prefix + prefix;
+    groupApp.prefix = "";
 
     const configuredApp = callback(groupApp);
-    const prefixPath = groupApp.prefix;
+    const fullPrefix = this.prefix + prefix;
 
     for (const route of configuredApp.routes) {
-      const path = route.path === prefixPath + "/" ? prefixPath : route.path;
-      this.routes.push({
-        ...route,
-        path,
-      });
+      if (route.path === "/") {
+        this.routes.push({
+          ...route,
+          path: fullPrefix,
+        });
+      } else {
+        this.routes.push({
+          ...route,
+          path: fullPrefix + route.path,
+        });
+      }
     }
 
     this.onRequestHandlers.push(...configuredApp.onRequestHandlers);
@@ -951,16 +957,18 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       this.macros[key] = macro;
     }
 
+    const fullPrefix = this.prefix + prefix;
+
     for (const route of childFramework.routes) {
-      if (route.path === "/" && prefix !== "") {
+      if (route.path === "/") {
         this.routes.push({
           ...route,
-          path: prefix,
+          path: fullPrefix,
         });
       } else {
         this.routes.push({
           ...route,
-          path: prefix + route.path,
+          path: fullPrefix + route.path,
         });
       }
     }
@@ -968,12 +976,12 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     for (const staticRoute of childFramework.staticRoutes) {
       if (staticRoute.path === "/" && prefix !== "") {
         this.staticRoutes.push({
-          path: prefix,
+          path: fullPrefix,
           response: staticRoute.response,
         });
       } else {
         this.staticRoutes.push({
-          path: prefix + staticRoute.path,
+          path: fullPrefix + staticRoute.path,
           response: staticRoute.response,
         });
       }
