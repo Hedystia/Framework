@@ -113,6 +113,8 @@ class StringSchemaType extends BaseSchema<unknown, string> {
   readonly type: SchemaPrimitive = "string";
   private _validateEmail: boolean = false;
   private _validatePhone: boolean = false;
+  private _minLength?: number;
+  private _maxLength?: number;
 
   constructor() {
     super();
@@ -121,6 +123,28 @@ class StringSchemaType extends BaseSchema<unknown, string> {
 
   primitive(): SchemaPrimitive {
     return this.type;
+  }
+
+  minLength(n: number): StringSchemaType {
+    const schema = new StringSchemaType();
+    Object.assign(schema, this);
+    schema._minLength = n;
+    schema.jsonSchema = {
+      ...this.jsonSchema,
+      minLength: n,
+    };
+    return schema;
+  }
+
+  maxLength(n: number): StringSchemaType {
+    const schema = new StringSchemaType();
+    Object.assign(schema, this);
+    schema._maxLength = n;
+    schema.jsonSchema = {
+      ...this.jsonSchema,
+      maxLength: n,
+    };
+    return schema;
   }
 
   email(): StringSchemaType {
@@ -149,6 +173,14 @@ class StringSchemaType extends BaseSchema<unknown, string> {
         return {
           issues: [{ message: "Expected string, received " + typeof value }],
         };
+      }
+
+      if (this._minLength !== undefined && value.length < this._minLength) {
+        return { issues: [{ message: `String shorter than ${this._minLength}` }] };
+      }
+
+      if (this._maxLength !== undefined && value.length > this._maxLength) {
+        return { issues: [{ message: `String longer than ${this._maxLength}` }] };
       }
 
       if (this._validateEmail && !this._isValidEmail(value)) {
@@ -184,6 +216,8 @@ class StringSchemaType extends BaseSchema<unknown, string> {
 
 class NumberSchemaType extends BaseSchema<unknown, number> {
   readonly type: SchemaPrimitive = "number";
+  private _min?: number;
+  private _max?: number;
 
   constructor() {
     super();
@@ -192,6 +226,28 @@ class NumberSchemaType extends BaseSchema<unknown, number> {
 
   primitive(): SchemaPrimitive {
     return this.type;
+  }
+
+  min(n: number): NumberSchemaType {
+    const schema = new NumberSchemaType();
+    Object.assign(schema, this);
+    schema._min = n;
+    schema.jsonSchema = {
+      ...this.jsonSchema,
+      minimum: n,
+    };
+    return schema;
+  }
+
+  max(n: number): NumberSchemaType {
+    const schema = new NumberSchemaType();
+    Object.assign(schema, this);
+    schema._max = n;
+    schema.jsonSchema = {
+      ...this.jsonSchema,
+      maximum: n,
+    };
+    return schema;
   }
 
   readonly "~standard": StandardSchemaV1.Props<unknown, number> = {
@@ -206,6 +262,12 @@ class NumberSchemaType extends BaseSchema<unknown, number> {
         return {
           issues: [{ message: "Expected number, received " + typeof value }],
         };
+      }
+      if (this._min !== undefined && value < this._min) {
+        return { issues: [{ message: `Number less than ${this._min}` }] };
+      }
+      if (this._max !== undefined && value > this._max) {
+        return { issues: [{ message: `Number greater than ${this._max}` }] };
       }
       return { value };
     },
