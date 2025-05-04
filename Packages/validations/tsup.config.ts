@@ -2,7 +2,9 @@ import { defineConfig } from "tsup";
 
 export default defineConfig(({ watch = false }) => ({
   clean: true,
-  dts: true,
+  dts: {
+    resolve: true,
+  },
   entry: {
     index: "src/index.ts",
   },
