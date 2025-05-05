@@ -39,6 +39,29 @@ const app = new Framework()
     },
   )
   .post(
+    "/ok",
+    (context) => {
+      if (context.body.name === "John Doe") {
+        return Response.json({
+          body: context.body,
+        });
+      } else {
+        return Response.json(
+          {
+            message: "Invalid name",
+          },
+          { status: 400 },
+        );
+      }
+    },
+    {
+      body: h.object({
+        name: h.string(),
+      }),
+      response: h.object({ body: h.optional(h.object()) }),
+    },
+  )
+  .post(
     "/users",
     (context) => {
       return Response.json({
@@ -141,6 +164,27 @@ describe("Test POST route", () => {
 
     expect(response).toEqual({
       body: undefined,
+    });
+  });
+
+  it("should test ok and status code", async () => {
+    const { status, ok } = await client.ok.post({
+      name: "Alice Smith",
+    });
+    expect(status).toBe(400);
+    expect(ok).toBe(false);
+
+    const {
+      data: response,
+      status: responseStatus,
+      ok: responseOk,
+    } = await client.ok.post({
+      name: "John Doe",
+    });
+    expect(responseStatus).toBe(200);
+    expect(responseOk).toBe(true);
+    expect(response).toEqual({
+      body: { name: "John Doe" },
     });
   });
 
