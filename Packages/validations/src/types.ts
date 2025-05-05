@@ -115,6 +115,8 @@ class StringSchemaType extends BaseSchema<unknown, string> {
   private _validateRegex: boolean = false;
   private _validateEmail: boolean = false;
   private _validatePhone: boolean = false;
+  private _validateDomain: boolean = false;
+  private _requireHttpOrHttps: boolean = false;
   private _minLength?: number;
   private _maxLength?: number;
 
@@ -177,6 +179,14 @@ class StringSchemaType extends BaseSchema<unknown, string> {
     return schema;
   }
 
+  domain(requireHttpOrHttps: boolean = true): StringSchemaType {
+    const schema = new StringSchemaType();
+    schema._validateDomain = true;
+    schema.jsonSchema = { ...this.jsonSchema, format: "domain" };
+    schema._requireHttpOrHttps = requireHttpOrHttps;
+    return schema;
+  }
+
   readonly "~standard": StandardSchemaV1.Props<unknown, string> = {
     version: 1,
     vendor: "h-schema",
@@ -223,6 +233,12 @@ class StringSchemaType extends BaseSchema<unknown, string> {
         };
       }
 
+      if (this._validateDomain && !this._isValidDomain(value)) {
+        return {
+          issues: [{ message: "Invalid domain format" }],
+        };
+      }
+
       return { value };
     },
     types: {
@@ -248,6 +264,14 @@ class StringSchemaType extends BaseSchema<unknown, string> {
   private _isValidPhone(value: string): boolean {
     const phoneRegex = /^\+?[0-9]{7,15}$/;
     return phoneRegex.test(value);
+  }
+
+  private _isValidDomain(value: string): boolean {
+    let domainRegex = /^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6}$/;
+    if (this._requireHttpOrHttps) {
+      domainRegex = /^https?:\/\/[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6}$/;
+    }
+    return domainRegex.test(value);
   }
 }
 
@@ -895,6 +919,13 @@ export const h = {
    * @returns {StringSchemaType} Phone schema type
    */
   phone: (): StringSchemaType => h.string().phone(),
+
+  /** Create domain schema type
+   * @param {boolean} requireHttpOrHttps - Require http or https
+   * @returns {StringSchemaType} Domain schema type
+   */
+  domain: (requireHttpOrHttps: boolean = true): StringSchemaType =>
+    h.string().domain(requireHttpOrHttps),
 
   /**
    * Convert schema to standard schema
