@@ -16,7 +16,7 @@ type DeleteRequestFunction<B, Q, ResponseType, H> = (
   body?: B,
   query?: Q,
   options?: { responseFormat?: ResponseFormat; headers?: H },
-) => Promise<{ error: any | null; data: ResponseType | null }>;
+) => Promise<{ error: any | null; data: ResponseType | null; status: number; ok: boolean }>;
 
 type RequestFunction<Q, ResponseType, H> = (
   query?: Q,
@@ -24,25 +24,27 @@ type RequestFunction<Q, ResponseType, H> = (
 ) => Promise<{
   error: any | null;
   data: ResponseType | null;
+  status: number;
+  ok: boolean;
 }>;
 
 type PatchRequestFunction<B, Q, ResponseType, H> = (
   body?: B,
   query?: Q,
   options?: { responseFormat?: ResponseFormat; headers?: H },
-) => Promise<{ error: any | null; data: ResponseType | null }>;
+) => Promise<{ error: any | null; data: ResponseType | null; status: number; ok: boolean }>;
 
 type PostRequestFunction<B, Q, ResponseType, H> = (
   body?: B,
   query?: Q,
   options?: { responseFormat?: ResponseFormat; headers?: H },
-) => Promise<{ error: any | null; data: ResponseType | null }>;
+) => Promise<{ error: any | null; data: ResponseType | null; status: number; ok: boolean }>;
 
 type PutRequestFunction<B, Q, ResponseType, H> = (
   body?: B,
   query?: Q,
   options?: { responseFormat?: ResponseFormat; headers?: H },
-) => Promise<{ error: any | null; data: ResponseType | null }>;
+) => Promise<{ error: any | null; data: ResponseType | null; status: number; ok: boolean }>;
 
 type RouteToTreeInner<T extends string[], Params, Methods> = T extends [
   infer H extends string,
@@ -376,15 +378,18 @@ export function createClient<T extends Hedystia<any>>(
           return (async () => {
             try {
               const res = await fetch(url.toString(), init);
+              const status = res.status;
+              const ok = res.ok;
 
-              if (!res.ok) {
-                throw new Error(`HTTP error! Status: ${res.status}`);
+              if (!ok) {
+                const errorData = await processResponse(res, responseFormat);
+                return { error: errorData, data: null, status, ok };
               }
 
               const data = await processResponse(res, responseFormat);
-              return { error: null, data };
+              return { error: null, data, status, ok };
             } catch (error) {
-              return { error, data: null };
+              return { error, data: null, status: 0, ok: false };
             }
           })();
         } else {
