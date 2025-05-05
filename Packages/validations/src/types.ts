@@ -111,6 +111,8 @@ function validatePrimitive(schema: SchemaPrimitive, value: unknown): boolean {
 
 class StringSchemaType extends BaseSchema<unknown, string> {
   readonly type: SchemaPrimitive = "string";
+  private _validateUUID: boolean = false;
+  private _validateRegex: boolean = false;
   private _validateEmail: boolean = false;
   private _validatePhone: boolean = false;
   private _minLength?: number;
@@ -144,6 +146,20 @@ class StringSchemaType extends BaseSchema<unknown, string> {
       ...this.jsonSchema,
       maxLength: n,
     };
+    return schema;
+  }
+
+  uuid(): StringSchemaType {
+    const schema = new StringSchemaType();
+    schema._validateUUID = true;
+    schema.jsonSchema = { ...this.jsonSchema, format: "uuid" };
+    return schema;
+  }
+
+  regex(regex: RegExp): StringSchemaType {
+    const schema = new StringSchemaType();
+    schema._validateRegex = true;
+    schema.jsonSchema = { ...this.jsonSchema, pattern: regex.source };
     return schema;
   }
 
@@ -183,6 +199,18 @@ class StringSchemaType extends BaseSchema<unknown, string> {
         return { issues: [{ message: `String longer than ${this._maxLength}` }] };
       }
 
+      if (this._validateUUID && !this._isValidUUID(value)) {
+        return {
+          issues: [{ message: "Invalid UUID format" }],
+        };
+      }
+
+      if (this._validateRegex && !this._isValidRegex(value)) {
+        return {
+          issues: [{ message: "Invalid regex format" }],
+        };
+      }
+
       if (this._validateEmail && !this._isValidEmail(value)) {
         return {
           issues: [{ message: "Invalid email format" }],
@@ -202,6 +230,15 @@ class StringSchemaType extends BaseSchema<unknown, string> {
       output: {} as string,
     },
   };
+
+  private _isValidUUID(value: string): boolean {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(value);
+  }
+
+  private _isValidRegex(value: string): boolean {
+    return new RegExp(this.jsonSchema.pattern!).test(value);
+  }
 
   private _isValidEmail(value: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -833,6 +870,19 @@ export const h = {
     const baseSchema = h.object({});
     return baseSchema.instanceOf(constructor);
   },
+
+  /**
+   * Create UUID schema type
+   * @returns {StringSchemaType} UUID schema type
+   */
+  uuid: (): StringSchemaType => h.string().uuid(),
+
+  /**
+   * Create regex schema type
+   * @param {RegExp} regex - Regex
+   * @returns {StringSchemaType} Regex schema type
+   */
+  regex: (regex: RegExp): StringSchemaType => h.string().regex(regex),
 
   /**
    * Create email schema type
