@@ -835,9 +835,9 @@ export const h = {
    * @param {S} schema - Schema
    * @returns {ArraySchema<unknown, InferSchema<S>[]>} Array schema type
    */
-  array: <S extends AnySchema>(schema: S): ArraySchema<unknown, InferSchema<S>[]> => {
-    const base = toStandard<InferSchema<S>>(schema);
-    return base.array();
+  array: <S extends AnySchema>(schema: S): ArraySchema<unknown, SchemaType<S>[]> => {
+    const base = toStandard<SchemaType<S>>(schema);
+    return base.array() as ArraySchema<unknown, SchemaType<S>[]>;
   },
 
   /**
@@ -845,7 +845,9 @@ export const h = {
    * @param {T} values - Enum values
    * @returns {EnumSchema<unknown, T[number]>} Enum schema type
    */
-  enum: <T extends readonly [any, ...any[]]>(values: T): EnumSchema<unknown, T[number]> => {
+  enum: <T, Values extends readonly [T, ...T[]]>(
+    values: Values,
+  ): EnumSchema<unknown, Values[number]> => {
     const firstValue = values[0];
     let baseSchema: Schema<unknown, any>;
 
@@ -859,7 +861,7 @@ export const h = {
       throw new Error("Enum values must be primitives");
     }
 
-    return baseSchema.enum(values);
+    return baseSchema.enum(values) as EnumSchema<unknown, Values[number]>;
   },
 
   /**
