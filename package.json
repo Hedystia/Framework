@@ -15,7 +15,7 @@
     "test": "bun run --cwd Tests test",
     "test:build": "bun run build && bun run --cwd Tests build.js",
     "test:stress": "bun run --cwd Tests stress.ts",
-    "publish": "bun run build&& bun run --cwd Packages/adapter npm publish --access public  && bun run --cwd Packages/client npm publish --access public && bun run --cwd Packages/server npm publish --access public && bun run --cwd Packages/swagger npm publish --access public && bun run --cwd Packages/validations npm publish --access public"
+    "publish": "bun run build && concurrently \"bun run --cwd Packages/adapter npm publish --access public\" \"bun run --cwd Packages/client npm publish --access public\" \"bun run --cwd Packages/server npm publish --access public\" \"bun run --cwd Packages/swagger npm publish --access public\" \"bun run --cwd Packages/validations npm publish --access public\""
   },
   "repository": {
     "type": "git",
