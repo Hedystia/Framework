@@ -3,6 +3,7 @@ export type RouteDefinition = {
   path: string;
   params?: unknown;
   query?: unknown;
+  headers?: unknown;
   body?: unknown;
   response?: unknown;
 };

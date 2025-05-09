@@ -40,6 +40,7 @@ type PrefixRoutes<Prefix extends string, T extends RouteDefinition[]> = {
         path: `${Prefix}${T[K]["path"]}`;
         params: T[K]["params"];
         query: T[K]["query"];
+        headers: T[K]["headers"];
         body: T[K] extends { body: infer B } ? B : undefined;
         response: T[K] extends { response: infer R } ? R : undefined;
       }
