@@ -9,7 +9,7 @@ const app = new Hedystia()
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
           app.error(401, "Unauthorized");
         }
-        const token = authHeader.substring(7);
+        const token = authHeader?.substring(7);
         return { userId: 1, token };
       },
     }),
