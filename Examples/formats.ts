@@ -14,7 +14,7 @@ const app = new Hedystia()
       body: h.object({
         message: h.string(),
       }),
-      response: h.optional(h.instanceof(FormData)),
+      response: h.optional(h.instanceOf(FormData)),
     },
   )
   .listen(3000);
