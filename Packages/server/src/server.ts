@@ -1291,7 +1291,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     const wsConfig: Record<string, any> = {};
     if (this.wsRoutes.size > 0) {
       wsConfig.websocket = {
-        message: (ws: ServerWebSocket, message: string | ArrayBuffer | Uint8Array) => {
+        message: (ws: ServerWebSocket, message: string | Buffer) => {
           const handler = this.wsRoutes.get(ws.data?.__wsPath);
           if (handler?.message) {
             handler.message(ws, message);
