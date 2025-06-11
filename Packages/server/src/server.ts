@@ -1032,6 +1032,14 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
   }
 
   /**
+   * Get all registered routes in the current application
+   * @returns {Routes} The list of all route definitions
+   */
+  get allRoutes(): Routes {
+    return this.routes as unknown as Routes;
+  }
+
+  /**
    * Start HTTP server
    * @param {number} port - Server port number
    * @returns {this} Current instance
