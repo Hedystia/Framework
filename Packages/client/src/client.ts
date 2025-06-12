@@ -55,9 +55,7 @@ type RouteToTreeInner<T extends string[], Params, Methods> = T extends [
         [K in Param]: (value: Params[K & keyof Params]) => RouteToTreeInner<R, Params, Methods>;
       }
     : H extends ""
-      ? {
-          index: RouteToTreeInner<R, Params, Methods>;
-        }
+      ? Methods & RouteToTreeInner<R, Params, Methods>
       : {
           [K in H]: RouteToTreeInner<R, Params, Methods>;
         }
@@ -211,9 +209,7 @@ type RouteToTree<Path extends string, Params, Methods> = PathParts<Path> extends
         [K in Param]: (value: Params[K & keyof Params]) => RouteToTreeInner<T, Params, Methods>;
       }
     : H extends ""
-      ? {
-          index: RouteToTreeInner<T, Params, Methods>;
-        }
+      ? Methods & RouteToTreeInner<T, Params, Methods>
       : {
           [K in H]: RouteToTreeInner<T, Params, Methods>;
         }
@@ -333,11 +329,11 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
         if (typeof prop !== "string") {
           return Reflect.get(_target, prop, receiver);
         }
-        if (prop === "index") {
-          return createProxy([...segments, ""]);
-        }
         if (prop === "then") {
           return undefined;
+        }
+        if (HTTP_METHODS.includes(prop.toLowerCase())) {
+          return createProxy([...segments, prop]);
         }
         return createProxy([...segments, prop]);
       },
@@ -345,8 +341,11 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
         const lastSegment = segments[segments.length - 1];
         if (lastSegment && HTTP_METHODS.includes(lastSegment.toLowerCase())) {
           const method = lastSegment.toUpperCase() as "GET" | "PATCH" | "POST" | "PUT" | "DELETE";
-          const newSegments = segments.slice(0, segments.length - 1);
-          const fullPath = newSegments.length ? "/" + newSegments.join("/") : "";
+          const pathSegments = segments.slice(0, segments.length - 1);
+          const fullPath =
+            pathSegments.length === 0 || (pathSegments.length === 1 && pathSegments[0] === "")
+              ? "/"
+              : "/" + pathSegments.filter((s) => s !== "").join("/");
           const url = new URL(fullPath, baseUrl);
 
           let body: any,
