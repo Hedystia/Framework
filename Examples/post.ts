@@ -22,7 +22,7 @@ const app = new Hedystia()
 
 const client = createClient<typeof app>("http://localhost:3000");
 
-const { error, data } = await client.index.post({ id: 123 });
+const { error, data } = await client.post({ id: 123 });
 
 console.log(`Error: ${error}`);
 console.log(`Data: ${data?.body?.id}`);

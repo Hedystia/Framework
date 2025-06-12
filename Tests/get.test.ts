@@ -91,7 +91,7 @@ describe("Test get route", () => {
   });
 
   it("should handle root endpoint", async () => {
-    const { data, error } = await client.index.get();
+    const { data, error } = await client.get();
 
     expect(error).toBeNull();
     expect(data).toBe("Welcome to API Server");

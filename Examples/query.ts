@@ -22,7 +22,7 @@ const app = new Hedystia()
 
 const client = createClient<typeof app>("http://localhost:3000");
 
-const { error, data } = await client.index.get({
+const { error, data } = await client.get({
   id: 123,
 });
 
