@@ -1,6 +1,6 @@
 {
   "name": "@hedystia/validations",
-  "version": "1.2.18",
+  "version": "1.2.19",
   "devDependencies": {
     "@standard-schema/spec": "^1.0.0",
     "@types/bun": "latest",
