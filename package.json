@@ -3,7 +3,7 @@
   "license": "MIT",
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@types/bun": "^1.2.9",
+    "@types/bun": "^1.2.16",
     "concurrently": "^9.1.2",
     "typescript": "^5.8.3"
   },
