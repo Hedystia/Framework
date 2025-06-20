@@ -69,7 +69,7 @@ interface Schema<I, O> extends StandardSchemaV1<I, O> {
   schema: Schema<I, O>;
 }
 
-abstract class BaseSchema<I, O> implements Schema<I, O> {
+export abstract class BaseSchema<I, O> implements Schema<I, O> {
   abstract readonly "~standard": StandardSchemaV1.Props<I, O>;
   jsonSchema: any = {};
   get inferred(): O {
@@ -109,7 +109,7 @@ function validatePrimitive(schema: SchemaPrimitive, value: unknown): boolean {
   return false;
 }
 
-class StringSchemaType extends BaseSchema<unknown, string> {
+export class StringSchemaType extends BaseSchema<unknown, string> {
   readonly type: SchemaPrimitive = "string";
   private _validateUUID: boolean = false;
   private _validateRegex: boolean = false;
@@ -275,7 +275,7 @@ class StringSchemaType extends BaseSchema<unknown, string> {
   }
 }
 
-class NumberSchemaType extends BaseSchema<unknown, number> {
+export class NumberSchemaType extends BaseSchema<unknown, number> {
   readonly type: SchemaPrimitive = "number";
   private _min?: number;
   private _max?: number;
@@ -339,7 +339,7 @@ class NumberSchemaType extends BaseSchema<unknown, number> {
   };
 }
 
-class BooleanSchemaType extends BaseSchema<unknown, boolean> {
+export class BooleanSchemaType extends BaseSchema<unknown, boolean> {
   readonly type: SchemaPrimitive = "boolean";
 
   constructor() {
@@ -373,7 +373,7 @@ class BooleanSchemaType extends BaseSchema<unknown, boolean> {
   };
 }
 
-class AnySchemaType extends BaseSchema<unknown, any> {
+export class AnySchemaType extends BaseSchema<unknown, any> {
   readonly type: SchemaPrimitive = "any";
   readonly "~standard": StandardSchemaV1.Props<unknown, any> = {
     version: 1,
@@ -388,7 +388,7 @@ class AnySchemaType extends BaseSchema<unknown, any> {
   };
 }
 
-class LiteralSchema<T extends string | number | boolean> extends BaseSchema<unknown, T> {
+export class LiteralSchema<T extends string | number | boolean> extends BaseSchema<unknown, T> {
   private readonly value: T;
 
   constructor(value: T) {
@@ -418,7 +418,7 @@ class LiteralSchema<T extends string | number | boolean> extends BaseSchema<unkn
   };
 }
 
-class OptionalSchema<I, O> extends BaseSchema<I, O | undefined> {
+export class OptionalSchema<I, O> extends BaseSchema<I, O | undefined> {
   private readonly innerSchema: Schema<I, O>;
 
   constructor(schema: Schema<I, O>) {
@@ -445,7 +445,7 @@ class OptionalSchema<I, O> extends BaseSchema<I, O | undefined> {
   };
 }
 
-class NullSchemaType extends BaseSchema<unknown, null> {
+export class NullSchemaType extends BaseSchema<unknown, null> {
   readonly type: "null" = "null";
   constructor() {
     super();
@@ -474,7 +474,7 @@ class NullSchemaType extends BaseSchema<unknown, null> {
   };
 }
 
-class UnionSchema<I, O> extends BaseSchema<I, O> {
+export class UnionSchema<I, O> extends BaseSchema<I, O> {
   private readonly schemas: Schema<I, any>[];
   constructor(...schemas: Schema<I, any>[]) {
     super();
@@ -503,7 +503,7 @@ class UnionSchema<I, O> extends BaseSchema<I, O> {
   };
 }
 
-class EnumSchema<I, O> extends BaseSchema<I, O> {
+export class EnumSchema<I, O> extends BaseSchema<I, O> {
   private readonly innerSchema: Schema<I, any>;
   private readonly values: readonly O[];
 
@@ -543,7 +543,7 @@ class EnumSchema<I, O> extends BaseSchema<I, O> {
   };
 }
 
-class ArraySchema<I, O extends any[]> extends BaseSchema<I, O> {
+export class ArraySchema<I, O extends any[]> extends BaseSchema<I, O> {
   private readonly innerSchema: Schema<I, O[number]>;
 
   constructor(schema: Schema<I, O[number]>) {
@@ -598,7 +598,7 @@ class ArraySchema<I, O extends any[]> extends BaseSchema<I, O> {
   };
 }
 
-class InstanceOfSchema<I, O> extends BaseSchema<I, O> {
+export class InstanceOfSchema<I, O> extends BaseSchema<I, O> {
   private readonly innerSchema: Schema<I, any>;
   private readonly classConstructor: new (
     ...args: any[]
@@ -635,7 +635,7 @@ class InstanceOfSchema<I, O> extends BaseSchema<I, O> {
   };
 }
 
-class ObjectSchemaType<T extends Record<string, unknown>> extends BaseSchema<unknown, T> {
+export class ObjectSchemaType<T extends Record<string, unknown>> extends BaseSchema<unknown, T> {
   readonly definition: SchemaDefinition;
 
   constructor(definition: SchemaDefinition) {
@@ -743,7 +743,7 @@ class ObjectSchemaType<T extends Record<string, unknown>> extends BaseSchema<unk
   };
 }
 
-type AnySchema = SchemaPrimitive | BaseSchema<any, any> | SchemaDefinition;
+export type AnySchema = SchemaPrimitive | BaseSchema<any, any> | SchemaDefinition;
 
 function toStandard<T>(schema: AnySchema): Schema<unknown, T> {
   let standardSchema: Schema<unknown, T>;
