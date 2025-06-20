@@ -1,5 +1,20 @@
-import type { RouteDefinition } from "./types/routes";
+import {
+  AnySchemaType,
+  ArraySchema,
+  BaseSchema,
+  BooleanSchemaType,
+  EnumSchema,
+  LiteralSchema,
+  NullSchemaType,
+  NumberSchemaType,
+  ObjectSchemaType,
+  OptionalSchema,
+  StringSchemaType,
+  UnionSchema,
+} from "@hedystia/validations";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
+import { writeFile } from "fs/promises";
+import type { RouteDefinition } from "./types/routes";
 
 type ValidationSchema = StandardSchemaV1<any, any>;
 
@@ -1032,6 +1047,17 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
   }
 
   /**
+   * Generates a type definition file (.d.ts) for all registered routes.
+   * @param {string} filePath - The path to the file where the types will be saved (e.g., "./server.d.ts").
+   * @returns {this} The current instance of the framework for chaining.
+   */
+  async buildTypes(filePath: string): Promise<this> {
+    const typesContent = this.generateTypesString();
+    await writeFile(filePath, typesContent, "utf8");
+    return this;
+  }
+
+  /**
    * Get all registered routes in the current application
    * @returns {Routes} The list of all route definitions
    */
@@ -1448,6 +1474,83 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       const finalResult = result instanceof Promise ? await result : result;
       return finalResult instanceof Response ? finalResult : Hedystia.createResponse(finalResult);
     };
+  }
+
+  private schemaToTypeString(schema: any): string {
+    if (
+      !schema ||
+      (typeof schema === "object" && !schema.constructor.name) ||
+      (typeof schema === "object" &&
+        Object.keys(schema).length === 0 &&
+        !(schema instanceof BaseSchema))
+    ) {
+      return "any";
+    }
+
+    if (schema instanceof OptionalSchema) {
+      return `${this.schemaToTypeString((schema as any).innerSchema)} | undefined`;
+    }
+    if (schema instanceof ArraySchema) {
+      return `(${this.schemaToTypeString((schema as any).innerSchema)})[]`;
+    }
+    if (schema instanceof UnionSchema) {
+      return (schema as any).schemas.map(this.schemaToTypeString).join(" | ");
+    }
+    if (schema instanceof EnumSchema) {
+      return (schema as any).values
+        .map((v: any) => (typeof v === "string" ? `'${v}'` : v))
+        .join(" | ");
+    }
+    if (schema instanceof LiteralSchema) {
+      const val = (schema as any).value;
+      return typeof val === "string" ? `'${val}'` : String(val);
+    }
+    if (schema instanceof ObjectSchemaType) {
+      const definition = (schema as any).definition;
+      if (!definition || Object.keys(definition).length === 0) {
+        return "{}";
+      }
+      const validIdentifierRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
+      const properties = Object.entries(definition)
+        .map(([key, value]) => {
+          const finalKey = validIdentifierRegex.test(key) ? key : `"${key}"`;
+          const isOptional = value instanceof OptionalSchema;
+          const optionalMarker = isOptional ? "?" : "";
+          return `${finalKey}${optionalMarker}:${this.schemaToTypeString(value)}`;
+        })
+        .join(";");
+      return `{${properties}}`;
+    }
+    if (schema instanceof StringSchemaType) {
+      return "string";
+    }
+    if (schema instanceof NumberSchemaType) {
+      return "number";
+    }
+    if (schema instanceof BooleanSchemaType) {
+      return "boolean";
+    }
+    if (schema instanceof NullSchemaType) {
+      return "null";
+    }
+    if (schema instanceof AnySchemaType) {
+      return "any";
+    }
+
+    return "any";
+  }
+
+  private generateTypesString(): string {
+    const routeTypes = this.routes
+      .map((route) => {
+        const responseType = this.schemaToTypeString(route.schema.response);
+        const paramsType = this.schemaToTypeString(route.schema.params);
+        const queryType = this.schemaToTypeString(route.schema.query);
+        const headersType = this.schemaToTypeString(route.schema.headers);
+        return `{method:"${route.method}";path:"${route.path}";params:${paramsType};query:${queryType};headers:${headersType};response:${responseType}}`;
+      })
+      .join(",");
+    return `// Automatic Hedystia type generation\nexport type AppRoutes=[${routeTypes}];`;
   }
 
   private determineContentType(body: any): string {
