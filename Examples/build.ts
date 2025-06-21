@@ -1,28 +1,28 @@
-import path from "path";
 import { createClient } from "@hedystia/client";
 import Hedystia, { h } from "hedystia";
+import path from "path";
 import type { AppRoutes } from "./server";
 
-const app = new Hedystia().get(
-  "/:id",
-  (context) => {
-    return Response.json({
-      params: context.params,
-    });
-  },
-  {
-    params: h.object({
-      id: h.number().coerce(),
-    }),
-    response: h.object({
-      params: h.object({ id: h.number() }),
-    }),
-  },
-);
+const app = new Hedystia()
+  .get(
+    "/:id",
+    (context) => {
+      return Response.json({
+        params: context.params,
+      });
+    },
+    {
+      params: h.object({
+        id: h.number().coerce(),
+      }),
+      response: h.object({
+        params: h.object({ id: h.number() }),
+      }),
+    },
+  )
+  .listen(3000);
 
-await app.buildTypes(path.join(__dirname, "server.d.ts")).then(() => {
-  app.listen(3000);
-});
+await app.buildTypes(path.join(__dirname, "server.d.ts"));
 
 const client = createClient<AppRoutes>("http://localhost:3000");
 
