@@ -23,7 +23,7 @@ export function swagger(options: SwaggerOptions = {}) {
     plugin: swaggerApp,
     swagger: swaggerInstance,
     captureRoutes: (app: any) => {
-      if (app && app.routes) {
+      if (app?.routes) {
         for (const route of app.routes) {
           const routeSchema = {
             params: route.schema.params ? route.schema.params.jsonSchema : undefined,

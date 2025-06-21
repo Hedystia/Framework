@@ -1,4 +1,4 @@
-import { Hedystia, type RouteDefinition, type MacroData } from "hedystia";
+import type { Hedystia, MacroData, RouteDefinition } from "hedystia";
 
 interface AdapterOptions {
   prefix?: string;
@@ -24,7 +24,7 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
     const prefix = options.prefix || "";
 
     return {
-      fetch: async (request: Request, env: any, ctx: any) => {
+      fetch: async (request: Request, _env: any, _ctx: any) => {
         try {
           let modifiedReq = request;
 
@@ -212,7 +212,7 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
   toLambda(options: AdapterOptions = {}) {
     const prefix = options.prefix || "";
 
-    return async (event: any, context: any) => {
+    return async (event: any, _context: any) => {
       try {
         const request = this.lambdaToRequest(event);
 
@@ -379,7 +379,7 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
         headersValidationResult = { value: rawHeaders };
       }
 
-      let body = undefined;
+      let body;
       let bodyValidationResult: { value: any; issues?: any } = { value: undefined };
 
       if (
@@ -410,7 +410,7 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
             }
             body = bodyValidationResult.value;
           }
-        } catch (e) {
+        } catch {
           if (route.schema.body) {
             return new Response("Invalid body format", { status: 400 });
           }
@@ -436,7 +436,7 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
 
       try {
         let mainHandlerExecuted = false;
-        let processResult: Response | null = null;
+        const processResult: Response | null = null;
 
         const executeMainHandler = async () => {
           mainHandlerExecuted = true;
@@ -520,7 +520,9 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
 
         if (this.app["onBeforeHandleHandlers"].length > 0) {
           const result = await executeBeforeHandlers();
-          if (result) return result;
+          if (result) {
+            return result;
+          }
         }
 
         if (!mainHandlerExecuted) {
@@ -583,22 +585,27 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
         }
       }
       return formData;
-    } else {
-      const text = await req.text();
-      const formData = new FormData();
-      const params = new URLSearchParams(text);
-      for (const [key, value] of params.entries()) {
-        formData.append(key, value);
-      }
-      return formData;
     }
+    const text = await req.text();
+    const formData = new FormData();
+    const params = new URLSearchParams(text);
+    for (const [key, value] of params.entries()) {
+      formData.append(key, value);
+    }
+    return formData;
   }
 
   private async parseRequestBody(req: Request): Promise<any> {
     const contentType = req.headers.get("Content-Type") || "";
-    if (contentType.includes("application/json")) return req.json();
-    if (contentType.includes("multipart/form-data")) return this.parseFormData(req);
-    if (contentType.includes("text/")) return req.text();
+    if (contentType.includes("application/json")) {
+      return req.json();
+    }
+    if (contentType.includes("multipart/form-data")) {
+      return this.parseFormData(req);
+    }
+    if (contentType.includes("text/")) {
+      return req.text();
+    }
     try {
       return await req.json();
     } catch {
@@ -632,13 +639,17 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
     const pathParts = pathname.split("/").filter(Boolean);
     const routeParts = routePath.split("/").filter(Boolean);
 
-    if (pathParts.length !== routeParts.length) return null;
+    if (pathParts.length !== routeParts.length) {
+      return null;
+    }
 
     const params: Record<string, string> = {};
     for (let i = 0; i < routeParts.length; i++) {
       const routePart = routeParts[i];
       const pathPart = pathParts[i];
-      if (!routePart) return null;
+      if (!routePart) {
+        return null;
+      }
       if (routePart[0] === ":" && typeof pathPart === "string") {
         params[routePart.slice(1)] = pathPart;
       } else if (routePart !== pathPart) {
@@ -679,7 +690,9 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
 
     const headers = new Headers();
     for (const [key, value] of Object.entries(req.headers)) {
-      if (value) headers.set(key, value as string);
+      if (value) {
+        headers.set(key, value as string);
+      }
     }
 
     let body = null;
@@ -709,7 +722,7 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
 
     const contentType = response.headers.get("Content-Type");
 
-    if (contentType && contentType.includes("application/json")) {
+    if (contentType?.includes("application/json")) {
       const json = await response.json();
       res.json(json);
     } else {
@@ -732,7 +745,9 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
     const headers = new Headers();
     if (event.headers) {
       Object.entries(event.headers).forEach(([key, value]) => {
-        if (value) headers.set(key, String(value));
+        if (value) {
+          headers.set(key, String(value));
+        }
       });
     }
 

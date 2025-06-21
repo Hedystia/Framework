@@ -55,7 +55,9 @@ export class Swagger {
     description?: string,
     tags?: string[],
   ) {
-    if (!schema) return;
+    if (!schema) {
+      return;
+    }
 
     const normalizedPath = path.replace(/:([^/]+)/g, "{$1}");
 
@@ -130,7 +132,9 @@ export class Swagger {
   }
 
   private buildRequestBody(schema: any) {
-    if (!schema.body) return undefined;
+    if (!schema.body) {
+      return undefined;
+    }
 
     try {
       const jsonSchema = schema.body;

@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.0.2/schema.json",
   "formatter": {
     "enabled": true,
     "formatWithErrors": false,
@@ -8,25 +8,40 @@
     "lineEnding": "lf",
     "lineWidth": 100,
     "attributePosition": "auto",
-    "ignore": [
-      "**/pnpm-lock.yaml",
-      "**/package-lock.json",
-      "**/bun.lockb",
-      "**/yarn.lock",
-      "**/node_modules/",
-      "**/dist/",
-      "**/tmp/",
-      ".vscode/extensions.json",
-      "**/public/"
+    "includes": [
+      "**",
+      "!**/pnpm-lock.yaml",
+      "!**/package-lock.json",
+      "!**/bun.lockb",
+      "!**/yarn.lock",
+      "!**/node_modules/",
+      "!**/dist/",
+      "!**/.vscode/extensions.json",
+      "!**/src/client/types/ClientEvents.d.ts"
     ]
   },
-  "organizeImports": { "enabled": true },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "linter": {
     "enabled": true,
-    "rules": { "recommended": false, "style": { "useBlockStatements": "off" } }
+    "rules": {
+      "recommended": true,
+      "style": {
+        "useBlockStatements": "off",
+        "useNodejsImportProtocol": "off",
+        "noParameterAssign": "error",
+        "useAsConstAssertion": "error",
+        "useDefaultParameterLast": "error",
+        "useEnumInitializers": "error",
+        "useSelfClosingElements": "error",
+        "noUnusedTemplateLiteral": "error",
+        "useNumberNamespace": "error",
+        "noInferrableTypes": "error",
+        "noUselessElse": "error"
+      }
+    }
   },
   "javascript": {
-    "globals": ["exports", "Astro"],
+    "globals": ["exports"],
     "formatter": {
       "jsxQuoteStyle": "double",
       "quoteProperties": "asNeeded",
@@ -40,22 +55,23 @@
   },
   "overrides": [
     {
-      "include": ["**/*.{ts,js,astro,tsx,jsx}"],
-      "javascript": { "globals": ["exports", "Astro"] },
+      "includes": ["**/*.{ts,js,tsx,jsx}"],
+      "javascript": { "globals": ["exports"] },
       "linter": {
         "rules": {
           "complexity": {
+            "noBannedTypes": "off",
             "noExtraBooleanCast": "error",
-            "noMultipleSpacesInRegularExpressionLiterals": "error",
             "noUselessCatch": "error",
             "noUselessConstructor": "error",
             "noUselessLoneBlockStatements": "error",
             "noUselessRename": "error",
             "noUselessTernary": "error",
             "noVoid": "error",
-            "noWith": "error",
-            "useLiteralKeys": "error",
-            "useRegexLiterals": "error"
+            "useLiteralKeys": "off",
+            "useRegexLiterals": "error",
+            "noAdjacentSpacesInRegex": "error",
+            "noCommaOperator": "warn"
           },
           "correctness": {
             "noConstAssign": "error",
@@ -65,7 +81,6 @@
             "noGlobalObjectCalls": "error",
             "noInvalidConstructorSuper": "error",
             "noInvalidUseBeforeDeclaration": "error",
-            "noNewSymbol": "error",
             "noPrecisionLoss": "error",
             "noSelfAssign": "error",
             "noSwitchDeclarations": "warn",
@@ -74,15 +89,17 @@
             "noUnreachableSuper": "error",
             "noUnsafeFinally": "error",
             "noUnusedVariables": "warn",
-            "useIsNan": "error"
+            "useIsNan": "error",
+            "noInvalidBuiltinInstantiation": "error",
+            "useValidTypeof": "error"
           },
           "security": { "noGlobalEval": "error" },
           "style": {
-            "noCommaOperator": "warn",
-            "noVar": "warn",
             "useBlockStatements": "error",
             "useConst": "error",
-            "useSingleVarDeclarator": "error"
+            "useSingleVarDeclarator": "error",
+            "noParameterAssign": "off",
+            "noNonNullAssertion": "off"
           },
           "suspicious": {
             "noAssignInExpressions": "error",
@@ -91,7 +108,6 @@
             "noClassAssign": "error",
             "noCompareNegZero": "error",
             "noConfusingLabels": "error",
-            "noConsoleLog": "off",
             "noControlCharactersInRegex": "error",
             "noDebugger": "warn",
             "noDoubleEquals": "error",
@@ -99,19 +115,23 @@
             "noDuplicateClassMembers": "error",
             "noDuplicateObjectKeys": "error",
             "noDuplicateParameters": "error",
-            "noEmptyBlockStatements": "error",
+            "noEmptyBlockStatements": "off",
+            "noExplicitAny": "off",
             "noFallthroughSwitchClause": "error",
             "noFunctionAssign": "error",
             "noGlobalAssign": "error",
             "noImportAssign": "warn",
+            "noImplicitAnyLet": "off",
             "noMisleadingCharacterClass": "error",
             "noPrototypeBuiltins": "warn",
             "noRedeclare": "error",
             "noSelfCompare": "error",
-            "noShadowRestrictedNames": "error",
+            "noShadowRestrictedNames": "off",
             "noUnsafeNegation": "error",
             "useDefaultSwitchClauseLast": "error",
-            "useValidTypeof": "error"
+            "noWith": "error",
+            "noVar": "warn",
+            "noConsole": { "level": "off", "options": { "allow": ["log"] } }
           }
         }
       }

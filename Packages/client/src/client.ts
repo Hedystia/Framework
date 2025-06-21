@@ -270,15 +270,14 @@ async function parseFormData(response: Response): Promise<FormData> {
       }
     }
     return formData;
-  } else {
-    const text = await response.text();
-    const formData = new FormData();
-    const params = new URLSearchParams(text);
-    for (const [key, value] of params.entries()) {
-      formData.append(key, value);
-    }
-    return formData;
   }
+  const text = await response.text();
+  const formData = new FormData();
+  const params = new URLSearchParams(text);
+  for (const [key, value] of params.entries()) {
+    formData.append(key, value);
+  }
+  return formData;
 }
 
 async function processResponse(response: Response, format: ResponseFormat = "json") {
@@ -348,9 +347,9 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
               : "/" + pathSegments.filter((s) => s !== "").join("/");
           const url = new URL(fullPath, baseUrl);
 
-          let body: any,
-            query: any,
-            options: any = {};
+          let body: any;
+          let query: any;
+          let options: any = {};
 
           if (method === "GET") {
             query = args[0];
@@ -395,11 +394,10 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
               return { error, data: null, status: 0, ok: false };
             }
           })();
-        } else {
-          const value = args[0];
-          const newSegments = segments.slice(0, segments.length - 1).concat(String(value));
-          return createProxy(newSegments);
         }
+        const value = args[0];
+        const newSegments = segments.slice(0, segments.length - 1).concat(String(value));
+        return createProxy(newSegments);
       },
     });
   };

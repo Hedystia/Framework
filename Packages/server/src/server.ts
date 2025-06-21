@@ -166,7 +166,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     handler: RequestHandler;
   }[] = [];
   private reusePort: boolean;
-  private prefix: string = "";
+  private prefix = "";
   private server: any = null;
   public macros: Record<string, { resolve: MacroResolveFunction<any> }> = {};
   public staticRoutes: { path: string; response: Response }[] = [];
@@ -419,7 +419,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
     const wrappedHandler = hasMacros
       ? this.createWrappedHandler(handler, schema)
-      : async function (ctx: any) {
+      : async (ctx: any) => {
           const result = handler(ctx);
           const finalResult = result instanceof Promise ? await result : result;
           return finalResult instanceof Response
@@ -511,7 +511,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
     const wrappedHandler = hasMacros
       ? this.createWrappedHandler(handler, schema)
-      : async function (ctx: any) {
+      : async (ctx: any) => {
           const result = handler(ctx);
           const finalResult = result instanceof Promise ? await result : result;
           return finalResult instanceof Response
@@ -604,7 +604,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
     const wrappedHandler = hasMacros
       ? this.createWrappedHandler(handler, schema)
-      : async function (ctx: any) {
+      : async (ctx: any) => {
           const result = handler(ctx);
           const finalResult = result instanceof Promise ? await result : result;
           return finalResult instanceof Response
@@ -697,7 +697,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
     const wrappedHandler = hasMacros
       ? this.createWrappedHandler(handler, schema)
-      : async function (ctx: any) {
+      : async (ctx: any) => {
           const result = handler(ctx);
           const finalResult = result instanceof Promise ? await result : result;
           return finalResult instanceof Response
@@ -790,7 +790,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
     const wrappedHandler = hasMacros
       ? this.createWrappedHandler(handler, schema)
-      : async function (ctx: any) {
+      : async (ctx: any) => {
           const result = handler(ctx);
           const finalResult = result instanceof Promise ? await result : result;
           return finalResult instanceof Response
@@ -1143,7 +1143,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
             headersValidationResult = { value: rawHeaders };
           }
 
-          let body = undefined;
+          let body;
           let bodyValidationResult: StandardSchemaV1.Result<any> = { value: undefined };
 
           if (
@@ -1175,7 +1175,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
                 }
                 body = bodyValidationResult.value;
               }
-            } catch (e) {
+            } catch {
               if (route.schema.body) {
                 return new Response("Invalid body format", { status: 400 });
               }
@@ -1202,7 +1202,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
           try {
             let mainHandlerExecuted = false;
-            let processResult: Response | null = null;
+            const processResult: Response | null = null;
 
             async function executeMainHandler() {
               mainHandlerExecuted = true;
@@ -1286,7 +1286,9 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
             if (self.onBeforeHandleHandlers.length > 0) {
               const result = await executeBeforeHandlers();
-              if (result) return result;
+              if (result) {
+                return result;
+              }
             }
 
             if (!mainHandlerExecuted) {
@@ -1358,18 +1360,27 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       };
 
       for (const [_path, options] of this.wsRoutes.entries()) {
-        if (options.maxPayloadLength)
+        if (options.maxPayloadLength) {
           wsConfig.websocket.maxPayloadLength = options.maxPayloadLength;
-        if (options.idleTimeout) wsConfig.websocket.idleTimeout = options.idleTimeout;
-        if (options.backpressureLimit)
+        }
+        if (options.idleTimeout) {
+          wsConfig.websocket.idleTimeout = options.idleTimeout;
+        }
+        if (options.backpressureLimit) {
           wsConfig.websocket.backpressureLimit = options.backpressureLimit;
-        if (options.closeOnBackpressureLimit)
+        }
+        if (options.closeOnBackpressureLimit) {
           wsConfig.websocket.closeOnBackpressureLimit = options.closeOnBackpressureLimit;
-        if (options.sendPings !== undefined) wsConfig.websocket.sendPings = options.sendPings;
-        if (options.publishToSelf !== undefined)
+        }
+        if (options.sendPings !== undefined) {
+          wsConfig.websocket.sendPings = options.sendPings;
+        }
+        if (options.publishToSelf !== undefined) {
           wsConfig.websocket.publishToSelf = options.publishToSelf;
-        if (options.perMessageDeflate !== undefined)
+        }
+        if (options.perMessageDeflate !== undefined) {
           wsConfig.websocket.perMessageDeflate = options.perMessageDeflate;
+        }
       }
     }
 
@@ -1455,7 +1466,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       )
       .map(([key]) => ({ key, macro: this.macros[key] }));
 
-    return async function (ctx: any): Promise<Response> {
+    return async (ctx: any): Promise<Response> => {
       if (macros.length > 0) {
         for (const { key, macro } of macros) {
           try {
@@ -1554,11 +1565,18 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
   }
 
   private determineContentType(body: any): string {
-    if (typeof body === "string") return "text/plain";
-    if (body instanceof Uint8Array || body instanceof ArrayBuffer)
+    if (typeof body === "string") {
+      return "text/plain";
+    }
+    if (body instanceof Uint8Array || body instanceof ArrayBuffer) {
       return "application/octet-stream";
-    if (body instanceof Blob) return body.type || "application/octet-stream";
-    if (body instanceof FormData) return "multipart/form-data";
+    }
+    if (body instanceof Blob) {
+      return body.type || "application/octet-stream";
+    }
+    if (body instanceof FormData) {
+      return "multipart/form-data";
+    }
     return "application/json";
   }
 
@@ -1588,13 +1606,17 @@ function matchRoute(pathname: string, routePath: string): Record<string, string>
   const pathParts = pathname.split("/").filter(Boolean);
   const routeParts = routePath.split("/").filter(Boolean);
 
-  if (pathParts.length !== routeParts.length) return null;
+  if (pathParts.length !== routeParts.length) {
+    return null;
+  }
 
   const params: Record<string, string> = {};
   for (let i = 0; i < routeParts.length; i++) {
     const routePart = routeParts[i];
     const pathPart = pathParts[i];
-    if (!routePart) return null;
+    if (!routePart) {
+      return null;
+    }
     if (routePart[0] === ":" && typeof pathPart === "string") {
       params[routePart.slice(1)] = pathPart;
     } else if (routePart !== pathPart) {
@@ -1607,9 +1629,15 @@ function matchRoute(pathname: string, routePath: string): Record<string, string>
 
 async function parseRequestBody(req: Request): Promise<any> {
   const contentType = req.headers.get("Content-Type") || "";
-  if (contentType.includes("application/json")) return req.json();
-  if (contentType.includes("multipart/form-data")) return req.formData();
-  if (contentType.includes("text/")) return req.text();
+  if (contentType.includes("application/json")) {
+    return req.json();
+  }
+  if (contentType.includes("multipart/form-data")) {
+    return req.formData();
+  }
+  if (contentType.includes("text/")) {
+    return req.text();
+  }
   try {
     return await req.json();
   } catch {

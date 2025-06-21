@@ -76,7 +76,7 @@ export abstract class BaseSchema<I, O> implements Schema<I, O> {
     return null as unknown as O;
   }
   schema: Schema<I, O> = this;
-  protected _coerce: boolean = false;
+  protected _coerce = false;
 
   coerce(): this {
     this._coerce = true;
@@ -103,20 +103,26 @@ export abstract class BaseSchema<I, O> implements Schema<I, O> {
 }
 
 function validatePrimitive(schema: SchemaPrimitive, value: unknown): boolean {
-  if (typeof value === "string" && schema === "string") return true;
-  if (typeof value === "number" && schema === "number" && !Number.isNaN(value)) return true;
-  if (typeof value === "boolean" && schema === "boolean") return true;
+  if (typeof value === "string" && schema === "string") {
+    return true;
+  }
+  if (typeof value === "number" && schema === "number" && !Number.isNaN(value)) {
+    return true;
+  }
+  if (typeof value === "boolean" && schema === "boolean") {
+    return true;
+  }
   return false;
 }
 
 export class StringSchemaType extends BaseSchema<unknown, string> {
   readonly type: SchemaPrimitive = "string";
-  private _validateUUID: boolean = false;
-  private _validateRegex: boolean = false;
-  private _validateEmail: boolean = false;
-  private _validatePhone: boolean = false;
-  private _validateDomain: boolean = false;
-  private _requireHttpOrHttps: boolean = false;
+  private _validateUUID = false;
+  private _validateRegex = false;
+  private _validateEmail = false;
+  private _validatePhone = false;
+  private _validateDomain = false;
+  private _requireHttpOrHttps = false;
   private _minLength?: number;
   private _maxLength?: number;
 
@@ -179,7 +185,7 @@ export class StringSchemaType extends BaseSchema<unknown, string> {
     return schema;
   }
 
-  domain(requireHttpOrHttps: boolean = true): StringSchemaType {
+  domain(requireHttpOrHttps = true): StringSchemaType {
     const schema = new StringSchemaType();
     schema._validateDomain = true;
     schema.jsonSchema = { ...this.jsonSchema, format: "domain" };
@@ -267,9 +273,9 @@ export class StringSchemaType extends BaseSchema<unknown, string> {
   }
 
   private _isValidDomain(value: string): boolean {
-    let domainRegex = /^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6}$/;
+    let domainRegex = /^[a-z0-9]+([-.]{1}[a-z0-9]+)*\.[a-z]{2,6}$/;
     if (this._requireHttpOrHttps) {
-      domainRegex = /^https?:\/\/[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6}$/;
+      domainRegex = /^https?:\/\/[a-z0-9]+([-.]{1}[a-z0-9]+)*\.[a-z]{2,6}$/;
     }
     return domainRegex.test(value);
   }
@@ -317,7 +323,9 @@ export class NumberSchemaType extends BaseSchema<unknown, number> {
     validate: (value: unknown) => {
       if (this._coerce && typeof value !== "number") {
         const coerced = Number(value);
-        if (!Number.isNaN(coerced)) value = coerced;
+        if (!Number.isNaN(coerced)) {
+          value = coerced;
+        }
       }
       if (typeof value !== "number" || Number.isNaN(value)) {
         return {
@@ -356,12 +364,15 @@ export class BooleanSchemaType extends BaseSchema<unknown, boolean> {
     vendor: "h-schema",
     validate: (value: unknown) => {
       if (this._coerce && typeof value !== "boolean") {
-        if (value === "true" || value === 1 || value === "1") value = true;
-        else if (value === "false" || value === 0 || value === "0") value = false;
+        if (value === "true" || value === 1 || value === "1") {
+          value = true;
+        } else if (value === "false" || value === 0 || value === "0") {
+          value = false;
+        }
       }
       if (typeof value !== "boolean") {
         return {
-          issues: [{ message: "Expected boolean, received " + typeof value }],
+          issues: [{ message: `Expected boolean, received ${typeof value}` }],
         };
       }
       return { value };
@@ -446,7 +457,7 @@ export class OptionalSchema<I, O> extends BaseSchema<I, O | undefined> {
 }
 
 export class NullSchemaType extends BaseSchema<unknown, null> {
-  readonly type: "null" = "null";
+  readonly type = "null";
   constructor() {
     super();
     this.jsonSchema = { type: "null" };
@@ -751,13 +762,15 @@ function toStandard<T>(schema: AnySchema): Schema<unknown, T> {
   if (schema instanceof BaseSchema) {
     standardSchema = schema as Schema<unknown, T>;
   } else if (typeof schema === "string") {
-    if (schema === "string")
+    if (schema === "string") {
       standardSchema = new StringSchemaType() as unknown as Schema<unknown, T>;
-    else if (schema === "number")
+    } else if (schema === "number") {
       standardSchema = new NumberSchemaType() as unknown as Schema<unknown, T>;
-    else if (schema === "boolean")
+    } else if (schema === "boolean") {
       standardSchema = new BooleanSchemaType() as unknown as Schema<unknown, T>;
-    else throw new Error("Invalid schema type provided to toStandard");
+    } else {
+      throw new Error("Invalid schema type provided to toStandard");
+    }
   } else if (typeof schema === "object" && schema !== null && !Array.isArray(schema)) {
     standardSchema = new ObjectSchemaType<any>(schema as SchemaDefinition) as Schema<unknown, T>;
   } else {
@@ -926,8 +939,7 @@ export const h = {
    * @param {boolean} requireHttpOrHttps - Require http or https
    * @returns {StringSchemaType} Domain schema type
    */
-  domain: (requireHttpOrHttps: boolean = true): StringSchemaType =>
-    h.string().domain(requireHttpOrHttps),
+  domain: (requireHttpOrHttps = true): StringSchemaType => h.string().domain(requireHttpOrHttps),
 
   /**
    * Convert schema to standard schema
