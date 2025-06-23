@@ -20,7 +20,7 @@ type ValidationSchema = StandardSchemaV1<any, any>;
 
 type InferOutput<T extends ValidationSchema> = StandardSchemaV1.InferOutput<T>;
 
-type RouteSchema = {
+export type RouteSchema = {
   params?: ValidationSchema;
   query?: ValidationSchema;
   body?: ValidationSchema;
@@ -109,7 +109,7 @@ export type MacroData = Record<string, any>;
 
 type BunRouteRecord = Record<string, any>;
 
-type WebSocketHandler = {
+export type WebSocketHandler = {
   message: (ws: ServerWebSocket, message: string | ArrayBuffer | Uint8Array) => void;
   open?: (ws: ServerWebSocket) => void;
   close?: (ws: ServerWebSocket, code: number, reason: string) => void;
@@ -132,7 +132,7 @@ type WebSocketOptions = {
       };
 };
 
-interface ServerWebSocket {
+export interface ServerWebSocket {
   readonly data: any;
   readonly readyState: number;
   readonly remoteAddress: string;
@@ -144,6 +144,9 @@ interface ServerWebSocket {
   isSubscribed(topic: string): boolean;
   cork(cb: (ws: ServerWebSocket) => void): void;
 }
+
+type SubscriptionContext<T extends RouteSchema = {}> = ContextTypes<T> & { ws: ServerWebSocket };
+export type SubscriptionHandler = (ctx: SubscriptionContext) => any | Promise<any>;
 
 type Compressor =
   | "disable"
@@ -181,6 +184,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
   private onErrorHandlers: OnErrorHandler[] = [];
   private onAfterResponseHandlers: OnAfterResponseHandler[] = [];
 
+  private subscriptionHandlers: Map<string, { handler: SubscriptionHandler; schema: RouteSchema }> =
+    new Map();
   private wsRoutes: Map<string, WebSocketHandler & WebSocketOptions> = new Map();
 
   constructor(options?: FrameworkOptions) {
@@ -354,6 +359,63 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     }
 
     return Response.json(data);
+  }
+
+  /**
+   * Register a subscription handler for a WebSocket topic.
+   * @param {Path} path - The subscription topic path, can include parameters like /users/:id
+   * @param {(ctx: SubscriptionContext)} handler - Function to handle the subscription. Can return initial data.
+   * @param {Object} schema - Validation schemas for params, query, and headers.
+   * @returns {this} Current instance
+   */
+  subscription<
+    Path extends string,
+    Params extends ValidationSchema,
+    Query extends ValidationSchema,
+    Headers extends ValidationSchema,
+    Handler extends (
+      ctx: SubscriptionContext<{ params: Params; query: Query; headers: Headers }>,
+    ) => any,
+  >(
+    path: Path,
+    handler: Handler,
+    schema: {
+      params?: Params;
+      query?: Query;
+      headers?: Headers;
+    } = {},
+  ): Hedystia<
+    [
+      ...Routes,
+      {
+        method: "SUB";
+        path: Path;
+        params: Params extends ValidationSchema ? InferOutput<Params> : {};
+        query: Query extends ValidationSchema ? InferOutput<Query> : {};
+        headers: Headers extends ValidationSchema ? InferOutput<Headers> : {};
+        response: Awaited<ReturnType<Handler>>;
+      },
+    ],
+    Macros
+  > {
+    const fullPath = this.prefix + path;
+    this.subscriptionHandlers.set(fullPath, { handler: handler as SubscriptionHandler, schema });
+    return this as any;
+  }
+
+  /**
+   * Publish a message to a WebSocket topic.
+   * @param {string} topic - The topic to publish to.
+   * @param {any} data - The data to send.
+   * @param {boolean} [compress] - Whether to compress the message.
+   * @returns {void}
+   */
+  publish(topic: string, data: any, compress?: boolean): void {
+    if (!this.server) {
+      console.warn("Server is not running. Cannot publish message.");
+      return;
+    }
+    this.server.publish(topic, JSON.stringify({ path: topic, data }), compress);
   }
 
   /**
@@ -1104,7 +1166,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
             paramsValidationResult = await route.schema.params["~standard"].validate(rawParams);
             if ("issues" in paramsValidationResult) {
               return new Response(
-                "Invalid params: " + JSON.stringify(paramsValidationResult.issues),
+                `Invalid params: ${JSON.stringify(paramsValidationResult.issues)}`,
                 { status: 400 },
               );
             }
@@ -1117,7 +1179,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
             queryValidationResult = await route.schema.query["~standard"].validate(queryParams);
             if ("issues" in queryValidationResult) {
               return new Response(
-                "Invalid query parameters: " + JSON.stringify(queryValidationResult.issues),
+                `Invalid query parameters: ${JSON.stringify(queryValidationResult.issues)}`,
                 { status: 400 },
               );
             }
@@ -1135,7 +1197,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
             headersValidationResult = await route.schema.headers["~standard"].validate(rawHeaders);
             if ("issues" in headersValidationResult) {
               return new Response(
-                "Invalid headers: " + JSON.stringify(headersValidationResult.issues),
+                `Invalid headers: ${JSON.stringify(headersValidationResult.issues)}`,
                 { status: 400 },
               );
             }
@@ -1169,7 +1231,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
                 bodyValidationResult = await route.schema.body["~standard"].validate(body);
                 if ("issues" in bodyValidationResult) {
                   return new Response(
-                    "Invalid body: " + JSON.stringify(bodyValidationResult.issues),
+                    `Invalid body: ${JSON.stringify(bodyValidationResult.issues)}`,
                     { status: 400 },
                   );
                 }
@@ -1325,12 +1387,96 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     }
 
     const wsConfig: Record<string, any> = {};
-    if (this.wsRoutes.size > 0) {
+    if (this.wsRoutes.size > 0 || this.subscriptionHandlers.size > 0) {
       wsConfig.websocket = {
-        message: (ws: ServerWebSocket, message: string | Buffer) => {
-          const handler = this.wsRoutes.get(ws.data?.__wsPath);
-          if (handler?.message) {
-            handler.message(ws, message);
+        message: async (ws: ServerWebSocket, message: string | ArrayBuffer | Uint8Array) => {
+          const standardWsHandler = this.wsRoutes.get(ws.data?.__wsPath);
+          if (standardWsHandler?.message) {
+            standardWsHandler.message(ws, message);
+          }
+
+          let subMessage;
+          try {
+            subMessage = JSON.parse(message.toString());
+          } catch {
+            return;
+          }
+
+          const { type, path, headers, query, body, subscriptionId } = subMessage;
+          if (!type || !path) {
+            return;
+          }
+
+          let matchedSub: { handler: SubscriptionHandler; schema: RouteSchema } | undefined;
+          let rawParams: Record<string, string> | null = null;
+
+          for (const [routePath, handlerData] of self.subscriptionHandlers.entries()) {
+            const params = matchRoute(path, routePath);
+            if (params) {
+              matchedSub = handlerData;
+              rawParams = params;
+              break;
+            }
+          }
+
+          if (!matchedSub) {
+            return;
+          }
+
+          const topic = path;
+
+          if (type === "subscribe") {
+            let validatedParams = rawParams || {};
+            if (matchedSub.schema.params && rawParams) {
+              const result = await matchedSub.schema.params["~standard"].validate(rawParams);
+              if ("issues" in result) {
+                console.error("Validation error (params):", result.issues);
+                return;
+              }
+              validatedParams = result.value;
+            }
+
+            let validatedQuery = query || {};
+            if (matchedSub.schema.query && query) {
+              const result = await matchedSub.schema.query["~standard"].validate(query);
+              if ("issues" in result) {
+                console.error("Validation error (query):", result.issues);
+                return;
+              }
+              validatedQuery = result.value;
+            }
+
+            let validatedHeaders = headers || {};
+            if (matchedSub.schema.headers && headers) {
+              const result = await matchedSub.schema.headers["~standard"].validate(headers);
+              if ("issues" in result) {
+                console.error("Validation error (headers):", result.issues);
+                return;
+              }
+              validatedHeaders = result.value;
+            }
+
+            ws.subscribe(topic);
+            ws.data.subscribedTopics?.add(topic);
+
+            const ctx: SubscriptionContext<any> = {
+              ws,
+              req: ws.data.request,
+              params: validatedParams,
+              query: validatedQuery,
+              headers: validatedHeaders,
+              body: body,
+              route: path,
+              method: "SUB",
+            };
+
+            const result = await matchedSub.handler(ctx);
+            if (result !== undefined) {
+              ws.send(JSON.stringify({ path: topic, data: result, subscriptionId }));
+            }
+          } else if (type === "unsubscribe") {
+            ws.unsubscribe(topic);
+            ws.data.subscribedTopics?.delete(topic);
           }
         },
         open: (ws: ServerWebSocket) => {
@@ -1399,23 +1545,37 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       fetch: function (this: any, req: Request, server: any) {
         const url = new URL(req.url);
         const path = url.pathname;
-        if (self.wsRoutes.has(path) && req.headers.get("upgrade")?.toLowerCase() === "websocket") {
+
+        if (req.headers.get("upgrade")?.toLowerCase() === "websocket") {
           const wsRoute = self.wsRoutes.get(path);
-          const wsParamsSchema = (wsRoute as any)?.params;
-          if (wsParamsSchema) {
-            const rawParams = matchRoute(path, path);
-            const parsedParams = wsParamsSchema.safeParse(rawParams || {});
-            if (!parsedParams.success) {
-              return new Response("Invalid WebSocket parameters", { status: 400 });
+          if (wsRoute) {
+            const wsParamsSchema = (wsRoute as any)?.params;
+            if (wsParamsSchema) {
+              const rawParams = matchRoute(path, path);
+              const parsedParams = wsParamsSchema.safeParse(rawParams || {});
+              if (!parsedParams.success) {
+                return new Response("Invalid WebSocket parameters", { status: 400 });
+              }
             }
-          }
-          const upgraded = server.upgrade(req, {
-            data: { __wsPath: path },
-          });
-          if (!upgraded) {
+            const upgraded = server.upgrade(req, {
+              data: { __wsPath: path },
+            });
+            if (upgraded) {
+              return new Response(null, { status: 101 });
+            }
             return new Response("WebSocket upgrade failed", { status: 400 });
           }
-          return new Response(null, { status: 101 });
+          if (self.subscriptionHandlers.size > 0) {
+            const upgraded = server.upgrade(req, {
+              data: {
+                request: req,
+                subscribedTopics: new Set(),
+              },
+            });
+            if (upgraded) {
+              return new Response(null, { status: 101 });
+            }
+          }
         }
         if (self.genericHandlers.length > 0) {
           return self.processGenericHandlers(req, self.genericHandlers, 0);
