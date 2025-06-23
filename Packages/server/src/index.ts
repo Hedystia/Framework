@@ -1,8 +1,21 @@
-import { Hedystia } from "./server";
+import {
+  Hedystia,
+  type RouteSchema,
+  type ServerWebSocket,
+  type SubscriptionHandler,
+  type WebSocketHandler,
+} from "./server";
+
 export { h } from "@hedystia/validations";
 
-export { Hedystia };
+export {
+  Hedystia,
+  type RouteSchema,
+  type ServerWebSocket,
+  type SubscriptionHandler,
+  type WebSocketHandler,
+};
 export default Hedystia;
 
-export type { RouteDefinition } from "./types/routes";
 export type { MacroData } from "./server";
+export type { RouteDefinition } from "./types/routes";
