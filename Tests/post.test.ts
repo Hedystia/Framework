@@ -1,7 +1,6 @@
-import Framework, { h } from "hedystia";
-import { createClient } from "@hedystia/client";
-
 import { afterAll, describe, expect, it } from "bun:test";
+import { createClient } from "@hedystia/client";
+import Framework, { h } from "hedystia";
 
 const app = new Framework()
   .get(
@@ -45,14 +44,13 @@ const app = new Framework()
         return Response.json({
           body: context.body,
         });
-      } else {
-        return Response.json(
-          {
-            message: "Invalid name",
-          },
-          { status: 400 },
-        );
       }
+      return Response.json(
+        {
+          message: "Invalid name",
+        },
+        { status: 400 },
+      );
     },
     {
       body: h.object({
@@ -113,6 +111,27 @@ const app = new Framework()
     },
     {
       response: h.object({ body: h.optional(h.object()) }),
+    },
+  )
+  .post(
+    "/headers",
+    (context) => {
+      return Response.json({
+        body: context.body,
+        headers: context.headers,
+      });
+    },
+    {
+      response: h.object({
+        body: h.object({ name: h.string() }),
+        headers: h.object({ content: h.string() }),
+      }),
+      body: h.object({
+        name: h.string(),
+      }),
+      headers: h.object({
+        content: h.string(),
+      }),
     },
   )
   .listen(3001);
@@ -185,6 +204,24 @@ describe("Test POST route", () => {
     expect(responseOk).toBe(true);
     expect(response).toEqual({
       body: { name: "John Doe" },
+    });
+  });
+  it("should test headers", async () => {
+    const { data: response } = await client.headers.post(
+      {
+        name: "Jane Doe",
+      },
+      undefined,
+      {
+        headers: {
+          content: "Hedystia test",
+        },
+      },
+    );
+
+    expect(response).toEqual({
+      body: { name: "Jane Doe" },
+      headers: { content: "Hedystia test" },
     });
   });
 

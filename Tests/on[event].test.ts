@@ -1,6 +1,6 @@
-import Framework, { h } from "hedystia";
-import { createClient } from "@hedystia/client";
 import { describe, expect, it } from "bun:test";
+import { createClient } from "@hedystia/client";
+import Framework, { h } from "hedystia";
 
 describe("Framework .on() Hooks Tests", () => {
   it("should trigger onRequest hook", async () => {
@@ -19,7 +19,7 @@ describe("Framework .on() Hooks Tests", () => {
     const client = createClient<typeof app>("http://localhost:3009");
     const { data } = await client["test-header"].get();
 
-    expect(data?.headerValue).toBe("modified");
+    expect(data.headerValue).toBe("modified");
 
     app.close();
   });
