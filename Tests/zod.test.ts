@@ -1,8 +1,7 @@
-import Framework from "hedystia";
-import { createClient } from "@hedystia/client";
-import { z } from "./zod";
-
 import { afterAll, describe, expect, it } from "bun:test";
+import { createClient } from "@hedystia/client";
+import Framework from "hedystia";
+import { z } from "./zod";
 
 const app = new Framework()
   .get(
