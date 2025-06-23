@@ -2,6 +2,10 @@ import type { Hedystia, RouteDefinition } from "hedystia";
 
 type ResponseFormat = "json" | "text" | "formData" | "bytes" | "arrayBuffer" | "blob";
 
+type SubscriptionCallback = (event: { data: any }) => void;
+type SubscriptionOptions = { headers?: Record<string, any>; query?: Record<string, any> };
+type Subscription = { unsubscribe: () => void };
+
 type PathParts<Path extends string> = Path extends `/${infer Rest}`
   ? Rest extends ""
     ? [""]
@@ -220,7 +224,9 @@ type ClientTree<R> = UnionToIntersection<
     [P in keyof GroupedRoutes<R>]: RouteToTree<
       P & string,
       GroupedRoutes<R>[P]["params"],
-      GroupedRoutes<R>[P]["methods"]
+      GroupedRoutes<R>[P]["methods"] & {
+        subscribe: (callback: SubscriptionCallback, options?: SubscriptionOptions) => Subscription;
+      }
     >;
   }[keyof GroupedRoutes<R>]
 >;
@@ -232,6 +238,176 @@ type ExtractRoutesFromFramework<T> = T extends Hedystia<infer R>
   : T extends RouteDefinition[]
     ? T[number]
     : never;
+
+class WebSocketManager {
+  private ws?: WebSocket;
+  private handlers = new Map<
+    string,
+    Array<{ id: string; callback: SubscriptionCallback; options?: SubscriptionOptions }>
+  >();
+
+  private isConnected = false;
+  private isPermanentlyClosed = false;
+  private connectionPromise: Promise<void> | null = null;
+  private pendingMessages: string[] = [];
+
+  private reconnectAttempts = 0;
+  private nextId = 0;
+  private wsUrl: string;
+
+  constructor(baseUrl: string) {
+    this.wsUrl = baseUrl.replace(/^http/, "ws");
+  }
+
+  private connect(): Promise<void> {
+    if (this.isPermanentlyClosed) {
+      return Promise.reject("WebSocket manager permanently closed.");
+    }
+
+    return new Promise((resolve, reject) => {
+      this.ws = new WebSocket(this.wsUrl);
+
+      this.ws.onopen = () => {
+        this.isConnected = true;
+
+        if (this.reconnectAttempts > 0) {
+          this.handlers.forEach((pathHandlers, path) => {
+            pathHandlers.forEach((handler) => {
+              this.send({
+                type: "subscribe",
+                path,
+                ...handler.options,
+                subscriptionId: handler.id,
+              });
+            });
+          });
+        }
+
+        this.reconnectAttempts = 0;
+
+        while (this.pendingMessages.length > 0) {
+          const message = this.pendingMessages.shift();
+          if (message) {
+            this.ws?.send(message);
+          }
+        }
+        resolve();
+      };
+
+      this.ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          const { path, data, subscriptionId } = message;
+
+          if (!path || !this.handlers.has(path)) {
+            return;
+          }
+
+          const pathHandlers = this.handlers.get(path);
+
+          if (subscriptionId) {
+            const handler = pathHandlers?.find((h) => h.id === subscriptionId);
+            if (handler) {
+              handler.callback({ data });
+            }
+          } else {
+            pathHandlers?.forEach((h) => h.callback({ data }));
+          }
+        } catch (error) {
+          console.error("[WS] Error processing the message:", error);
+        }
+      };
+
+      this.ws.onclose = () => {
+        this.isConnected = false;
+        this.connectionPromise = null;
+        if (!this.isPermanentlyClosed) {
+          this.scheduleReconnect();
+        }
+      };
+
+      this.ws.onerror = (err) => {
+        console.error("[WS] Connection error:", err);
+        this.connectionPromise = null;
+        this.ws?.close();
+        reject(err);
+      };
+    });
+  }
+
+  private ensureConnected() {
+    if (!this.connectionPromise) {
+      this.connectionPromise = this.connect();
+    }
+  }
+
+  private send(message: object) {
+    const stringifiedMessage = JSON.stringify(message);
+    if (this.isConnected) {
+      this.ws?.send(stringifiedMessage);
+    } else {
+      this.pendingMessages.push(stringifiedMessage);
+      this.ensureConnected();
+    }
+  }
+
+  public subscribe(
+    path: string,
+    callback: SubscriptionCallback,
+    options?: SubscriptionOptions,
+  ): Subscription {
+    this.ensureConnected();
+
+    const id = (this.nextId++).toString();
+
+    if (!this.handlers.has(path)) {
+      this.handlers.set(path, []);
+    }
+    this.handlers.get(path)!.push({ id, callback, options });
+
+    this.send({ type: "subscribe", path, ...options, subscriptionId: id });
+
+    const unsubscribe = () => {
+      const currentHandlers = this.handlers.get(path);
+      if (!currentHandlers) {
+        return;
+      }
+
+      const newHandlers = currentHandlers.filter((h) => h.id !== id);
+
+      if (newHandlers.length > 0) {
+        this.handlers.set(path, newHandlers);
+      } else {
+        this.handlers.delete(path);
+        this.send({ type: "unsubscribe", path });
+      }
+    };
+
+    return { unsubscribe };
+  }
+
+  private scheduleReconnect() {
+    if (this.reconnectAttempts >= 5) {
+      console.error("[WS] Maximum reconnect attempts reached. Closing permanently.");
+      this.close();
+      return;
+    }
+
+    const delay = 2 ** this.reconnectAttempts * 1000;
+    this.reconnectAttempts++;
+
+    console.log(`[WS] Connection lost. Attempting to reconnect in ${delay / 1000}s...`);
+
+    setTimeout(() => {
+      this.ensureConnected();
+    }, delay);
+  }
+
+  public close() {
+    this.isPermanentlyClosed = true;
+    this.ws?.close();
+  }
+}
 
 async function parseFormData(response: Response): Promise<FormData> {
   if (!response.ok) {
@@ -320,6 +496,7 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
   baseUrl: string,
 ): ClientTree<ExtractRoutesFromFramework<T>> {
   const HTTP_METHODS = ["get", "put", "post", "patch", "delete"];
+  const wsManager = new WebSocketManager(baseUrl);
 
   const createProxy = (segments: string[] = []): any => {
     const proxyTarget = () => {};
@@ -330,6 +507,12 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
         }
         if (prop === "then") {
           return undefined;
+        }
+        if (prop.toLowerCase() === "subscribe") {
+          const fullPath = `/${segments.filter(Boolean).join("/")}`;
+          return (callback: SubscriptionCallback, options?: SubscriptionOptions) => {
+            return wsManager.subscribe(fullPath, callback, options);
+          };
         }
         if (HTTP_METHODS.includes(prop.toLowerCase())) {
           return createProxy([...segments, prop]);
@@ -344,7 +527,7 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
           const fullPath =
             pathSegments.length === 0 || (pathSegments.length === 1 && pathSegments[0] === "")
               ? "/"
-              : "/" + pathSegments.filter((s) => s !== "").join("/");
+              : `/${pathSegments.filter((s) => s !== "").join("/")}`;
           const url = new URL(fullPath, baseUrl);
 
           let body: any;
