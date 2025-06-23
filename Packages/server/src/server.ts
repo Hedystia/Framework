@@ -1658,19 +1658,84 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       return "any";
     }
 
+    if (schema && typeof schema === "object" && schema.def) {
+      const def = schema.def;
+
+      if (def.type === "literal" && Array.isArray(def.values) && def.values.length > 0) {
+        const val = def.values[0];
+        return typeof val === "string" ? `'${val}'` : String(val);
+      }
+
+      if (def.const !== undefined) {
+        const val = def.const;
+        return typeof val === "string" ? `'${val}'` : String(val);
+      }
+
+      if (typeof def.type === "string") {
+        switch (def.type) {
+          case "object": {
+            const shape = def.shape;
+            if (!shape || Object.keys(shape).length === 0) {
+              return "{}";
+            }
+            const validIdentifierRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
+            const properties = Object.entries(shape)
+              .map(([key, value]: [string, any]) => {
+                const finalKey = validIdentifierRegex.test(key) ? key : `"${key}"`;
+                const isOptional =
+                  value.def && (value.def.type === "optional" || value.def.type === "default");
+                const optionalMarker = isOptional ? "?" : "";
+                return `${finalKey}${optionalMarker}:${this.schemaToTypeString(value)}`;
+              })
+              .join(";");
+            return `{${properties}}`;
+          }
+          case "string":
+            return "string";
+          case "number":
+            return "number";
+          case "boolean":
+            return "boolean";
+          case "null":
+            return "null";
+          case "any":
+            return "any";
+          case "unknown":
+            return "unknown";
+          case "optional":
+          case "default":
+            return this.schemaToTypeString(def.innerType);
+          case "array":
+            if (def.items) {
+              return `(${this.schemaToTypeString(def.items)})[]`;
+            }
+            if (def.type) {
+              return `(${this.schemaToTypeString(def.type)})[]`;
+            }
+            return "any[]";
+          case "union":
+            return def.options.map((s: any) => this.schemaToTypeString(s)).join("|");
+          case "enum":
+            return def.values.map((v: any) => (typeof v === "string" ? `'${v}'` : v)).join("|");
+          default:
+            return "any";
+        }
+      }
+    }
+
     if (schema instanceof OptionalSchema) {
-      return `${this.schemaToTypeString((schema as any).innerSchema)} | undefined`;
+      return `${this.schemaToTypeString((schema as any).innerSchema)}|undefined`;
     }
     if (schema instanceof ArraySchema) {
       return `(${this.schemaToTypeString((schema as any).innerSchema)})[]`;
     }
     if (schema instanceof UnionSchema) {
-      return (schema as any).schemas.map(this.schemaToTypeString).join(" | ");
+      return (schema as any).schemas.map((s: any) => this.schemaToTypeString(s)).join("|");
     }
     if (schema instanceof EnumSchema) {
       return (schema as any).values
         .map((v: any) => (typeof v === "string" ? `'${v}'` : v))
-        .join(" | ");
+        .join("|");
     }
     if (schema instanceof LiteralSchema) {
       const val = (schema as any).value;
