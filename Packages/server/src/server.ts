@@ -44,8 +44,22 @@ type InferRouteContext<
     : Record<string, string | null>;
 } & Pick<M, EnabledMacros>;
 
+export type CorsOptions = {
+  origin?:
+    | string
+    | string[]
+    | boolean
+    | ((origin: string | undefined) => boolean | Promise<boolean>);
+  methods?: string | string[];
+  allowedHeaders?: string | string[];
+  exposedHeaders?: string | string[];
+  credentials?: boolean;
+  maxAge?: number;
+};
+
 interface FrameworkOptions {
   reusePort?: boolean;
+  cors?: CorsOptions;
 }
 
 type PrefixRoutes<Prefix extends string, T extends RouteDefinition[]> = {
@@ -106,8 +120,6 @@ type MacroResolveFunction<T extends RouteSchema = {}> = (ctx: ContextTypes<T>) =
 type MacroErrorFunction = (statusCode: number, message?: string) => never;
 
 export type MacroData = Record<string, any>;
-
-type BunRouteRecord = Record<string, any>;
 
 export type WebSocketHandler = {
   message: (ws: ServerWebSocket, message: string | ArrayBuffer | Uint8Array) => void;
@@ -187,9 +199,11 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
   private subscriptionHandlers: Map<string, { handler: SubscriptionHandler; schema: RouteSchema }> =
     new Map();
   private wsRoutes: Map<string, WebSocketHandler & WebSocketOptions> = new Map();
+  private cors: CorsOptions | null = null;
 
   constructor(options?: FrameworkOptions) {
     this.reusePort = options?.reusePort ?? false;
+    this.cors = options?.cors ?? null;
   }
 
   /**
@@ -1127,36 +1141,62 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     return this.routes as unknown as Routes;
   }
 
-  /**
-   * Start HTTP server
-   * @param {number} port - Server port number
-   * @returns {this} Current instance
-   * @throws {Error} If not running in Bun runtime
-   */
-  listen(port: number): this {
-    const self = this;
+  public async fetch(req: Request): Promise<Response> {
+    const addCorsHeaders = async (response: Response, request: Request): Promise<Response> => {
+      if (!this.cors) {
+        return response;
+      }
+      const corsHeaders = await this.generateCorsHeaders(request);
+      if (Object.keys(corsHeaders).length === 0) {
+        return response;
+      }
+      const finalHeaders = new Headers();
+      for (const [key, value] of response.headers.entries()) {
+        finalHeaders.append(key, value);
+      }
+      Object.entries(corsHeaders).forEach(([key, value]) => {
+        finalHeaders.set(key, String(value));
+      });
+      if (corsHeaders["Access-Control-Allow-Origin"] && !finalHeaders.has("Vary")) {
+        finalHeaders.append("Vary", "Origin");
+      }
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: finalHeaders,
+      });
+    };
 
-    const bunRoutes: BunRouteRecord = {};
+    const handleRequest = async (request: Request): Promise<Response> => {
+      const url = new URL(request.url);
+      const path = url.pathname;
 
-    for (const route of self.routes) {
-      const routePath = route.path;
-
-      if (!bunRoutes[routePath]) {
-        bunRoutes[routePath] = {};
+      if (this.cors && request.method === "OPTIONS") {
+        const requestedMethod = request.headers.get("access-control-request-method")?.toUpperCase();
+        const routeExists = this.routes.some(
+          (r) => r.method === requestedMethod && matchRoute(path, r.path),
+        );
+        if (routeExists) {
+          return new Response(null, { status: 204 });
+        }
       }
 
-      bunRoutes[routePath][route.method] = async (req: Request) => {
+      const route = this.routes.find(
+        (r) => r.method === request.method && matchRoute(path, r.path),
+      );
+
+      if (route) {
+        const routePath = route.path;
         try {
-          let modifiedReq = req;
-          for (const handler of self.onRequestHandlers) {
+          let modifiedReq = request;
+          for (const handler of this.onRequestHandlers) {
             const reqResult = handler(modifiedReq);
             modifiedReq = reqResult instanceof Promise ? await reqResult : reqResult;
           }
 
-          const url = new URL(req.url);
           const queryParams = Object.fromEntries(url.searchParams.entries());
 
-          const rawParams = matchRoute(url.pathname, routePath);
+          const rawParams = matchRoute(path, routePath);
           if (!rawParams) {
             return new Response("Invalid route parameters", { status: 400 });
           }
@@ -1207,7 +1247,6 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
           let body;
           let bodyValidationResult: StandardSchemaV1.Result<any> = { value: undefined };
-
           if (
             route.method === "PATCH" ||
             route.method === "POST" ||
@@ -1215,7 +1254,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
             route.method === "DELETE"
           ) {
             try {
-              for (const parseHandler of self.onParseHandlers) {
+              for (const parseHandler of this.onParseHandlers) {
                 const parsedResult = await parseHandler(modifiedReq);
                 if (parsedResult !== undefined) {
                   body = parsedResult;
@@ -1232,7 +1271,9 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
                 if ("issues" in bodyValidationResult) {
                   return new Response(
                     `Invalid body: ${JSON.stringify(bodyValidationResult.issues)}`,
-                    { status: 400 },
+                    {
+                      status: 400,
+                    },
                   );
                 }
                 body = bodyValidationResult.value;
@@ -1255,7 +1296,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
             method: route.method,
           };
 
-          for (const transformHandler of self.onTransformHandlers) {
+          for (const transformHandler of this.onTransformHandlers) {
             const transformedCtx = await transformHandler(ctx);
             if (transformedCtx) {
               ctx = transformedCtx;
@@ -1264,14 +1305,13 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
 
           try {
             let mainHandlerExecuted = false;
-            const processResult: Response | null = null;
-
-            async function executeMainHandler() {
+            let finalResponse: Response | undefined;
+            const executeMainHandler = async () => {
               mainHandlerExecuted = true;
               let result = await route.handler(ctx);
 
               if (!(result instanceof Response)) {
-                for (const mapHandler of self.onMapResponseHandlers) {
+                for (const mapHandler of this.onMapResponseHandlers) {
                   const mappedResponse = await mapHandler(result, ctx);
                   if (mappedResponse instanceof Response) {
                     result = mappedResponse;
@@ -1284,8 +1324,8 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
                 }
               }
 
-              let finalResponse = result;
-              for (const afterHandler of self.onAfterHandleHandlers) {
+              finalResponse = result;
+              for (const afterHandler of this.onAfterHandleHandlers) {
                 const afterResult = await afterHandler(finalResponse, ctx);
                 if (afterResult instanceof Response) {
                   finalResponse = afterResult;
@@ -1293,73 +1333,61 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
               }
 
               setTimeout(async () => {
-                for (const afterResponseHandler of self.onAfterResponseHandlers) {
-                  await afterResponseHandler(finalResponse, ctx);
+                if (finalResponse) {
+                  for (const afterResponseHandler of this.onAfterResponseHandlers) {
+                    await afterResponseHandler(finalResponse, ctx);
+                  }
                 }
               }, 0);
-
               return finalResponse;
-            }
+            };
 
             let i = 0;
-            const executeBeforeHandlers = async (): Promise<Response> => {
-              if (i >= self.onBeforeHandleHandlers.length) {
+            const executeBeforeHandlers = async (): Promise<Response | undefined> => {
+              if (i >= this.onBeforeHandleHandlers.length) {
                 return executeMainHandler();
               }
 
-              const beforeHandler = self.onBeforeHandleHandlers[i++];
+              const beforeHandler = this.onBeforeHandleHandlers[i++];
               if (!beforeHandler) {
                 return executeMainHandler();
               }
 
-              const nextCalled = { value: false };
-
+              let nextCalled = false;
               const next = async () => {
-                nextCalled.value = true;
-                return executeBeforeHandlers();
+                nextCalled = true;
+                return (await executeBeforeHandlers()) || new Response("");
               };
 
-              const earlyResponse = await beforeHandler(ctx, next as () => Promise<Response>);
+              const earlyResponse = await beforeHandler(ctx, next);
 
               if (earlyResponse instanceof Response) {
-                let finalResponse = earlyResponse;
-                for (const afterHandler of self.onAfterHandleHandlers) {
-                  const afterResult = await afterHandler(finalResponse, ctx);
-                  if (afterResult instanceof Response) {
-                    finalResponse = afterResult;
-                  }
+                return earlyResponse;
+              }
+
+              if (nextCalled) {
+                if (finalResponse) {
+                  return finalResponse;
                 }
-
-                setTimeout(async () => {
-                  for (const afterResponseHandler of self.onAfterResponseHandlers) {
-                    await afterResponseHandler(finalResponse, ctx);
-                  }
-                }, 0);
-
-                return finalResponse;
               }
-
-              if (nextCalled.value) {
-                return processResult || new Response("Internal Server Error", { status: 500 });
-              }
-
               return executeBeforeHandlers();
             };
 
-            if (self.onBeforeHandleHandlers.length > 0) {
-              const result = await executeBeforeHandlers();
-              if (result) {
-                return result;
-              }
+            const response = await executeBeforeHandlers();
+            if (response) {
+              return response;
             }
 
             if (!mainHandlerExecuted) {
-              return await executeMainHandler();
+              const final = await executeMainHandler();
+              if (final) {
+                return final;
+              }
             }
 
             return new Response("Internal Server Error", { status: 500 });
           } catch (error) {
-            for (const errorHandler of self.onErrorHandlers) {
+            for (const errorHandler of this.onErrorHandlers) {
               try {
                 const errorResponse = await errorHandler(error as Error, ctx);
                 if (errorResponse instanceof Response) {
@@ -1367,7 +1395,6 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
                 }
               } catch {}
             }
-
             console.error(`Error processing request: ${error}`);
             return new Response(`Internal Server Error: ${(error as Error).message}`, {
               status: 500,
@@ -1377,159 +1404,30 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
           console.error(`Unhandled server error: ${error}`);
           return new Response("Internal Server Error", { status: 500 });
         }
-      };
-    }
-
-    if (this.staticRoutes && this.staticRoutes.length > 0) {
-      for (const staticRoute of this.staticRoutes) {
-        bunRoutes[staticRoute.path] = staticRoute.response;
       }
-    }
 
-    const wsConfig: Record<string, any> = {};
-    if (this.wsRoutes.size > 0 || this.subscriptionHandlers.size > 0) {
-      wsConfig.websocket = {
-        message: async (ws: ServerWebSocket, message: string | ArrayBuffer | Uint8Array) => {
-          const standardWsHandler = this.wsRoutes.get(ws.data?.__wsPath);
-          if (standardWsHandler?.message) {
-            standardWsHandler.message(ws, message);
-          }
-
-          let subMessage;
-          try {
-            subMessage = JSON.parse(message.toString());
-          } catch {
-            return;
-          }
-
-          const { type, path, headers, query, body, subscriptionId } = subMessage;
-          if (!type || !path) {
-            return;
-          }
-
-          let matchedSub: { handler: SubscriptionHandler; schema: RouteSchema } | undefined;
-          let rawParams: Record<string, string> | null = null;
-
-          for (const [routePath, handlerData] of self.subscriptionHandlers.entries()) {
-            const params = matchRoute(path, routePath);
-            if (params) {
-              matchedSub = handlerData;
-              rawParams = params;
-              break;
-            }
-          }
-
-          if (!matchedSub) {
-            return;
-          }
-
-          const topic = path;
-
-          if (type === "subscribe") {
-            let validatedParams = rawParams || {};
-            if (matchedSub.schema.params && rawParams) {
-              const result = await matchedSub.schema.params["~standard"].validate(rawParams);
-              if ("issues" in result) {
-                console.error("Validation error (params):", result.issues);
-                return;
-              }
-              validatedParams = result.value;
-            }
-
-            let validatedQuery = query || {};
-            if (matchedSub.schema.query && query) {
-              const result = await matchedSub.schema.query["~standard"].validate(query);
-              if ("issues" in result) {
-                console.error("Validation error (query):", result.issues);
-                return;
-              }
-              validatedQuery = result.value;
-            }
-
-            let validatedHeaders = headers || {};
-            if (matchedSub.schema.headers && headers) {
-              const result = await matchedSub.schema.headers["~standard"].validate(headers);
-              if ("issues" in result) {
-                console.error("Validation error (headers):", result.issues);
-                return;
-              }
-              validatedHeaders = result.value;
-            }
-
-            ws.subscribe(topic);
-            ws.data.subscribedTopics?.add(topic);
-
-            const ctx: SubscriptionContext<any> = {
-              ws,
-              req: ws.data.request,
-              params: validatedParams,
-              query: validatedQuery,
-              headers: validatedHeaders,
-              body: body,
-              route: path,
-              method: "SUB",
-            };
-
-            const result = await matchedSub.handler(ctx);
-            if (result !== undefined) {
-              ws.send(JSON.stringify({ path: topic, data: result, subscriptionId }));
-            }
-          } else if (type === "unsubscribe") {
-            ws.unsubscribe(topic);
-            ws.data.subscribedTopics?.delete(topic);
-          }
-        },
-        open: (ws: ServerWebSocket) => {
-          const handler = this.wsRoutes.get(ws.data?.__wsPath);
-          if (handler?.open) {
-            handler.open(ws);
-          }
-        },
-        close: (ws: ServerWebSocket, code: number, reason: string) => {
-          const handler = this.wsRoutes.get(ws.data?.__wsPath);
-          if (handler?.close) {
-            handler.close(ws, code, reason);
-          }
-        },
-        error: (ws: ServerWebSocket, error: Error) => {
-          const handler = this.wsRoutes.get(ws.data?.__wsPath);
-          if (handler?.error) {
-            handler.error(ws, error);
-          }
-        },
-        drain: (ws: ServerWebSocket) => {
-          const handler = this.wsRoutes.get(ws.data?.__wsPath);
-          if (handler?.drain) {
-            handler.drain(ws);
-          }
-        },
-      };
-
-      for (const [_path, options] of this.wsRoutes.entries()) {
-        if (options.maxPayloadLength) {
-          wsConfig.websocket.maxPayloadLength = options.maxPayloadLength;
-        }
-        if (options.idleTimeout) {
-          wsConfig.websocket.idleTimeout = options.idleTimeout;
-        }
-        if (options.backpressureLimit) {
-          wsConfig.websocket.backpressureLimit = options.backpressureLimit;
-        }
-        if (options.closeOnBackpressureLimit) {
-          wsConfig.websocket.closeOnBackpressureLimit = options.closeOnBackpressureLimit;
-        }
-        if (options.sendPings !== undefined) {
-          wsConfig.websocket.sendPings = options.sendPings;
-        }
-        if (options.publishToSelf !== undefined) {
-          wsConfig.websocket.publishToSelf = options.publishToSelf;
-        }
-        if (options.perMessageDeflate !== undefined) {
-          wsConfig.websocket.perMessageDeflate = options.perMessageDeflate;
-        }
+      const staticRoute = this.staticRoutes.find((r) => r.path === path);
+      if (staticRoute) {
+        return staticRoute.response;
       }
-    }
 
+      if (this.genericHandlers.length > 0) {
+        return this.processGenericHandlers(request, this.genericHandlers, 0);
+      }
+
+      return new Response("Not Found", { status: 404 });
+    };
+
+    return handleRequest(req).then((res) => addCorsHeaders(res, req));
+  }
+
+  /**
+   * Start HTTP server
+   * @param {number} port - Server port number
+   * @returns {this} Current instance
+   * @throws {Error} If not running in Bun runtime
+   */
+  listen(port: number): this {
     const serve = globalThis.Bun?.serve;
 
     if (!serve) {
@@ -1541,22 +1439,12 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     this.server = serve({
       port,
       reusePort: this.reusePort,
-      routes: bunRoutes,
-      fetch: function (this: any, req: Request, server: any) {
+      fetch: (req, server) => {
         const url = new URL(req.url);
-        const path = url.pathname;
-
         if (req.headers.get("upgrade")?.toLowerCase() === "websocket") {
-          const wsRoute = self.wsRoutes.get(path);
+          const path = url.pathname;
+          const wsRoute = this.wsRoutes.get(path);
           if (wsRoute) {
-            const wsParamsSchema = (wsRoute as any)?.params;
-            if (wsParamsSchema) {
-              const rawParams = matchRoute(path, path);
-              const parsedParams = wsParamsSchema.safeParse(rawParams || {});
-              if (!parsedParams.success) {
-                return new Response("Invalid WebSocket parameters", { status: 400 });
-              }
-            }
             const upgraded = server.upgrade(req, {
               data: { __wsPath: path },
             });
@@ -1565,27 +1453,143 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
             }
             return new Response("WebSocket upgrade failed", { status: 400 });
           }
-          if (self.subscriptionHandlers.size > 0) {
+          if (this.subscriptionHandlers.size > 0) {
             const upgraded = server.upgrade(req, {
-              data: {
-                request: req,
-                subscribedTopics: new Set(),
-              },
+              data: { request: req, subscribedTopics: new Set() },
             });
             if (upgraded) {
               return new Response(null, { status: 101 });
             }
           }
         }
-        if (self.genericHandlers.length > 0) {
-          return self.processGenericHandlers(req, self.genericHandlers, 0);
-        }
-        return new Response("Not found", { status: 404 });
+        return this.fetch(req);
       },
-      ...wsConfig,
+      websocket:
+        this.wsRoutes.size > 0 || this.subscriptionHandlers.size > 0
+          ? this.createWebSocketHandlers()
+          : undefined,
     });
 
     return this;
+  }
+
+  private createWebSocketHandlers() {
+    return {
+      message: async (ws: ServerWebSocket, message: string | ArrayBuffer | Uint8Array) => {
+        const standardWsHandler = this.wsRoutes.get(ws.data?.__wsPath);
+        if (standardWsHandler?.message) {
+          standardWsHandler.message(ws, message);
+        }
+
+        let subMessage;
+        try {
+          subMessage = JSON.parse(message.toString());
+        } catch {
+          return;
+        }
+
+        const { type, path, headers, query, body, subscriptionId } = subMessage;
+        if (!type || !path) {
+          return;
+        }
+
+        let matchedSub: { handler: SubscriptionHandler; schema: RouteSchema } | undefined;
+        let rawParams: Record<string, string> | null = null;
+
+        for (const [routePath, handlerData] of this.subscriptionHandlers.entries()) {
+          const params = matchRoute(path, routePath);
+          if (params) {
+            matchedSub = handlerData;
+            rawParams = params;
+            break;
+          }
+        }
+
+        if (!matchedSub) {
+          return;
+        }
+
+        const topic = path;
+
+        if (type === "subscribe") {
+          let validatedParams = rawParams || {};
+          if (matchedSub.schema.params && rawParams) {
+            const result = await matchedSub.schema.params["~standard"].validate(rawParams);
+            if ("issues" in result) {
+              console.error("Validation error (params):", result.issues);
+              return;
+            }
+            validatedParams = result.value;
+          }
+
+          let validatedQuery = query || {};
+          if (matchedSub.schema.query && query) {
+            const result = await matchedSub.schema.query["~standard"].validate(query);
+            if ("issues" in result) {
+              console.error("Validation error (query):", result.issues);
+              return;
+            }
+            validatedQuery = result.value;
+          }
+
+          let validatedHeaders = headers || {};
+          if (matchedSub.schema.headers && headers) {
+            const result = await matchedSub.schema.headers["~standard"].validate(headers);
+            if ("issues" in result) {
+              console.error("Validation error (headers):", result.issues);
+              return;
+            }
+            validatedHeaders = result.value;
+          }
+
+          ws.subscribe(topic);
+          ws.data.subscribedTopics?.add(topic);
+
+          const ctx: SubscriptionContext<any> = {
+            ws,
+            req: ws.data.request,
+            params: validatedParams,
+            query: validatedQuery,
+            headers: validatedHeaders,
+            body: body,
+            route: path,
+            method: "SUB",
+          };
+
+          const result = await matchedSub.handler(ctx);
+          if (result !== undefined) {
+            ws.send(JSON.stringify({ path: topic, data: result, subscriptionId }));
+          }
+        } else if (type === "unsubscribe") {
+          ws.unsubscribe(topic);
+          ws.data.subscribedTopics?.delete(topic);
+        }
+      },
+      open: (ws: ServerWebSocket) => {
+        const handler = this.wsRoutes.get(ws.data?.__wsPath);
+        if (handler?.open) {
+          handler.open(ws);
+        }
+      },
+      close: (ws: ServerWebSocket, code: number, reason: string) => {
+        const handler = this.wsRoutes.get(ws.data?.__wsPath);
+        if (handler?.close) {
+          handler.close(ws, code, reason);
+        }
+      },
+      error: (ws: ServerWebSocket, error: Error) => {
+        const handler = this.wsRoutes.get(ws.data?.__wsPath);
+        if (handler?.error) {
+          handler.error(ws, error);
+        }
+      },
+      drain: (ws: ServerWebSocket) => {
+        const handler = this.wsRoutes.get(ws.data?.__wsPath);
+        if (handler?.drain) {
+          handler.drain(ws);
+        }
+      },
+    };
   }
 
   private async processGenericHandlers(
@@ -1645,6 +1649,73 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       const finalResult = result instanceof Promise ? await result : result;
       return finalResult instanceof Response ? finalResult : Hedystia.createResponse(finalResult);
     };
+  }
+
+  private async generateCorsHeaders(request: Request): Promise<Record<string, string | number>> {
+    if (!this.cors) {
+      return {};
+    }
+
+    const headers: Record<string, string | number> = {};
+    const origin = request.headers.get("Origin");
+    let allowedOrigin: string | null = null;
+
+    if (this.cors.origin === "*") {
+      allowedOrigin = "*";
+    } else if (this.cors.origin === true) {
+      allowedOrigin = origin || "*";
+    } else if (typeof this.cors.origin === "string") {
+      if (this.cors.origin === origin) {
+        allowedOrigin = origin;
+      }
+    } else if (Array.isArray(this.cors.origin)) {
+      if (origin && this.cors.origin.includes(origin)) {
+        allowedOrigin = origin;
+      }
+    } else if (typeof this.cors.origin === "function") {
+      const result = this.cors.origin(origin || undefined);
+      const isAllowed = result instanceof Promise ? await result : result;
+      if (isAllowed && origin) {
+        allowedOrigin = origin;
+      }
+    }
+
+    if (!allowedOrigin) {
+      return {};
+    }
+
+    headers["Access-Control-Allow-Origin"] = allowedOrigin;
+
+    if (this.cors.credentials) {
+      if (headers["Access-Control-Allow-Origin"] === "*") {
+        headers["Access-Control-Allow-Origin"] = origin || "*";
+      }
+      headers["Access-Control-Allow-Credentials"] = "true";
+    }
+
+    if (this.cors.methods) {
+      headers["Access-Control-Allow-Methods"] = Array.isArray(this.cors.methods)
+        ? this.cors.methods.join(",")
+        : this.cors.methods;
+    }
+
+    if (this.cors.allowedHeaders) {
+      headers["Access-Control-Allow-Headers"] = Array.isArray(this.cors.allowedHeaders)
+        ? this.cors.allowedHeaders.join(",")
+        : this.cors.allowedHeaders;
+    }
+
+    if (this.cors.exposedHeaders) {
+      headers["Access-Control-Expose-Headers"] = Array.isArray(this.cors.exposedHeaders)
+        ? this.cors.exposedHeaders.join(",")
+        : this.cors.exposedHeaders;
+    }
+
+    if (this.cors.maxAge !== undefined) {
+      headers["Access-Control-Max-Age"] = this.cors.maxAge;
+    }
+
+    return headers;
   }
 
   private schemaToTypeString(schema: any): string {
