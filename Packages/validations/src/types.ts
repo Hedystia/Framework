@@ -59,7 +59,9 @@ type SchemaDefinition = SchemaLike;
 
 interface Schema<I, O> extends StandardSchemaV1<I, O> {
   optional(): OptionalSchema<I, O | undefined>;
-  enum<Values extends readonly [O, ...O[]]>(values: Values): EnumSchema<I, Values[number]>;
+  enum<V extends O & (string | number | boolean), Values extends readonly [V, ...V[]]>(
+    values: Values,
+  ): UnionSchema<I, Values[number]>;
   array(): ArraySchema<I, O[]>;
   instanceOf<C extends new (...args: any[]) => any>(
     constructor: C,
@@ -87,8 +89,11 @@ export abstract class BaseSchema<I, O> implements Schema<I, O> {
     return new OptionalSchema<I, O>(this);
   }
 
-  enum<Values extends readonly [O, ...O[]]>(values: Values): EnumSchema<I, Values[number]> {
-    return new EnumSchema<I, Values[number]>(this, values);
+  enum<V extends O & (string | number | boolean), Values extends readonly [V, ...V[]]>(
+    values: Values,
+  ): UnionSchema<I, Values[number]> {
+    const literalSchemas = values.map((value) => new LiteralSchema<I, V>(value));
+    return new UnionSchema<I, Values[number]>(...literalSchemas);
   }
 
   array(): ArraySchema<I, O[]> {
@@ -399,7 +404,7 @@ export class AnySchemaType extends BaseSchema<unknown, any> {
   };
 }
 
-export class LiteralSchema<T extends string | number | boolean> extends BaseSchema<unknown, T> {
+export class LiteralSchema<I, T extends string | number | boolean> extends BaseSchema<I, T> {
   private readonly value: T;
 
   constructor(value: T) {
@@ -411,7 +416,7 @@ export class LiteralSchema<T extends string | number | boolean> extends BaseSche
     };
   }
 
-  readonly "~standard": StandardSchemaV1.Props<unknown, T> = {
+  readonly "~standard": StandardSchemaV1.Props<I, T> = {
     version: 1,
     vendor: "h-schema",
     validate: (value: unknown) => {
@@ -423,7 +428,7 @@ export class LiteralSchema<T extends string | number | boolean> extends BaseSche
       return { value: value as T };
     },
     types: {
-      input: {} as unknown,
+      input: {} as I,
       output: {} as T,
     },
   };
@@ -506,46 +511,6 @@ export class UnionSchema<I, O> extends BaseSchema<I, O> {
         issuesAccum.push(...result.issues!);
       }
       return { issues: issuesAccum };
-    },
-    types: {
-      input: {} as I,
-      output: {} as O,
-    },
-  };
-}
-
-export class EnumSchema<I, O> extends BaseSchema<I, O> {
-  private readonly innerSchema: Schema<I, any>;
-  private readonly values: readonly O[];
-
-  constructor(schema: Schema<I, any>, values: readonly O[]) {
-    super();
-    this.innerSchema = schema;
-    this.values = values;
-    this.jsonSchema = { ...schema.jsonSchema, enum: values };
-  }
-
-  readonly "~standard": StandardSchemaV1.Props<I, O> = {
-    version: 1,
-    vendor: "h-schema",
-    validate: async (value: unknown) => {
-      const result = await this.innerSchema["~standard"].validate(value);
-
-      if ("issues" in result) {
-        return result;
-      }
-
-      if (!this.values.includes(result.value)) {
-        return {
-          issues: [
-            {
-              message: `Invalid enum value. Expected one of: ${this.values.join(", ")}`,
-            },
-          ],
-        };
-      }
-
-      return { value: result.value as O };
     },
     types: {
       input: {} as I,
@@ -829,10 +794,10 @@ export const h = {
   /**
    * Create literal schema type
    * @param {T} value - Literal value
-   * @returns {LiteralSchema<T>} Literal schema type
+   * @returns {LiteralSchema<unknown, T>} Literal schema type
    */
-  literal: <T extends string | number | boolean>(value: T): LiteralSchema<T> =>
-    new LiteralSchema<T>(value),
+  literal: <T extends string | number | boolean>(value: T): LiteralSchema<unknown, T> =>
+    new LiteralSchema<unknown, T>(value),
 
   /**
    * Create object schema type
@@ -854,27 +819,18 @@ export const h = {
   },
 
   /**
-   * Create enum schema type
-   * @param {T} values - Enum values
-   * @returns {EnumSchema<unknown, T[number]>} Enum schema type
+   * Create enum schema type from a list of string, number or boolean values.
+   * @param {Values} values - An array of literal values.
+   * @returns {UnionSchema<unknown, Values[number]>} A schema that validates against one of the provided literal values.
    */
-  enum: <T, Values extends readonly [T, ...T[]]>(
+  enum: <T extends string | number | boolean, Values extends readonly [T, ...T[]]>(
     values: Values,
-  ): EnumSchema<unknown, Values[number]> => {
-    const firstValue = values[0];
-    let baseSchema: Schema<unknown, any>;
-
-    if (typeof firstValue === "string") {
-      baseSchema = h.string();
-    } else if (typeof firstValue === "number") {
-      baseSchema = h.number();
-    } else if (typeof firstValue === "boolean") {
-      baseSchema = h.boolean();
-    } else {
-      throw new Error("Enum values must be primitives");
+  ): UnionSchema<unknown, Values[number]> => {
+    if (!values || values.length === 0) {
+      throw new Error("h.enum() requires a non-empty array of values.");
     }
-
-    return baseSchema.enum(values) as EnumSchema<unknown, Values[number]>;
+    const literalSchemas = values.map((val) => h.literal(val));
+    return h.options(...literalSchemas) as UnionSchema<unknown, Values[number]>;
   },
 
   /**
