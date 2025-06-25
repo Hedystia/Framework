@@ -73,8 +73,10 @@ console.log(data); // "Hello World!"
 
 // Client-side types
 await client.users.post({
-  email: "user@example.com", // Autocompletes!
-  age: 25 // Type-checked
+  body: {
+      email: "user@example.com", // Autocompletes!
+      age: 25 // Type-checked
+  }
 });
 ```
 
