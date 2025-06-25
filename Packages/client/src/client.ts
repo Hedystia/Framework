@@ -26,6 +26,7 @@ type OptionalPart<Key extends string, T> = T extends undefined | never
 
 type RequestOptions<B, Q, H> = {
   responseFormat?: ResponseFormat;
+  credentials?: "omit" | "same-origin" | "include";
 } & OptionalPart<"body", B> &
   OptionalPart<"query", Q> &
   OptionalPart<"headers", H>;
@@ -443,7 +444,7 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
           const url = new URL(fullPath, baseUrl);
 
           const options = args[0] || {};
-          const { body, query, headers, responseFormat = "json" } = options;
+          const { body, query, headers, responseFormat = "json", credentials } = options;
 
           if (query && typeof query === "object") {
             url.search = new URLSearchParams(query as any).toString();
@@ -451,6 +452,7 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
 
           const init: RequestInit = {
             method,
+            credentials,
             headers: {
               ...(body && !(body instanceof FormData)
                 ? { "Content-Type": "application/json" }
