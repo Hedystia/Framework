@@ -1,6 +1,6 @@
-import Framework, { h } from "hedystia";
-import { createClient } from "@hedystia/client";
 import { describe, expect, it } from "bun:test";
+import { createClient } from "@hedystia/client";
+import Framework, { h } from "hedystia";
 
 describe("Framework .macro() Tests", () => {
   it("should apply macros to routes and context", async () => {
@@ -24,7 +24,7 @@ describe("Framework .macro() Tests", () => {
           },
         }),
       })
-      .get("/public", (ctx) => {
+      .get("/public", () => {
         return { message: "Public endpoint" };
       })
       .get(
@@ -106,7 +106,7 @@ describe("Framework .macro() Tests", () => {
         }),
         rateLimit: () => ({
           resolve: async (ctx) => {
-            const requestsCount = parseInt(ctx.req.headers.get("X-Request-Count") || "0");
+            const requestsCount = Number.parseInt(ctx.req.headers.get("X-Request-Count") || "0");
             if (requestsCount > 5) {
               app.error(429, "Too many requests");
             }

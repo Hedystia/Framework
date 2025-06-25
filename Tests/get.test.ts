@@ -1,7 +1,6 @@
-import Framework, { h } from "hedystia";
-import { createClient } from "@hedystia/client";
-
 import { afterAll, describe, expect, it } from "bun:test";
+import { createClient } from "@hedystia/client";
+import Framework, { h } from "hedystia";
 
 const app = new Framework()
   .get(
@@ -98,7 +97,7 @@ describe("Test get route", () => {
   });
 
   it("should work with headers", async () => {
-    const { data, error } = await client.headers.get(undefined, {
+    const { data, error } = await client.headers.get({
       headers: {
         "x-test-header": "test-value",
       },

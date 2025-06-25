@@ -111,12 +111,14 @@ describe("Express Adapter Comprehensive Tests", () => {
   });
 
   it("should handle POST requests with a body", async () => {
-    const { data } = await client.users.post({ name: "John Doe" });
+    const { data } = await client.users.post({
+      body: { name: "John Doe" },
+    });
     expect(data?.body).toEqual({ name: "John Doe" });
   });
 
   it("should handle POST requests with URL params and body", async () => {
-    const { data } = await client.users.id(123).post({ name: "Jane Doe" });
+    const { data } = await client.users.id(123).post({ body: { name: "Jane Doe" } });
     expect(data).toEqual({
       params: { id: 123 },
       body: { name: "Jane Doe" },
@@ -124,12 +126,12 @@ describe("Express Adapter Comprehensive Tests", () => {
   });
 
   it("should handle PUT requests", async () => {
-    const { data } = await client.item.id("abc").put({ value: "test-value" });
+    const { data } = await client.item.id("abc").put({ body: { value: "test-value" } });
     expect(data).toEqual({ id: "abc", value: "test-value" });
   });
 
   it("should handle grouped routes correctly", async () => {
-    const { data: allProducts } = await client.products.get();
+    const { data: allProducts } = await client.products.get({});
     expect(allProducts?.[0]).toEqual({ id: 1, name: "Laptop" });
 
     const { data: singleProduct } = await client.products.id(123).get();
@@ -143,7 +145,7 @@ describe("Express Adapter Comprehensive Tests", () => {
 
   describe("Lifecycle Hooks", () => {
     it("should trigger onRequest and pass modified headers", async () => {
-      const { data } = await client["headers-test"].get(undefined, {
+      const { data } = await client["headers-test"].get({
         headers: { "x-test-header": "my-value" },
       });
       expect(data?.["x-test-header"]).toBe("my-value");

@@ -141,8 +141,7 @@ const client = createClient<typeof app>("http://localhost:3001");
 describe("Test POST route", () => {
   it("should handle POST with params and body", async () => {
     const { data: response } = await client.users.id(123).post({
-      name: "John Doe",
-      email: "john@example.com",
+      body: { name: "John Doe", email: "john@example.com" },
     });
 
     expect(response).toEqual({
@@ -153,7 +152,7 @@ describe("Test POST route", () => {
 
   it("should handle POST with only body", async () => {
     const { data: response } = await client.users.post({
-      name: "Jane Doe",
+      body: { name: "Jane Doe" },
     });
 
     expect(response).toEqual({
@@ -188,7 +187,7 @@ describe("Test POST route", () => {
 
   it("should test ok and status code", async () => {
     const { status, ok } = await client.ok.post({
-      name: "Alice Smith",
+      body: { name: "Alice Smith" },
     });
     expect(status).toBe(400);
     expect(ok).toBe(false);
@@ -198,7 +197,7 @@ describe("Test POST route", () => {
       status: responseStatus,
       ok: responseOk,
     } = await client.ok.post({
-      name: "John Doe",
+      body: { name: "John Doe" },
     });
     expect(responseStatus).toBe(200);
     expect(responseOk).toBe(true);
@@ -207,17 +206,12 @@ describe("Test POST route", () => {
     });
   });
   it("should test headers", async () => {
-    const { data: response } = await client.headers.post(
-      {
-        name: "Jane Doe",
+    const { data: response } = await client.headers.post({
+      body: { name: "Jane Doe" },
+      headers: {
+        content: "Hedystia test",
       },
-      undefined,
-      {
-        headers: {
-          content: "Hedystia test",
-        },
-      },
-    );
+    });
 
     expect(response).toEqual({
       body: { name: "Jane Doe" },

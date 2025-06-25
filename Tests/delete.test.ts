@@ -1,6 +1,6 @@
-import Framework, { h } from "hedystia";
-import { createClient } from "@hedystia/client";
 import { afterAll, describe, expect, it } from "bun:test";
+import { createClient } from "@hedystia/client";
+import Framework, { h } from "hedystia";
 
 const app = new Framework()
   .delete(
@@ -52,9 +52,14 @@ const client = createClient<typeof app>("http://localhost:3005");
 
 describe("Test DELETE method", () => {
   it("should handle DELETE with params, body and query", async () => {
-    const { data: response, error } = await client.resources
-      .id(456)
-      .delete({ confirm: true }, { reason: "obsolete" });
+    const { data: response, error } = await client.resources.id(456).delete({
+      body: {
+        confirm: true,
+      },
+      query: {
+        reason: "obsolete",
+      },
+    });
 
     expect(error).toBeNull();
     expect(response).toEqual({
@@ -65,7 +70,11 @@ describe("Test DELETE method", () => {
   });
 
   it("should handle DELETE with only required body", async () => {
-    const { data: response, error } = await client.resources.id(789).delete({ confirm: true });
+    const { data: response, error } = await client.resources.id(789).delete({
+      body: {
+        confirm: true,
+      },
+    });
 
     expect(error).toBeNull();
     expect(response).toEqual({
@@ -78,7 +87,7 @@ describe("Test DELETE method", () => {
   it("should validate DELETE parameters - invalid query", async () => {
     const { error } = await client.resources
       .id(123)
-      .delete({ confirm: true }, { reason: "invalid" as any });
+      .delete({ body: { confirm: true }, query: { reason: "invalid" as any } });
 
     expect(error).toBeDefined();
   });
@@ -90,7 +99,9 @@ describe("Test DELETE method", () => {
   });
 
   it("should return error when required body is missing", async () => {
-    const { error } = await client.resources.id(999).delete(undefined as any);
+    const { error } = await client.resources.id(999).delete({
+      body: undefined as any,
+    });
 
     expect(error).toBeDefined();
   });

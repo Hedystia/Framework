@@ -1,7 +1,6 @@
-import Framework, { h } from "hedystia";
-import { createClient } from "@hedystia/client";
-
 import { afterAll, describe, expect, it } from "bun:test";
+import { createClient } from "@hedystia/client";
+import Framework, { h } from "hedystia";
 
 const app = new Framework()
   .get(
@@ -265,8 +264,7 @@ describe("Response Format Tests", () => {
 
     it("should post and receive JSON response", async () => {
       const { data, error } = await client.json.post({
-        name: "John Doe",
-        age: 30,
+        body: { name: "John Doe", age: 30 },
       });
 
       expect(error).toBeNull();
@@ -282,14 +280,15 @@ describe("Response Format Tests", () => {
 
   describe("Text Format", () => {
     it("should get text response", async () => {
-      const { data, error } = await client.text.get(undefined, { responseFormat: "text" });
+      const { data, error } = await client.text.get({ responseFormat: "text" });
 
       expect(error).toBeNull();
       expect(data).toBe("This is a plain text response");
     });
 
     it("should post and receive text response", async () => {
-      const { data, error } = await client.text.post({ message: "Hello, server!" }, undefined, {
+      const { data, error } = await client.text.post({
+        body: { message: "Hello, server!" },
         responseFormat: "text",
       });
 
@@ -300,7 +299,7 @@ describe("Response Format Tests", () => {
 
   describe("FormData Format", () => {
     it("should get FormData response", async () => {
-      const { data, error } = await client["form-data"].get(undefined, {
+      const { data, error } = await client["form-data"].get({
         responseFormat: "formData",
       });
 
@@ -312,11 +311,10 @@ describe("Response Format Tests", () => {
     });
 
     it("should post and receive FormData response", async () => {
-      const { data, error } = await client["form-data"].post(
-        { message: "Form data test" },
-        undefined,
-        { responseFormat: "formData" },
-      );
+      const { data, error } = await client["form-data"].post({
+        body: { message: "Form data test" },
+        responseFormat: "formData",
+      });
 
       expect(error).toBeNull();
       expect(data).toBeInstanceOf(FormData);
@@ -327,7 +325,7 @@ describe("Response Format Tests", () => {
 
   describe("Bytes Format", () => {
     it("should get Uint8Array response", async () => {
-      const { data, error } = await client.bytes.get(undefined, { responseFormat: "bytes" });
+      const { data, error } = await client.bytes.get({ responseFormat: "bytes" });
 
       expect(error).toBeNull();
       expect(data).toBeInstanceOf(Uint8Array);
@@ -338,7 +336,8 @@ describe("Response Format Tests", () => {
     });
 
     it("should post and receive Uint8Array response", async () => {
-      const { data, error } = await client.bytes.post({ message: "Binary data test" }, undefined, {
+      const { data, error } = await client.bytes.post({
+        body: { message: "Binary data test" },
         responseFormat: "bytes",
       });
 
@@ -353,7 +352,7 @@ describe("Response Format Tests", () => {
 
   describe("ArrayBuffer Format", () => {
     it("should get ArrayBuffer response", async () => {
-      const { data, error } = await client["array-buffer"].get(undefined, {
+      const { data, error } = await client["array-buffer"].get({
         responseFormat: "arrayBuffer",
       });
 
@@ -366,11 +365,10 @@ describe("Response Format Tests", () => {
     });
 
     it("should post and receive ArrayBuffer response", async () => {
-      const { data, error } = await client["array-buffer"].post(
-        { message: "ArrayBuffer test" },
-        undefined,
-        { responseFormat: "arrayBuffer" },
-      );
+      const { data, error } = await client["array-buffer"].post({
+        body: { message: "ArrayBuffer test" },
+        responseFormat: "arrayBuffer",
+      });
 
       expect(error).toBeNull();
       expect(data).toBeInstanceOf(ArrayBuffer);
@@ -383,7 +381,7 @@ describe("Response Format Tests", () => {
 
   describe("Blob Format", () => {
     it("should get Blob response", async () => {
-      const { data, error } = await client.blob.get(undefined, { responseFormat: "blob" });
+      const { data, error } = await client.blob.get({ responseFormat: "blob" });
 
       expect(error).toBeNull();
       expect(data).toBeInstanceOf(Blob);
@@ -393,7 +391,8 @@ describe("Response Format Tests", () => {
     });
 
     it("should post and receive Blob response", async () => {
-      const { data, error } = await client.blob.post({ message: "Blob test" }, undefined, {
+      const { data, error } = await client.blob.post({
+        body: { message: "Blob test" },
         responseFormat: "blob",
       });
 
@@ -407,9 +406,7 @@ describe("Response Format Tests", () => {
 
   describe("Other HTTP Methods", () => {
     it("should handle DELETE with text response", async () => {
-      const { data, error } = await client.resource
-        .id(123)
-        .delete(undefined, undefined, { responseFormat: "text" });
+      const { data, error } = await client.resource.id(123).delete({ responseFormat: "text" });
 
       expect(error).toBeNull();
       expect(data).toBe("Deleted resource 123");
@@ -417,8 +414,7 @@ describe("Response Format Tests", () => {
 
     it("should handle PATCH with JSON response", async () => {
       const { data, error } = await client.resource.id(456).patch({
-        name: "Updated Name",
-        status: "active",
+        body: { name: "Updated Name", status: "active" },
       });
 
       expect(error).toBeNull();
@@ -432,13 +428,10 @@ describe("Response Format Tests", () => {
     });
 
     it("should handle PUT with query params and JSON response", async () => {
-      const { data, error } = await client.resource.id(789).put(
-        {
-          name: "New Resource",
-          description: "This is a new resource",
-        },
-        { notify: "yes" },
-      );
+      const { data, error } = await client.resource.id(789).put({
+        body: { name: "New Resource", description: "This is a new resource" },
+        query: { notify: "yes" },
+      });
 
       expect(error).toBeNull();
       expect(data).toEqual({
@@ -467,8 +460,7 @@ describe("Response Format Tests", () => {
     it("should handle validation errors", async () => {
       try {
         await client.json.post({
-          name: "John Doe",
-          age: "thirty" as any,
+          body: { name: "John Doe", age: "thirty" as any },
         });
 
         expect(true).toBe(false);

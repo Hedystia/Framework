@@ -1,6 +1,6 @@
-import Framework, { h } from "hedystia";
-import { createClient } from "@hedystia/client";
 import { afterAll, describe, expect, it } from "bun:test";
+import { createClient } from "@hedystia/client";
+import Framework, { h } from "hedystia";
 
 const apiV1 = new Framework()
   .get(

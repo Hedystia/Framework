@@ -166,7 +166,7 @@ describe("Test subscriptions", () => {
 
     await wait(100);
     await client.data.basic.body.post({
-      message: "test-message",
+      body: { message: "test-message" },
     });
     await wait(100);
 
@@ -176,7 +176,7 @@ describe("Test subscriptions", () => {
   it("should handle query parameters", async () => {
     const queryValue = "hello-hedystia";
 
-    const { data, status, ok } = await client.data.query.get({ search: queryValue });
+    const { data, status, ok } = await client.data.query.get({ query: { search: queryValue } });
 
     expect(status).toBe(200);
     expect(ok).toBe(true);

@@ -1,7 +1,6 @@
-import Framework, { h } from "hedystia";
-import { createClient } from "@hedystia/client";
-
 import { afterAll, describe, expect, it } from "bun:test";
+import { createClient } from "@hedystia/client";
+import Framework, { h } from "hedystia";
 
 const app = new Framework()
   .patch(
@@ -90,9 +89,11 @@ const client = createClient<typeof app>("http://localhost:3006");
 describe("Test PATCH method", () => {
   it("should handle PATCH with params and body", async () => {
     const { data: response } = await client.resources.id(123).patch({
-      title: "Updated Resource",
-      content: "This resource has been updated",
-      published: true,
+      body: {
+        title: "Updated Resource",
+        content: "This resource has been updated",
+        published: true,
+      },
     });
 
     expect(response).toEqual({
@@ -107,14 +108,10 @@ describe("Test PATCH method", () => {
 
   it("should handle PATCH with nested route", async () => {
     client.resources.id;
-    const { data: response } = await client.resources.status.id(456).patch(
-      {
-        status: "published",
-      },
-      {
-        notify: "yes",
-      },
-    );
+    const { data: response } = await client.resources.status.id(456).patch({
+      body: { status: "published" },
+      query: { notify: "yes" },
+    });
 
     expect(response).toEqual({
       params: { id: 456 },
@@ -124,10 +121,12 @@ describe("Test PATCH method", () => {
   });
 
   it("should handle PATCH with array body", async () => {
-    const { data: response } = await client.resources.patch([
-      { id: 1, title: "First Resource" },
-      { id: 2, title: "Second Resource" },
-    ]);
+    const { data: response } = await client.resources.patch({
+      body: [
+        { id: 1, title: "First Resource" },
+        { id: 2, title: "Second Resource" },
+      ],
+    });
 
     expect(response).toEqual({
       body: [
@@ -140,7 +139,7 @@ describe("Test PATCH method", () => {
   it("should validate body in PATCH requests", async () => {
     try {
       await client.resources.status.id(789).patch({
-        status: "invalid-status" as any,
+        body: { status: "invalid-status" as any },
       });
 
       expect(true).toBe(false);

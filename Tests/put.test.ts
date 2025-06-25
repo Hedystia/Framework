@@ -1,7 +1,6 @@
-import Framework, { h } from "hedystia";
-import { createClient } from "@hedystia/client";
-
 import { afterAll, describe, expect, it } from "bun:test";
+import { createClient } from "@hedystia/client";
+import Framework, { h } from "hedystia";
 
 const app = new Framework()
   .put(
@@ -90,9 +89,11 @@ const client = createClient<typeof app>("http://localhost:3004");
 describe("Test PUT method", () => {
   it("should handle PUT with params and body", async () => {
     const { data: response } = await client.resources.id(123).put({
-      title: "Updated Resource",
-      content: "This resource has been updated",
-      published: true,
+      body: {
+        title: "Updated Resource",
+        content: "This resource has been updated",
+        published: true,
+      },
     });
 
     expect(response).toEqual({
@@ -106,14 +107,10 @@ describe("Test PUT method", () => {
   });
 
   it("should handle PUT with nested route", async () => {
-    const { data: response } = await client.resources.status.id(456).put(
-      {
-        status: "published",
-      },
-      {
-        notify: "yes",
-      },
-    );
+    const { data: response } = await client.resources.status.id(456).put({
+      body: { status: "published" },
+      query: { notify: "yes" },
+    });
 
     expect(response).toEqual({
       params: { id: 456 },
@@ -123,10 +120,12 @@ describe("Test PUT method", () => {
   });
 
   it("should handle PUT with array body", async () => {
-    const { data: response } = await client.resources.put([
-      { id: 1, title: "First Resource" },
-      { id: 2, title: "Second Resource" },
-    ]);
+    const { data: response } = await client.resources.put({
+      body: [
+        { id: 1, title: "First Resource" },
+        { id: 2, title: "Second Resource" },
+      ],
+    });
 
     expect(response).toEqual({
       body: [
@@ -139,7 +138,7 @@ describe("Test PUT method", () => {
   it("should validate body in PUT requests", async () => {
     try {
       await client.resources.status.id(789).put({
-        status: "invalid-status" as any,
+        body: { status: "invalid-status" as any },
       });
 
       expect(true).toBe(false);

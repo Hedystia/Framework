@@ -1,7 +1,6 @@
-import Framework, { h } from "hedystia";
-import { createClient } from "@hedystia/client";
-
 import { afterAll, describe, expect, it } from "bun:test";
+import { createClient } from "@hedystia/client";
+import Framework, { h } from "hedystia";
 
 const app = new Framework()
   .get(
@@ -58,9 +57,7 @@ const client = createClient<typeof app>("http://localhost:3003");
 describe("Test query parameters", () => {
   it("should handle query parameters without path params", async () => {
     const { data: response } = await client.products.get({
-      category: "electronics",
-      limit: 10,
-      sort: "desc",
+      query: { category: "electronics", limit: 10, sort: "desc" },
     });
 
     expect(response).toEqual({
@@ -74,7 +71,7 @@ describe("Test query parameters", () => {
 
   it("should handle optional query parameters", async () => {
     const { data: response } = await client.products.get({
-      category: "books",
+      query: { category: "books" },
     });
 
     expect(response).toEqual({
@@ -94,8 +91,7 @@ describe("Test query parameters", () => {
 
   it("should handle query parameters with path params", async () => {
     const { data: response } = await client.products.id(123).get({
-      fields: "name,price,description",
-      include: "reviews",
+      query: { fields: "name,price,description", include: "reviews" },
     });
 
     expect(response).toEqual({
@@ -110,7 +106,7 @@ describe("Test query parameters", () => {
   it("should validate query parameters", async () => {
     try {
       await client.products.get({
-        sort: "invalid" as any,
+        query: { sort: "invalid" as any },
       });
 
       expect(true).toBe(false);

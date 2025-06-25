@@ -41,7 +41,9 @@ describe("Framework .on() Hooks Tests", () => {
       .listen(3010);
 
     const client = createClient<typeof app>("http://localhost:3010");
-    const { data } = await client["parse-test"].post("raw text");
+    const { data } = await client["parse-test"].post({
+      body: "raw text",
+    });
 
     expect(data?.parsedBody).toEqual({ custom: true });
 

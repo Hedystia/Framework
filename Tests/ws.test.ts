@@ -1,5 +1,5 @@
-import Framework from "hedystia";
 import { afterAll, describe, expect, it } from "bun:test";
+import Framework from "hedystia";
 
 const app = new Framework()
   .ws("/chat", {
@@ -11,14 +11,14 @@ const app = new Framework()
       console.log("WebSocket connection opened", ws.remoteAddress);
       ws.send("Welcome to the chat server!");
     },
-    close: (ws, code, reason) => {
+    close: (_ws, code, reason) => {
       console.log(`WebSocket closed with code ${code}`, reason);
     },
   })
   .listen(3009);
 
 describe("WebSocket Tests", () => {
-  const ws = new WebSocket("ws://localhost:3009/chat")
+  const ws = new WebSocket("ws://localhost:3009/chat");
 
   it("should connect to WebSocket endpoint", async () => {
     return new Promise<void>((resolve, reject) => {
