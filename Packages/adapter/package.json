@@ -1,12 +1,12 @@
 {
   "name": "@hedystia/adapter",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "devDependencies": {
     "@types/bun": "latest",
     "tsup": "^8.3.5"
   },
   "dependencies": {
-    "hedystia": "^1.4.4"
+    "hedystia": "^1.4.5"
   },
   "peerDependencies": {
     "typescript": ">= 5.0.0",
