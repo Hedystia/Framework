@@ -1782,8 +1782,9 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         const responseType = this.schemaToTypeString(route.schema.response);
         const paramsType = this.schemaToTypeString(route.schema.params);
         const queryType = this.schemaToTypeString(route.schema.query);
+        const bodyType = this.schemaToTypeString(route.schema.body);
         const headersType = this.schemaToTypeString(route.schema.headers);
-        return `{method:"${route.method}";path:"${route.path}";params:${paramsType};query:${queryType};headers:${headersType};response:${responseType}}`;
+        return `{method:"${route.method}";path:"${route.path}";params:${paramsType};query:${queryType};body:${bodyType};headers:${headersType};response:${responseType}}`;
       })
       .join(",");
     return `// Automatic Hedystia type generation\nexport type AppRoutes=[${routeTypes}];`;
