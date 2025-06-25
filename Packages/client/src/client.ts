@@ -16,39 +16,35 @@ type PathParts<Path extends string> = Path extends `/${infer Rest}`
       : [Rest]
   : [];
 
-type DeleteRequestFunction<B, Q, ResponseType, H> = (
-  body?: B,
-  query?: Q,
-  options?: { responseFormat?: ResponseFormat; headers?: H },
-) => Promise<{ error: any | null; data: ResponseType | null; status: number; ok: boolean }>;
+type HasRequiredKeys<T> = T extends undefined | null | never ? false : {} extends T ? false : true;
 
-type RequestFunction<Q, ResponseType, H> = (
-  query?: Q,
-  options?: { responseFormat?: ResponseFormat; headers?: H },
-) => Promise<{
-  error: any | null;
-  data: ResponseType | null;
-  status: number;
-  ok: boolean;
-}>;
+type OptionalPart<Key extends string, T> = T extends undefined | never
+  ? {}
+  : HasRequiredKeys<T> extends true
+    ? { [K in Key]: T }
+    : { [K in Key]?: T };
 
-type PatchRequestFunction<B, Q, ResponseType, H> = (
-  body?: B,
-  query?: Q,
-  options?: { responseFormat?: ResponseFormat; headers?: H },
-) => Promise<{ error: any | null; data: ResponseType | null; status: number; ok: boolean }>;
+type RequestOptions<B, Q, H> = {
+  responseFormat?: ResponseFormat;
+} & OptionalPart<"body", B> &
+  OptionalPart<"query", Q> &
+  OptionalPart<"headers", H>;
 
-type PostRequestFunction<B, Q, ResponseType, H> = (
-  body?: B,
-  query?: Q,
-  options?: { responseFormat?: ResponseFormat; headers?: H },
-) => Promise<{ error: any | null; data: ResponseType | null; status: number; ok: boolean }>;
+type OptionsArgumentRequired<B, Q, H> = [
+  HasRequiredKeys<B>,
+  HasRequiredKeys<Q>,
+  HasRequiredKeys<H>,
+] extends [false, false, false]
+  ? false
+  : true;
 
-type PutRequestFunction<B, Q, ResponseType, H> = (
-  body?: B,
-  query?: Q,
-  options?: { responseFormat?: ResponseFormat; headers?: H },
-) => Promise<{ error: any | null; data: ResponseType | null; status: number; ok: boolean }>;
+type RequestFunction<B, Q, H, ResponseType> = OptionsArgumentRequired<B, Q, H> extends true
+  ? (
+      options: RequestOptions<B, Q, H>,
+    ) => Promise<{ error: any | null; data: ResponseType | null; status: number; ok: boolean }>
+  : (
+      options?: RequestOptions<B, Q, H>,
+    ) => Promise<{ error: any | null; data: ResponseType | null; status: number; ok: boolean }>;
 
 type RouteToTreeInner<T extends string[], Params, Methods> = T extends [
   infer H extends string,
@@ -70,7 +66,7 @@ type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
   : never;
 
 type MergeMethodObjects<T> = {
-  [K in keyof T]: T[K] extends never ? never : T[K];
+  [K in keyof T as T[K] extends never ? never : K]: T[K];
 };
 
 type RouteDefinitionsToMethodsObjects<Routes> = Routes extends {
@@ -85,121 +81,39 @@ type RouteDefinitionsToMethodsObjects<Routes> = Routes extends {
   ? [M, P, Params, Query, Body, Response, Headers]
   : never;
 
+type FindRoute<Method extends string, Path extends string, RoutesTupleUnion> = Extract<
+  RoutesTupleUnion,
+  [Method, Path, ...any[]]
+>;
+
+type RouteToFunction<RouteTuple> = [RouteTuple] extends [never]
+  ? never
+  : RouteTuple extends [any, any, any, infer Q, infer B, infer R, infer H]
+    ? RequestFunction<B, Q, H, R>
+    : never;
+
+type RouteToSubscription<RouteTuple> = [RouteTuple] extends [never]
+  ? never
+  : (callback: SubscriptionCallback, options?: SubscriptionOptions) => Subscription;
+
 type GroupedRoutes<Routes> = {
   [P in RouteDefinitionsToMethodsObjects<Routes>[1]]: {
-    params: Extract<RouteDefinitionsToMethodsObjects<Routes>, [any, P, any, any, any, any, any]>[2];
+    params: Extract<RouteDefinitionsToMethodsObjects<Routes>, [any, P, ...any[]]>[2];
     methods: MergeMethodObjects<{
-      get: Extract<
-        RouteDefinitionsToMethodsObjects<Routes>,
-        ["GET", P, any, any, any, any, any]
-      >[0] extends "GET"
-        ? RequestFunction<
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["GET", P, any, any, any, any, any]
-            >[3],
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["GET", P, any, any, any, any, any]
-            >[5],
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["GET", P, any, any, any, any, any]
-            >[6]
-          >
-        : never;
-      patch: Extract<
-        RouteDefinitionsToMethodsObjects<Routes>,
-        ["PATCH", P, any, any, any, any, any]
-      >[0] extends "PATCH"
-        ? PatchRequestFunction<
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["PATCH", P, any, any, any, any, any]
-            >[4],
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["PATCH", P, any, any, any, any, any]
-            >[3],
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["PATCH", P, any, any, any, any, any]
-            >[5],
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["PATCH", P, any, any, any, any, any]
-            >[6]
-          >
-        : never;
-      post: Extract<
-        RouteDefinitionsToMethodsObjects<Routes>,
-        ["POST", P, any, any, any, any, any]
-      >[0] extends "POST"
-        ? PostRequestFunction<
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["POST", P, any, any, any, any, any]
-            >[4],
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["POST", P, any, any, any, any, any]
-            >[3],
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["POST", P, any, any, any, any, any]
-            >[5],
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["POST", P, any, any, any, any, any]
-            >[6]
-          >
-        : never;
-      put: Extract<
-        RouteDefinitionsToMethodsObjects<Routes>,
-        ["PUT", P, any, any, any, any, any]
-      >[0] extends "PUT"
-        ? PutRequestFunction<
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["PUT", P, any, any, any, any, any]
-            >[4],
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["PUT", P, any, any, any, any, any]
-            >[3],
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["PUT", P, any, any, any, any, any]
-            >[5],
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["PUT", P, any, any, any, any, any]
-            >[6]
-          >
-        : never;
-      delete: Extract<
-        RouteDefinitionsToMethodsObjects<Routes>,
-        ["DELETE", P, any, any, any, any, any]
-      >[0] extends "DELETE"
-        ? DeleteRequestFunction<
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["DELETE", P, any, any, any, any, any]
-            >[4],
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["DELETE", P, any, any, any, any, any]
-            >[3],
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["DELETE", P, any, any, any, any, any]
-            >[5],
-            Extract<
-              RouteDefinitionsToMethodsObjects<Routes>,
-              ["DELETE", P, any, any, any, any, any]
-            >[6]
-          >
-        : never;
+      get: RouteToFunction<FindRoute<"GET", P & string, RouteDefinitionsToMethodsObjects<Routes>>>;
+      patch: RouteToFunction<
+        FindRoute<"PATCH", P & string, RouteDefinitionsToMethodsObjects<Routes>>
+      >;
+      post: RouteToFunction<
+        FindRoute<"POST", P & string, RouteDefinitionsToMethodsObjects<Routes>>
+      >;
+      put: RouteToFunction<FindRoute<"PUT", P & string, RouteDefinitionsToMethodsObjects<Routes>>>;
+      delete: RouteToFunction<
+        FindRoute<"DELETE", P & string, RouteDefinitionsToMethodsObjects<Routes>>
+      >;
+      subscribe: RouteToSubscription<
+        FindRoute<"SUB", P & string, RouteDefinitionsToMethodsObjects<Routes>>
+      >;
     }>;
   };
 };
@@ -224,9 +138,7 @@ type ClientTree<R> = UnionToIntersection<
     [P in keyof GroupedRoutes<R>]: RouteToTree<
       P & string,
       GroupedRoutes<R>[P]["params"],
-      GroupedRoutes<R>[P]["methods"] & {
-        subscribe: (callback: SubscriptionCallback, options?: SubscriptionOptions) => Subscription;
-      }
+      GroupedRoutes<R>[P]["methods"]
     >;
   }[keyof GroupedRoutes<R>]
 >;
@@ -530,20 +442,8 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
               : `/${pathSegments.filter((s) => s !== "").join("/")}`;
           const url = new URL(fullPath, baseUrl);
 
-          let body: any;
-          let query: any;
-          let options: any = {};
-
-          if (method === "GET") {
-            query = args[0];
-            options = args[1] || {};
-          } else {
-            body = args[0];
-            query = args[1];
-            options = args[2] || {};
-          }
-
-          const responseFormat = options.responseFormat || "json";
+          const options = args[0] || {};
+          const { body, query, headers, responseFormat = "json" } = options;
 
           if (query && typeof query === "object") {
             url.search = new URLSearchParams(query as any).toString();
@@ -552,12 +452,18 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
           const init: RequestInit = {
             method,
             headers: {
-              "Content-Type": "application/json",
-              ...options.headers,
+              ...(body && !(body instanceof FormData)
+                ? { "Content-Type": "application/json" }
+                : {}),
+              ...headers,
             },
           };
           if (body !== undefined && method !== "GET") {
-            init.body = JSON.stringify(body);
+            if (body instanceof FormData) {
+              init.body = body;
+            } else {
+              init.body = JSON.stringify(body);
+            }
           }
 
           return (async () => {
