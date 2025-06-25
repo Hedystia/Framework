@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { file } from "bun";
 import fs from "fs/promises";
 import Framework, { h } from "hedystia";
 import path from "path";
@@ -27,21 +28,21 @@ describe("Build Process", () => {
   beforeAll(async () => {
     try {
       await fs.unlink(typesFilePath);
-    } catch (error) {}
+    } catch {}
   });
 
   afterAll(async () => {
     try {
       await fs.unlink(typesFilePath);
-    } catch (error) {}
+    } catch {}
   });
 
   it("should generate a type definition file with the correct minified content", async () => {
     await app.buildTypes(typesFilePath);
-    const fileExists = await Bun.file(typesFilePath).exists();
+    const fileExists = await file(typesFilePath).exists();
     expect(fileExists).toBe(true);
 
-    const generatedContent = await Bun.file(typesFilePath).text();
+    const generatedContent = await file(typesFilePath).text();
     const expectedContent =
       '// Automatic Hedystia type generation\nexport type AppRoutes=[{method:"GET";path:"/";params:any;query:any;body:any;headers:any;response:string},{method:"GET";path:"/users/get";params:any;query:any;body:any;headers:any;response:{status:\'ok\'}},{method:"GET";path:"/slug/:name";params:{name:string};query:any;body:any;headers:any;response:{name:string}},{method:"GET";path:"/test/test/new/random/:name/:id";params:{id:number;name:string};query:any;body:any;headers:any;response:{id:number;name:string}},{method:"GET";path:"/headers";params:any;query:any;body:any;headers:{"x-test-header":string};response:{"x-test-header":string}}];';
     expect(generatedContent).toBe(expectedContent);
