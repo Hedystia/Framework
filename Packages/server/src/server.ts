@@ -199,11 +199,11 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
   private subscriptionHandlers: Map<string, { handler: SubscriptionHandler; schema: RouteSchema }> =
     new Map();
   private wsRoutes: Map<string, WebSocketHandler & WebSocketOptions> = new Map();
-  private cors: CorsOptions | null = null;
+  private cors: CorsOptions | undefined = undefined;
 
   constructor(options?: FrameworkOptions) {
     this.reusePort = options?.reusePort ?? false;
-    this.cors = options?.cors ?? null;
+    this.cors = options?.cors ?? undefined;
   }
 
   /**
@@ -241,7 +241,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     prefix: Prefix,
     callback: (app: Hedystia<[]>) => Hedystia<GroupRoutes>,
   ): Hedystia<[...Routes, ...PrefixRoutes<Prefix, GroupRoutes>]> {
-    const groupApp = new Hedystia();
+    const groupApp = new Hedystia({ cors: this.cors });
     groupApp.prefix = "";
 
     const configuredApp = callback(groupApp);
@@ -1040,6 +1040,12 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
       childFramework = maybeChildFramework as Hedystia<any>;
     }
 
+    if (this.cors && !childFramework.cors) {
+      childFramework.cors = this.cors;
+    } else if (!this.cors && childFramework.cors) {
+      this.cors = childFramework.cors;
+    }
+
     for (const [key, macro] of Object.entries(childFramework.macros)) {
       if (this.macros[key] && !Object.is(this.macros[key], macro)) {
         console.warn(
@@ -1179,6 +1185,7 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
         if (routeExists) {
           return new Response(null, { status: 204 });
         }
+        return new Response(null, { status: 404 });
       }
 
       const route = this.routes.find(
