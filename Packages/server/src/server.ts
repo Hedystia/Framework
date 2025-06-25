@@ -3,7 +3,7 @@ import {
   ArraySchema,
   BaseSchema,
   BooleanSchemaType,
-  EnumSchema,
+  InstanceOfSchema,
   LiteralSchema,
   NullSchemaType,
   NumberSchemaType,
@@ -1726,16 +1726,17 @@ export class Hedystia<Routes extends RouteDefinition[] = [], Macros extends Macr
     if (schema instanceof OptionalSchema) {
       return `${this.schemaToTypeString((schema as any).innerSchema)}|undefined`;
     }
+    if (schema instanceof InstanceOfSchema) {
+      const constructorName = (schema as any).classConstructor?.name;
+      if (constructorName) {
+        return constructorName;
+      }
+    }
     if (schema instanceof ArraySchema) {
       return `(${this.schemaToTypeString((schema as any).innerSchema)})[]`;
     }
     if (schema instanceof UnionSchema) {
       return (schema as any).schemas.map((s: any) => this.schemaToTypeString(s)).join("|");
-    }
-    if (schema instanceof EnumSchema) {
-      return (schema as any).values
-        .map((v: any) => (typeof v === "string" ? `'${v}'` : v))
-        .join("|");
     }
     if (schema instanceof LiteralSchema) {
       const val = (schema as any).value;
