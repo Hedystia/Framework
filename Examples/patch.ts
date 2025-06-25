@@ -1,5 +1,5 @@
-import Hedystia, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
+import Hedystia, { h } from "hedystia";
 
 const app = new Hedystia()
   .patch(
@@ -25,7 +25,7 @@ const app = new Hedystia()
 
 const client = createClient<typeof app>("http://localhost:3000");
 
-const { error, data } = await client.id(123).patch({ id: 456 });
+const { error, data } = await client.id(123).patch({ body: { id: 456 } });
 
 console.log(`Error: ${error}`);
 console.log(`Data: ${data?.body?.id}`);

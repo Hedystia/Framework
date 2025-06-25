@@ -1,5 +1,5 @@
-import Hedystia, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
+import Hedystia, { h } from "hedystia";
 
 const app = new Hedystia()
   .get(
@@ -23,7 +23,7 @@ const app = new Hedystia()
 const client = createClient<typeof app>("http://localhost:3000");
 
 const { error, data } = await client.get({
-  id: 123,
+  query: { id: 123 },
 });
 
 console.log(`Error: ${error}`);

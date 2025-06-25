@@ -126,18 +126,24 @@ function parseSetCookieString(raw: string) {
   const decoded = decodeURIComponent(raw);
   const parts = decoded.split("; ");
   const cookiePair = parts.shift();
-  if (!cookiePair) return null;
+  if (!cookiePair) {
+    return null;
+  }
 
   const [name, ...valueParts] = cookiePair.split("=");
   const value = valueParts.join("=");
 
-  if (!name || value === undefined) return null;
+  if (!name || value === undefined) {
+    return null;
+  }
 
   const attrMap: Record<string, string | true> = {};
 
   for (const attr of parts) {
     const [attrName, ...attrValParts] = attr.split("=");
-    if (!attrName) continue;
+    if (!attrName) {
+      continue;
+    }
     const attrValue = attrValParts.length > 0 ? attrValParts.join("=") : true;
     attrMap[attrName.toLowerCase()] = attrValue;
   }

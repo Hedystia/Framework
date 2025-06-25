@@ -1,5 +1,5 @@
-import Hedystia, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
+import Hedystia, { h } from "hedystia";
 
 const app = new Hedystia()
   .onRequest((req) => {

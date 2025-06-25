@@ -42,9 +42,9 @@ client.guild.id("902265905638150164").subscribe(({ data }) => {
 
 setTimeout(async () => {
   await client.guild.id("902265905638150164").post({
-    lang: "es",
+    body: { lang: "es" },
   });
   await client.guild.id("111111111111111111").post({
-    lang: "es",
+    body: { lang: "es" },
   });
 }, 3000);

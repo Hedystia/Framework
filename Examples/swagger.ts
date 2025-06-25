@@ -1,13 +1,11 @@
-import { Hedystia, h } from "hedystia";
 import { swagger } from "@hedystia/swagger";
+import { Hedystia, h } from "hedystia";
 
 const swaggerPlugin = swagger({
   title: "My API with Hedystia",
   description: "An example API using Hedystia with Swagger",
   version: "1.0.0",
-  tags: [
-    { name: "users", description: "User operations" },
-  ],
+  tags: [{ name: "users", description: "User operations" }],
 });
 
 const app = new Hedystia()

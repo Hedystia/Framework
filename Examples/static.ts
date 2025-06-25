@@ -1,11 +1,12 @@
-import Hedystia from "hedystia";
 import { createClient } from "@hedystia/client";
+import { file } from "bun";
+import Hedystia from "hedystia";
 import html from "./static.html";
 
 const app = new Hedystia()
   .static(
     "/",
-    new Response(await Bun.file(html.index).text(), {
+    new Response(await file(html.index).text(), {
       headers: { "Content-Type": "text/html" },
     }),
   )
@@ -13,7 +14,7 @@ const app = new Hedystia()
 
 const client = createClient<typeof app>("http://localhost:3000");
 
-const { error, data } = await client.get(undefined, {
+const { error, data } = await client.get({
   responseFormat: "text",
 });
 

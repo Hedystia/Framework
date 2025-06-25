@@ -1,5 +1,5 @@
-import { betterAuth } from "better-auth";
 import { typeormAdapter } from "@hedystia/better-auth-typeorm";
+import { betterAuth } from "better-auth";
 import { dataSource } from "./typeorm";
 
 export const auth = betterAuth({

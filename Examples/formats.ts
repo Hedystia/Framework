@@ -1,5 +1,5 @@
-import Hedystia, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
+import Hedystia, { h } from "hedystia";
 
 const app = new Hedystia()
   .post(
@@ -21,7 +21,8 @@ const app = new Hedystia()
 
 const client = createClient<typeof app>("http://localhost:3000");
 
-const { error, data } = await client["form-data"].post({ message: "Form data test" }, undefined, {
+const { error, data } = await client["form-data"].post({
+  body: { message: "Form data test" },
   responseFormat: "formData",
 });
 

@@ -1,5 +1,5 @@
-import Hedystia, { h } from "hedystia";
 import { createClient } from "@hedystia/client";
+import Hedystia, { h } from "hedystia";
 
 const app = new Hedystia()
   .macro({
@@ -41,7 +41,7 @@ const { error, data } = await client.me.get();
 console.log(`Error: ${error}`);
 console.log(`Data: ${data?.message}`);
 
-const { error: error2, data: data2 } = await client.me.get(undefined, {
+const { error: error2, data: data2 } = await client.me.get({
   headers: {
     Authorization: "Bearer test-token",
   },

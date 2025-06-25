@@ -10,7 +10,7 @@ const app = new Hedystia()
       console.log("WebSocket connection opened", ws.remoteAddress);
       ws.send("Welcome to the chat server!");
     },
-    close: (ws, code, reason) => {
+    close: (_ws, code, reason) => {
       console.log(`WebSocket closed with code ${code}`, reason);
     },
   })
@@ -32,4 +32,3 @@ ws.onmessage = (event) => {
 ws.onclose = (event) => {
   console.log(`WebSocket closed with code ${event.code}`, event.reason);
 };
-
