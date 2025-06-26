@@ -8,7 +8,7 @@ type Subscription = { unsubscribe: () => void };
 
 type PathParts<Path extends string> = Path extends `/${infer Rest}`
   ? Rest extends ""
-    ? [""]
+    ? []
     : Rest extends `${infer Head}/${infer Tail}`
       ? Tail extends ""
         ? [Head]
@@ -24,10 +24,10 @@ type OptionalPart<Key extends string, T> = T extends undefined | never
     ? { [K in Key]: T }
     : { [K in Key]?: T };
 
-type RequestOptions<B, Q, H> = {
+type RequestOptions<B, Q, H, M extends string> = {
   responseFormat?: ResponseFormat;
   credentials?: "omit" | "same-origin" | "include";
-} & OptionalPart<"body", B> &
+} & (M extends "GET" ? {} : OptionalPart<"body", B>) &
   OptionalPart<"query", Q> &
   OptionalPart<"headers", H>;
 
@@ -39,28 +39,17 @@ type OptionsArgumentRequired<B, Q, H> = [
   ? false
   : true;
 
-type RequestFunction<B, Q, H, ResponseType> = OptionsArgumentRequired<B, Q, H> extends true
+type RequestFunction<B, Q, H, M extends string, ResponseType> = OptionsArgumentRequired<
+  M extends "GET" ? never : B,
+  Q,
+  H
+> extends true
   ? (
-      options: RequestOptions<B, Q, H>,
+      options: RequestOptions<B, Q, H, M>,
     ) => Promise<{ error: any | null; data: ResponseType | null; status: number; ok: boolean }>
   : (
-      options?: RequestOptions<B, Q, H>,
+      options?: RequestOptions<B, Q, H, M>,
     ) => Promise<{ error: any | null; data: ResponseType | null; status: number; ok: boolean }>;
-
-type RouteToTreeInner<T extends string[], Params, Methods> = T extends [
-  infer H extends string,
-  ...infer R extends string[],
-]
-  ? H extends `:${infer Param}`
-    ? {
-        [K in Param]: (value: Params[K & keyof Params]) => RouteToTreeInner<R, Params, Methods>;
-      }
-    : H extends ""
-      ? Methods & RouteToTreeInner<R, Params, Methods>
-      : {
-          [K in H]: RouteToTreeInner<R, Params, Methods>;
-        }
-  : Methods;
 
 type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void
   ? I
@@ -70,79 +59,76 @@ type MergeMethodObjects<T> = {
   [K in keyof T as T[K] extends never ? never : K]: T[K];
 };
 
-type RouteDefinitionsToMethodsObjects<Routes> = Routes extends {
-  path: infer P extends string;
-  params: infer Params;
-  method: infer M;
-  query?: infer Query;
-  body?: infer Body;
-  response?: infer Response;
-  headers?: infer Headers;
-}
-  ? [M, P, Params, Query, Body, Response, Headers]
+type RouteTuple<R extends RouteDefinition> = [
+  R["method"],
+  R["path"],
+  R["params"],
+  R["query"],
+  R["body"],
+  R["response"],
+  R["headers"],
+];
+
+type RouteToFunction<RouteInfo> = RouteInfo extends [
+  infer M extends string,
+  any,
+  any,
+  infer Q,
+  infer B,
+  infer R,
+  infer H,
+]
+  ? RequestFunction<B, Q, H, M, R>
   : never;
 
-type FindRoute<Method extends string, Path extends string, RoutesTupleUnion> = Extract<
-  RoutesTupleUnion,
-  [Method, Path, ...any[]]
->;
-
-type RouteToFunction<RouteTuple> = [RouteTuple] extends [never]
-  ? never
-  : RouteTuple extends [any, any, any, infer Q, infer B, infer R, infer H]
-    ? RequestFunction<B, Q, H, R>
-    : never;
-
-type RouteToSubscription<RouteTuple> = [RouteTuple] extends [never]
+type RouteToSubscription<RouteInfo> = [RouteInfo] extends [never]
   ? never
   : (callback: SubscriptionCallback, options?: SubscriptionOptions) => Subscription;
 
-type GroupedRoutes<Routes> = {
-  [P in RouteDefinitionsToMethodsObjects<Routes>[1]]: {
-    params: Extract<RouteDefinitionsToMethodsObjects<Routes>, [any, P, ...any[]]>[2];
-    methods: MergeMethodObjects<{
-      get: RouteToFunction<FindRoute<"GET", P & string, RouteDefinitionsToMethodsObjects<Routes>>>;
-      patch: RouteToFunction<
-        FindRoute<"PATCH", P & string, RouteDefinitionsToMethodsObjects<Routes>>
+type RouteMetadata<R extends RouteDefinition> = {
+  path: R["path"];
+  params: R["params"];
+  methods: MergeMethodObjects<
+    {
+      [M in R["method"] as M extends "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
+        ? Lowercase<M>
+        : never]: RouteToFunction<
+        [M, R["path"], R["params"], R["query"], R["body"], R["response"], R["headers"]]
       >;
-      post: RouteToFunction<
-        FindRoute<"POST", P & string, RouteDefinitionsToMethodsObjects<Routes>>
+    } & {
+      [M in R["method"] as M extends "SUB" ? "subscribe" : never]: RouteToSubscription<
+        RouteTuple<R>
       >;
-      put: RouteToFunction<FindRoute<"PUT", P & string, RouteDefinitionsToMethodsObjects<Routes>>>;
-      delete: RouteToFunction<
-        FindRoute<"DELETE", P & string, RouteDefinitionsToMethodsObjects<Routes>>
-      >;
-      subscribe: RouteToSubscription<
-        FindRoute<"SUB", P & string, RouteDefinitionsToMethodsObjects<Routes>>
-      >;
-    }>;
-  };
+    }
+  >;
 };
 
-type RouteToTree<Path extends string, Params, Methods> = PathParts<Path> extends [
-  infer H extends string,
-  ...infer T extends string[],
+type SegmentsToNode<Segments extends string[], R extends RouteDefinition> = Segments extends [
+  infer Head extends string,
+  ...infer Tail extends string[],
 ]
-  ? H extends `:${infer Param}`
-    ? {
-        [K in Param]: (value: Params[K & keyof Params]) => RouteToTreeInner<T, Params, Methods>;
-      }
-    : H extends ""
-      ? Methods & RouteToTreeInner<T, Params, Methods>
-      : {
-          [K in H]: RouteToTreeInner<T, Params, Methods>;
-        }
-  : {};
+  ? { [K in Head]: SegmentsToNode<Tail, R> }
+  : { __meta: RouteMetadata<R> };
 
-type ClientTree<R> = UnionToIntersection<
-  {
-    [P in keyof GroupedRoutes<R>]: RouteToTree<
-      P & string,
-      GroupedRoutes<R>[P]["params"],
-      GroupedRoutes<R>[P]["methods"]
-    >;
-  }[keyof GroupedRoutes<R>]
->;
+type RouteToTree<R extends RouteDefinition> = SegmentsToNode<PathParts<R["path"]>, R>;
+
+type RoutesToTree<R extends RouteDefinition> = R extends any ? RouteToTree<R> : never;
+
+type TreeToClient<Node> = (Node extends { __meta: { methods: infer M } } ? M : {}) & {
+  [K in keyof Node as K extends `__${string}`
+    ? never
+    : K extends `:${infer Param}`
+      ? Param
+      : K]: K extends `:${infer Param}`
+    ? (
+        value: Node[K] extends { __meta: { params: infer P } }
+          ? P[Param & keyof P]
+          : string | number,
+      ) => TreeToClient<Node[K]>
+    : TreeToClient<Node[K]>;
+};
+
+type ClientTree<R extends RouteDefinition> = TreeToClient<UnionToIntersection<RoutesToTree<R>>>;
 
 type ExtractRoutes<T extends RouteDefinition[]> = T[number];
 
@@ -407,6 +393,9 @@ async function processResponse(response: Response, format: ResponseFormat = "jso
  */
 export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
   baseUrl: string,
+  clientOptions?: {
+    credentials?: "omit" | "same-origin" | "include";
+  },
 ): ClientTree<ExtractRoutesFromFramework<T>> {
   const HTTP_METHODS = ["get", "put", "post", "patch", "delete"];
   const wsManager = new WebSocketManager(baseUrl);
@@ -452,7 +441,7 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
 
           const init: RequestInit = {
             method,
-            credentials,
+            credentials: credentials ?? clientOptions?.credentials,
             headers: {
               ...(body && !(body instanceof FormData)
                 ? { "Content-Type": "application/json" }
