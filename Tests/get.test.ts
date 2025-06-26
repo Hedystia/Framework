@@ -38,6 +38,19 @@ const app = new Framework()
     },
   )
   .get(
+    "/slug/:name/:id",
+    (context) => {
+      return Response.json(context.params);
+    },
+    {
+      params: h.object({
+        name: h.string(),
+        id: h.string(),
+      }),
+      response: h.object({ name: h.string(), id: h.string() }),
+    },
+  )
+  .get(
     "/test/test/new/random/:name/:id",
     (context) => {
       return Response.json(context.params);
@@ -71,6 +84,12 @@ describe("Test get route", () => {
     const { data: slug } = await client.slug.name("sally").get();
 
     expect(slug).toEqual({ name: "sally" });
+  });
+
+  it("should return a response", async () => {
+    const { data: slug } = await client.slug.name("sally").id("1234").get();
+
+    expect(slug).toEqual({ name: "sally", id: "1234" });
   });
 
   it("should return a response with params", async () => {
