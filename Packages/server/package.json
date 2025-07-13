@@ -1,8 +1,8 @@
 {
   "name": "hedystia",
-  "version": "1.4.8",
+  "version": "1.4.9",
   "dependencies": {
-    "@hedystia/validations": "^1.4.8"
+    "@hedystia/validations": "^1.4.9"
   },
   "devDependencies": {
     "@standard-schema/spec": "^1.0.0",
