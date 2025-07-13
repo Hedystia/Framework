@@ -15,10 +15,6 @@
   </p>
 </div>
 
-## 🚨 Early Access Notice
-> **Warning**
-> Framework is in active development. Core features are stable but some advanced functionality still being implemented.
-
 ## 🌟 Superpowers
 
 - 🌐 **Multi-runtime support** - Bun (default), Deno, Node.js, Vercel, Cloudflare Workers, Fastly Compute, Lambda, etc.
