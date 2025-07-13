@@ -3,7 +3,14 @@ import { writeFile } from "fs/promises";
 import Core from "./core";
 import generateCorsHeaders from "./handlers/cors";
 import processGenericHandlers from "./handlers/generic";
-import type { CorsOptions, MacroData, RouteSchema, ServerWebSocket, SubscriptionContext, SubscriptionHandler } from "./types";
+import type {
+  CorsOptions,
+  MacroData,
+  RouteSchema,
+  ServerWebSocket,
+  SubscriptionContext,
+  SubscriptionHandler,
+} from "./types";
 import type { RouteDefinition } from "./types/routes";
 import { matchRoute, parseRequestBody, schemaToTypeString } from "./utils";
 
@@ -15,7 +22,7 @@ interface FrameworkOptions {
 export class Hedystia<
   Routes extends RouteDefinition[] = [],
   _Macros extends MacroData = {},
-> extends Core {
+> extends Core<Routes, _Macros> {
   private reusePort: boolean;
 
   constructor(options?: FrameworkOptions) {
