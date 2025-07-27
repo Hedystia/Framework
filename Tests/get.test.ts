@@ -75,6 +75,30 @@ const app = new Framework()
       response: h.object({ "x-test-header": h.string() }),
     },
   )
+  .get(
+    "/error",
+    (context) => {
+      const testHeader = context.headers["x-test-header"];
+
+      if (testHeader === "error") {
+        context.error(400, "Invalid header value");
+      }
+
+      return Response.json({ "x-test-header": testHeader });
+    },
+    {
+      headers: h.object({
+        "x-test-header": h.string(),
+      }),
+      response: h.object({
+        "x-test-header": h.string(),
+      }),
+      error: h.object({
+        message: h.string(),
+        code: h.number(),
+      }),
+    },
+  )
   .listen(3000);
 
 const client = createClient<typeof app>("http://localhost:3000");
@@ -124,6 +148,31 @@ describe("Test get route", () => {
 
     expect(error).toBeNull();
     expect(data).toEqual({ "x-test-header": "test-value" });
+  });
+
+  it("should return success", async () => {
+    const { data, error } = await client.error.get({
+      headers: {
+        "x-test-header": "test-value",
+      },
+    });
+
+    expect(error).toBeNull();
+    expect(data).toEqual({ "x-test-header": "test-value" });
+  });
+
+  it("should return error", async () => {
+    const { data, error } = await client.error.get({
+      headers: {
+        "x-test-header": "error",
+      },
+    });
+
+    expect(data).toBeNull();
+    expect(error).toEqual({
+      message: "Invalid header value",
+      code: 400,
+    });
   });
 
   afterAll(() => {
