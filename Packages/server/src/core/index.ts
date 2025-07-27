@@ -204,11 +204,8 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
     }
 
     for (const [path, handlerData] of configuredApp.subscriptionHandlers.entries()) {
-      if (path === "/" && fullPrefix !== "") {
-        this.subscriptionHandlers.set(fullPrefix, handlerData);
-      } else {
-        this.subscriptionHandlers.set(fullPrefix + path, handlerData);
-      }
+      const finalPath = fullPrefix === "/" ? path : fullPrefix + path;
+      this.subscriptionHandlers.set(finalPath, handlerData);
     }
 
     this.onRequestHandlers.push(...configuredApp.onRequestHandlers);
@@ -956,11 +953,8 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
     }
 
     for (const [path, handlerData] of childFramework.subscriptionHandlers.entries()) {
-      if (path === "/" && prefix !== "") {
-        this.subscriptionHandlers.set(fullPrefix, handlerData);
-      } else {
-        this.subscriptionHandlers.set(fullPrefix + path, handlerData);
-      }
+      const finalPath = fullPrefix === "/" ? path : fullPrefix + path;
+      this.subscriptionHandlers.set(finalPath, handlerData);
     }
 
     this.onRequestHandlers.push(...childFramework.onRequestHandlers);
