@@ -41,6 +41,32 @@ const app = new Framework()
     const searchQuery = (ctx.query as { search: string }).search;
     return new Response(searchQuery);
   })
+  .subscription(
+    "/data/typed",
+    async (ctx) => {
+      const shouldError = ctx.query.error === "true";
+
+      if (shouldError) {
+        ctx.sendError({ message: "Test error", code: 400 });
+        return;
+      }
+
+      ctx.sendData({ id: "123", message: "Success" });
+    },
+    {
+      query: h.object({
+        error: h.optional(h.string()),
+      }),
+      data: h.object({
+        id: h.string(),
+        message: h.string(),
+      }),
+      error: h.object({
+        message: h.string(),
+        code: h.number(),
+      }),
+    },
+  )
   .listen(3024);
 
 const client = createClient<typeof app>("http://localhost:3024");
@@ -181,6 +207,41 @@ describe("Test subscriptions", () => {
     expect(status).toBe(200);
     expect(ok).toBe(true);
     expect(data).toBe(queryValue);
+  });
+
+  it("should handle subscription with data and error schemas", async () => {
+    logs = [];
+
+    client.data.typed.subscribe(
+      ({ data, error }) => {
+        if (data) {
+          logs.push(`Data: ${data.id} - ${data.message}`);
+        }
+        if (error) {
+          logs.push(`Error: ${error.message} (${error.code})`);
+        }
+      },
+      { query: { error: "false" } },
+    );
+
+    await wait(100);
+
+    client.data.typed.subscribe(
+      ({ data, error }) => {
+        if (data) {
+          logs.push(`Data2: ${data.id} - ${data.message}`);
+        }
+        if (error) {
+          logs.push(`Error2: ${error.message} (${error.code})`);
+        }
+      },
+      { query: { error: "true" } },
+    );
+
+    await wait(200);
+
+    expect(logs).toContain("Data: 123 - Success");
+    expect(logs).toContain("Error2: Test error (400)");
   });
 
   afterAll(() => {
