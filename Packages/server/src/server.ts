@@ -580,10 +580,28 @@ export class Hedystia<
         const queryType = schemaToTypeString(route.schema.query);
         const bodyType = schemaToTypeString(route.schema.body);
         const headersType = schemaToTypeString(route.schema.headers);
-        return `{method:"${route.method}";path:"${route.path}";params:${paramsType};query:${queryType};body:${bodyType};headers:${headersType};response:${responseType}}`;
+        const dataType = schemaToTypeString(route.schema.data);
+        const errorType = schemaToTypeString(route.schema.error);
+        return `{method:"${route.method}";path:"${route.path}";params:${paramsType};query:${queryType};body:${bodyType};headers:${headersType};response:${responseType};data:${dataType};error:${errorType}}`;
       })
       .join(",");
-    return `// Automatic Hedystia type generation\nexport type AppRoutes=[${routeTypes}];`;
+
+    const subscriptionTypes = Array.from(this.subscriptionHandlers.entries())
+      .map(([path, { schema }]) => {
+        const responseType = schemaToTypeString(schema.response);
+        const paramsType = schemaToTypeString(schema.params);
+        const queryType = schemaToTypeString(schema.query);
+        const bodyType = schemaToTypeString(schema.body);
+        const headersType = schemaToTypeString(schema.headers);
+        const dataType = schemaToTypeString(schema.data);
+        const errorType = schemaToTypeString(schema.error);
+        return `{method:"SUB";path:"${path}";params:${paramsType};query:${queryType};body:${bodyType};headers:${headersType};response:${responseType};data:${dataType};error:${errorType}}`;
+      })
+      .join(",");
+
+    const allTypes = [routeTypes, subscriptionTypes].filter(Boolean).join(",");
+
+    return `// Automatic Hedystia type generation\nexport type AppRoutes=[${allTypes}];`;
   }
 
   /**
