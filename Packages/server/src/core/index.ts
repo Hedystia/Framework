@@ -231,8 +231,16 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
     Params extends ValidationSchema,
     Query extends ValidationSchema,
     Headers extends ValidationSchema,
+    DataSchema extends ValidationSchema,
+    ErrorSchema extends ValidationSchema,
     Handler extends (
-      ctx: SubscriptionContext<{ params: Params; query: Query; headers: Headers }>,
+      ctx: SubscriptionContext<{
+        params: Params;
+        query: Query;
+        headers: Headers;
+        data: DataSchema;
+        error: ErrorSchema;
+      }>,
     ) => any,
   >(
     path: Path,
@@ -241,6 +249,8 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
       params?: Params;
       query?: Query;
       headers?: Headers;
+      data?: DataSchema;
+      error?: ErrorSchema;
     } = {},
   ): Hedystia<
     [
@@ -251,7 +261,8 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
         params: Params extends ValidationSchema ? InferOutput<Params> : {};
         query: Query extends ValidationSchema ? InferOutput<Query> : {};
         headers: Headers extends ValidationSchema ? InferOutput<Headers> : {};
-        response: Awaited<ReturnType<Handler>>;
+        data: DataSchema extends ValidationSchema ? InferOutput<DataSchema> : any;
+        error: ErrorSchema extends ValidationSchema ? InferOutput<ErrorSchema> : undefined;
       },
     ],
     Macros
@@ -297,6 +308,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
     Query extends ValidationSchema,
     Headers extends ValidationSchema,
     ResponseSchema extends ValidationSchema,
+    ErrorSchema extends ValidationSchema,
     EnabledMacros extends keyof Macros = never,
   >(
     path: Path,
@@ -312,6 +324,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
       query?: Query;
       headers?: Headers;
       response?: ResponseSchema;
+      error?: ErrorSchema;
       description?: string;
       tags?: string[];
     } & { [K in EnabledMacros]?: true } = {} as any,
@@ -327,6 +340,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
           ? InferOutput<Headers>
           : Record<string, string | null>;
         response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : unknown;
+        error: ErrorSchema extends ValidationSchema ? InferOutput<ErrorSchema> : undefined;
       },
     ],
     Macros

@@ -11,6 +11,8 @@ export type RouteSchema = {
   body?: ValidationSchema;
   headers?: ValidationSchema;
   response?: ValidationSchema & { _type?: any };
+  data?: ValidationSchema & { _type?: any };
+  error?: ValidationSchema & { _type?: any };
   description?: string;
   tags?: string[];
 };
@@ -27,6 +29,7 @@ export type InferRouteContext<
   headers: T["headers"] extends ValidationSchema
     ? InferOutput<T["headers"]>
     : Record<string, string | null>;
+  error: (statusCode: number, message?: string) => never;
 } & Pick<M, EnabledMacros>;
 
 export type CorsOptions = {
@@ -66,6 +69,7 @@ export type ContextTypes<T extends RouteSchema = {}> = {
     : Record<string, string | null>;
   route?: string;
   method?: string;
+  error: (statusCode: number, message?: string) => never;
 };
 
 export type RequestHandler = (ctx: ContextTypes) => Response | Promise<Response>;
@@ -129,5 +133,9 @@ export interface ServerWebSocket {
 
 export type SubscriptionContext<T extends RouteSchema = {}> = ContextTypes<T> & {
   ws: ServerWebSocket;
+  data: T["data"] extends ValidationSchema ? InferOutput<T["data"]> : any;
+  errorData: T["error"] extends ValidationSchema ? InferOutput<T["error"]> : undefined;
+  sendData: (data: T["data"] extends ValidationSchema ? InferOutput<T["data"]> : any) => void;
+  sendError: (error: T["error"] extends ValidationSchema ? InferOutput<T["error"]> : any) => void;
 };
 export type SubscriptionHandler = (ctx: SubscriptionContext) => any | Promise<any>;

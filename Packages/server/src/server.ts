@@ -226,6 +226,9 @@ export class Hedystia<
             body: "value" in bodyValidationResult ? bodyValidationResult.value : body,
             route: routePath,
             method: route.method,
+            error: (statusCode: number, message?: string): never => {
+              throw { statusCode, message: message || "Error" };
+            },
           };
 
           for (const transformHandler of this.onTransformHandlers) {
@@ -327,6 +330,40 @@ export class Hedystia<
                 }
               } catch {}
             }
+
+            if (typeof error === "object" && error !== null && "statusCode" in error) {
+              const contextError = error as { statusCode: number; message: string };
+              const status = contextError.statusCode;
+              const ok = status >= 200 && status < 300;
+
+              if (!ok) {
+                let errorData;
+
+                if (route.schema.error?.["~standard"]?.validate) {
+                  const errorObj = {
+                    message: contextError.message,
+                    code: contextError.statusCode,
+                  };
+                  const errorValidation = await route.schema.error["~standard"].validate(errorObj);
+                  if ("value" in errorValidation) {
+                    errorData = errorValidation.value;
+                  } else {
+                    errorData = errorObj;
+                  }
+                } else {
+                  errorData = {
+                    message: contextError.message,
+                    code: contextError.statusCode,
+                  };
+                }
+
+                return new Response(JSON.stringify(errorData), {
+                  status,
+                  headers: { "Content-Type": "application/json" },
+                });
+              }
+            }
+
             console.error(`Error processing request: ${error}`);
             return new Response(`Internal Server Error: ${(error as Error).message}`, {
               status: 500,
@@ -486,6 +523,17 @@ export class Hedystia<
             body: body,
             route: path,
             method: "SUB",
+            data: undefined,
+            errorData: undefined,
+            error: (statusCode: number, message?: string): never => {
+              throw { statusCode, message: message || "Error" };
+            },
+            sendData: (data: any) => {
+              ws.send(JSON.stringify({ path: topic, data, subscriptionId }));
+            },
+            sendError: (error: any) => {
+              ws.send(JSON.stringify({ path: topic, error, subscriptionId }));
+            },
           };
 
           const result = await matchedSub.handler(ctx);

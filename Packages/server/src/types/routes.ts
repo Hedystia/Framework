@@ -6,4 +6,6 @@ export type RouteDefinition = {
   headers?: unknown;
   body?: unknown;
   response?: unknown;
+  data?: unknown;
+  error?: unknown;
 };
