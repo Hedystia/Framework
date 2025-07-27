@@ -2,7 +2,7 @@ import type { Hedystia, RouteDefinition } from "hedystia";
 
 type ResponseFormat = "json" | "text" | "formData" | "bytes" | "arrayBuffer" | "blob";
 
-type SubscriptionCallback = (event: { data: any }) => void;
+type SubscriptionCallback = (event: { data?: any; error?: any }) => void;
 type SubscriptionOptions = { headers?: Record<string, any>; query?: Record<string, any> };
 type Subscription = { unsubscribe: () => void };
 
@@ -39,17 +39,23 @@ type OptionsArgumentRequired<B, Q, H> = [
   ? false
   : true;
 
-type RequestFunction<B, Q, H, M extends string, ResponseType> = OptionsArgumentRequired<
+type RequestFunction<B, Q, H, M extends string, ResponseType, ErrorType> = OptionsArgumentRequired<
   M extends "GET" ? never : B,
   Q,
   H
 > extends true
-  ? (
-      options: RequestOptions<B, Q, H, M>,
-    ) => Promise<{ error: any | null; data: ResponseType | null; status: number; ok: boolean }>
-  : (
-      options?: RequestOptions<B, Q, H, M>,
-    ) => Promise<{ error: any | null; data: ResponseType | null; status: number; ok: boolean }>;
+  ? (options: RequestOptions<B, Q, H, M>) => Promise<{
+      error: ErrorType | null;
+      data: ResponseType | null;
+      status: number;
+      ok: boolean;
+    }>
+  : (options?: RequestOptions<B, Q, H, M>) => Promise<{
+      error: ErrorType | null;
+      data: ResponseType | null;
+      status: number;
+      ok: boolean;
+    }>;
 
 type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void
   ? I
@@ -67,6 +73,8 @@ type RouteTuple<R extends RouteDefinition> = [
   R["body"],
   R["response"],
   R["headers"],
+  R["data"],
+  R["error"],
 ];
 
 type RouteToFunction<RouteInfo> = RouteInfo extends [
@@ -77,13 +85,29 @@ type RouteToFunction<RouteInfo> = RouteInfo extends [
   infer B,
   infer R,
   infer H,
+  infer E,
 ]
-  ? RequestFunction<B, Q, H, M, R>
+  ? RequestFunction<B, Q, H, M, R, E>
   : never;
 
-type RouteToSubscription<RouteInfo> = [RouteInfo] extends [never]
-  ? never
-  : (callback: SubscriptionCallback, options?: SubscriptionOptions) => Subscription;
+type RouteToSubscription<RouteInfo> = RouteInfo extends [
+  infer M,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  infer D,
+  infer E,
+]
+  ? M extends "SUB"
+    ? (
+        callback: (event: { data?: D; error?: E }) => void,
+        options?: SubscriptionOptions,
+      ) => Subscription
+    : never
+  : never;
 
 type RouteMetadata<R extends RouteDefinition> = {
   path: R["path"];
@@ -93,7 +117,7 @@ type RouteMetadata<R extends RouteDefinition> = {
       [M in R["method"] as M extends "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
         ? Lowercase<M>
         : never]: RouteToFunction<
-        [M, R["path"], R["params"], R["query"], R["body"], R["response"], R["headers"]]
+        [M, R["path"], R["params"], R["query"], R["body"], R["response"], R["headers"], R["error"]]
       >;
     } & {
       [M in R["method"] as M extends "SUB" ? "subscribe" : never]: RouteToSubscription<
@@ -196,7 +220,7 @@ class WebSocketManager {
       this.ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          const { path, data, subscriptionId } = message;
+          const { path, data, error, subscriptionId } = message;
 
           if (!path || !this.handlers.has(path)) {
             return;
@@ -207,10 +231,10 @@ class WebSocketManager {
           if (subscriptionId) {
             const handler = pathHandlers?.find((h) => h.id === subscriptionId);
             if (handler) {
-              handler.callback({ data });
+              handler.callback({ data, error });
             }
           } else {
-            pathHandlers?.forEach((h) => h.callback({ data }));
+            pathHandlers?.forEach((h) => h.callback({ data, error }));
           }
         } catch (error) {
           console.error("[WS] Error processing the message:", error);
@@ -469,6 +493,10 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
               }
 
               const data = await processResponse(res, responseFormat);
+              if (!ok) {
+                const errorData = await processResponse(res, responseFormat);
+                return { error: errorData, data: null, status, ok };
+              }
               return { error: null, data, status, ok };
             } catch (error) {
               return { error, data: null, status: 0, ok: false };
