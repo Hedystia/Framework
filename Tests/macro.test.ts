@@ -10,7 +10,7 @@ describe("Framework .macro() Tests", () => {
           resolve: async (ctx) => {
             const authHeader = ctx.req.headers.get("Authorization");
             if (!authHeader || !authHeader.startsWith("Bearer ")) {
-              app.error(401, "Unauthorized");
+              ctx.error(401, "Unauthorized");
             }
             const token = authHeader?.substring(7);
             return { userId: 1, token };
@@ -68,7 +68,7 @@ describe("Framework .macro() Tests", () => {
 
     const protectedResUnauth = await fetch("http://localhost:3018/protected");
     expect(protectedResUnauth.status).toBe(401);
-    expect(await protectedResUnauth.text()).toBe("Unauthorized");
+    expect(((await protectedResUnauth.json()) as any).message).toBe("Unauthorized");
 
     const protectedResAuth = await fetch("http://localhost:3018/protected", {
       headers: {
@@ -99,7 +99,7 @@ describe("Framework .macro() Tests", () => {
           resolve: async (ctx) => {
             const isPremium = ctx.req.headers.get("X-User-Type") === "premium";
             if (!isPremium) {
-              app.error(403, "Premium feature only");
+              ctx.error(403, "Premium feature only");
             }
             return { tier: "premium" };
           },
@@ -108,7 +108,7 @@ describe("Framework .macro() Tests", () => {
           resolve: async (ctx) => {
             const requestsCount = Number.parseInt(ctx.req.headers.get("X-Request-Count") || "0");
             if (requestsCount > 5) {
-              app.error(429, "Too many requests");
+              ctx.error(429, "Too many requests");
             }
             return { remaining: 5 - requestsCount };
           },
@@ -158,7 +158,7 @@ describe("Framework .macro() Tests", () => {
       },
     });
     expect(nonPremiumResponse.status).toBe(403);
-    expect(await nonPremiumResponse.text()).toBe("Premium feature only");
+    expect(((await nonPremiumResponse.json()) as any).message).toBe("Premium feature only");
 
     const rateLimitResponse = await fetch("http://localhost:3019/premium-feature", {
       headers: {
@@ -167,7 +167,7 @@ describe("Framework .macro() Tests", () => {
       },
     });
     expect(rateLimitResponse.status).toBe(429);
-    expect(await rateLimitResponse.text()).toBe("Too many requests");
+    expect(((await rateLimitResponse.json()) as any).message).toBe("Too many requests");
 
     app.close();
   });
