@@ -7,7 +7,7 @@ const app = new Hedystia()
       resolve: async (ctx) => {
         const authHeader = ctx.req.headers.get("Authorization");
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
-          app.error(401, "Unauthorized");
+          ctx.error(401, "Unauthorized");
         }
         const token = authHeader?.substring(7);
         return { userId: 1, token };
@@ -30,6 +30,10 @@ const app = new Hedystia()
         user: h.number(),
         token: h.string(),
       }),
+      error: h.object({
+        message: h.string(),
+        code: h.number(),
+      }),
     },
   )
   .listen(3000);
@@ -38,7 +42,7 @@ const client = createClient<typeof app>("http://localhost:3000");
 
 const { error, data } = await client.me.get();
 
-console.log(`Error: ${error}`);
+console.log(`Error: ${error?.message}`);
 console.log(`Data: ${data?.message}`);
 
 const { error: error2, data: data2 } = await client.me.get({
@@ -47,7 +51,7 @@ const { error: error2, data: data2 } = await client.me.get({
   },
 });
 
-console.log(`Error: ${error2}`);
+console.log(`Error: ${error2?.message}`);
 console.log(`Data: ${data2?.message}`);
 
 app.close();
