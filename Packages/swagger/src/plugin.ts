@@ -19,29 +19,49 @@ export function swagger(options: SwaggerOptions = {}) {
       return Response.json(swaggerInstance.getSpec());
     });
 
-  return {
-    plugin: swaggerApp,
-    swagger: swaggerInstance,
-    captureRoutes: (app: any) => {
-      if (app?.routes) {
-        for (const route of app.routes) {
-          const routeSchema = {
-            params: route.schema.params ? route.schema.params.jsonSchema : undefined,
-            query: route.schema.query ? route.schema.query.jsonSchema : undefined,
-            body: route.schema.body ? route.schema.body.jsonSchema : undefined,
-            response: route.schema.response ? route.schema.response.jsonSchema : undefined,
-          };
+  function createPlugin(app: Hedystia<any, any>) {
+    for (const route of app.routes) {
+      swaggerInstance.addRoute(
+        route.method,
+        route.path,
+        {
+          params: route.schema.params,
+          query: route.schema.query,
+          body: route.schema.body,
+          response: route.schema.response,
+        },
+        route.schema.description || `${route.method} ${route.path}`,
+        route.schema.description,
+        route.schema.tags,
+      );
+    }
 
-          swaggerInstance.addRoute(
-            route.method,
-            route.path,
-            routeSchema,
-            route.schema.description || `${route.method} ${route.path}`,
-            route.schema.description,
-            route.schema.tags,
-          );
-        }
-      }
-    },
+    for (const staticRoute of app.staticRoutes) {
+      swaggerInstance.addRoute("GET", staticRoute.path, {}, `Static route ${staticRoute.path}`);
+    }
+
+    for (const [path] of app.wsRoutes) {
+      swaggerInstance.addRoute("WS", path, {}, `WebSocket route ${path}`);
+    }
+
+    for (const [path, handlerData] of app.subscriptionHandlers) {
+      swaggerInstance.addRoute(
+        "SUB",
+        path,
+        {
+          params: handlerData.schema.params,
+          query: handlerData.schema.query,
+          headers: handlerData.schema.headers,
+        },
+        `Subscription route ${path}`,
+      );
+    }
+
+    return swaggerApp;
+  }
+
+  return {
+    plugin: createPlugin,
+    swagger: swaggerInstance,
   };
 }
