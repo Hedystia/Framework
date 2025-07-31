@@ -53,7 +53,9 @@ export function swagger(options: SwaggerOptions = {}) {
           query: handlerData.schema.query,
           headers: handlerData.schema.headers,
         },
-        `Subscription route ${path}`,
+        handlerData.schema.description || `SUB ${path}`,
+        handlerData.schema.description,
+        handlerData.schema.tags,
       );
     }
 
