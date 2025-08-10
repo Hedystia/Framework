@@ -5,46 +5,85 @@ const swaggerPlugin = swagger({
   title: "My API with Hedystia",
   description: "An example API using Hedystia with Swagger",
   version: "1.0.0",
-  tags: [{ name: "users", description: "User operations" }],
+  tags: [
+    {
+      name: "Users",
+      description: "User path",
+    },
+  ],
 });
 
 const app = new Hedystia()
-  .get(
-    "/users",
-    () => {
-      return [
-        { id: 1, name: "Usuario 1" },
-        { id: 2, name: "Usuario 2" },
-      ];
-    },
-    {
-      response: h.array(
-        h.object({
-          id: h.number(),
-          name: h.string(),
+  .get("/hello", () => "Hello", {
+    response: h.string(),
+    description: "Hello :D",
+    error: h.string(),
+  })
+  .post("/user", (ctx) => ({ id: 1, name: ctx.body.name }), {
+    response: h.object({
+      id: h.number(),
+      name: h.string().maxLength(10),
+    }),
+    headers: h.object({
+      authorization: h.string(),
+    }),
+    tags: ["Users"],
+  })
+  .put("/user/:id", (ctx) => ({ id: 1, name: ctx.body.name }), {
+    params: h.object({
+      id: h.number(),
+    }),
+    body: h.object({
+      name: h.string().maxLength(10),
+      email: h.optional(h.email()),
+    }),
+    response: h.object({
+      id: h.number(),
+      name: h.string().maxLength(10),
+    }),
+    headers: h.object({
+      Authorization: h.string(),
+    }),
+    tags: ["Users"],
+    description: "Update user data",
+  })
+  .group("/admin", (g) =>
+    g
+      .get("/dash", () => "Admin", {
+        response: h.string(),
+      })
+      .group("/deep", (d) =>
+        d.get("/nested", () => "Deep nested route", {
+          response: h.string(),
         }),
       ),
-      tags: ["users"],
+  )
+  .static(
+    "/info",
+    { body: { version: "1.0.0" } },
+    {
+      response: h.object({
+        version: h.string(),
+      }),
     },
   )
-  .post(
-    "/users",
+  .ws("/live", { message: (ws, msg) => ws.send("Echo: " + msg) })
+  .subscription(
+    "/events/:id",
     (ctx) => {
-      return { id: 3, name: ctx.body.name, created: true };
+      ctx.sendData({ event: ctx.params.id });
     },
     {
-      body: h.object({
-        name: h.string(),
-        email: h.email(),
+      data: h.object({
+        event: h.number(),
       }),
-      response: h.object({
+      params: h.object({
         id: h.number(),
-        name: h.string(),
-        created: h.boolean(),
       }),
+      error: h.string(),
     },
   );
 
-swaggerPlugin.captureRoutes(app);
+app.use("/swagger", swaggerPlugin.plugin(app));
 
-app.use("/swagger", swaggerPlugin.plugin).listen(3000);
+app.listen(3000);
