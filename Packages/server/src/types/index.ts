@@ -139,3 +139,53 @@ export type SubscriptionContext<T extends RouteSchema = {}> = ContextTypes<T> & 
   sendError: (error: T["error"] extends ValidationSchema ? InferOutput<T["error"]> : any) => void;
 };
 export type SubscriptionHandler = (ctx: SubscriptionContext) => any | Promise<any>;
+
+type ResolveParams<Path extends string, Params = any> = Params extends Record<string, any>
+  ? ResolveParamsWithTypes<Path, Params>
+  : ResolveParamsWithoutTypes<Path>;
+
+type ResolveParamsWithTypes<
+  T extends string,
+  Params extends Record<string, any>,
+> = T extends `${infer Before}:${infer ParamName}/${infer After}`
+  ? ParamName extends keyof Params
+    ? `${Before}${Params[ParamName] extends number ? number : string}/${ResolveParamsWithTypes<After, Params>}`
+    : `${Before}:${ParamName}/${ResolveParamsWithTypes<After, Params>}`
+  : T extends `${infer Before}:${infer ParamName}`
+    ? ParamName extends keyof Params
+      ? `${Before}${Params[ParamName] extends number ? number : string}`
+      : `${Before}:${ParamName}`
+    : T;
+
+type ResolveParamsWithoutTypes<T extends string> = T extends `${infer Before}:${infer ParamAndRest}`
+  ? ParamAndRest extends `${infer _Param}/${infer After}`
+    ? `${Before}${string}/${ResolveParamsWithoutTypes<After>}`
+    : `${Before}${string}`
+  : T;
+
+export type ExtractSubscriptionRoutes<Routes extends RouteDefinition[]> = {
+  [K in keyof Routes]: Routes[K] extends {
+    method: "SUB";
+    path: infer P;
+    params: infer Params;
+    data: infer D;
+    error: infer E;
+  }
+    ? { path: ResolveParams<P & string, Params>; data: D; error: E }
+    : never;
+}[number];
+
+export type PublishOptions<Data = any, Error = any> = {
+  data?: Data;
+  error?: Error;
+  compress?: boolean;
+};
+
+export type PublishMethod<Routes extends RouteDefinition[]> = <
+  T extends ExtractSubscriptionRoutes<Routes>,
+>(
+  topic: T["path"],
+  options: T extends { data: infer D; error: infer E }
+    ? PublishOptions<D, E> & ({ data: D; error?: never } | { data?: never; error: E })
+    : PublishOptions,
+) => void;
