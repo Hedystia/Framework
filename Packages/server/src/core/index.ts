@@ -3,6 +3,7 @@ import { Hedystia } from "../server";
 import type {
   ContextTypes,
   CorsOptions,
+  ExtractSubscriptionRoutes,
   GenericRequestHandler,
   InferOutput,
   InferRouteContext,
@@ -10,6 +11,8 @@ import type {
   MacroErrorFunction,
   MacroResolveFunction,
   PrefixRoutes,
+  PublishMethod,
+  PublishOptions,
   RequestHandler,
   RouteSchema,
   SubscriptionContext,
@@ -280,17 +283,39 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
   /**
    * Publish a message to a WebSocket topic.
    * @param {string} topic - The topic to publish to.
-   * @param {any} data - The data to send.
-   * @param {boolean} [compress] - Whether to compress the message.
+   * @param {any} [options.data] - The data to send
+   * @param {any} [options.error] - The error to send
+   * @param {boolean} [options.compress] - Whether to compress the message.
    * @returns {void}
    */
-  publish(topic: string, data: any, compress?: boolean): void {
+  publish: PublishMethod<Routes> = <T extends ExtractSubscriptionRoutes<Routes>>(
+    topic: T["path"],
+    options: T extends { data: infer D; error: infer E }
+      ? PublishOptions<D, E> & ({ data: D; error?: never } | { data?: never; error: E })
+      : PublishOptions,
+  ): void => {
     if (!this.server) {
       console.warn("Server is not running. Cannot publish message.");
       return;
     }
-    this.server.publish(topic, JSON.stringify({ path: topic, data }), compress);
-  }
+
+    const { data, error, compress = false } = options;
+
+    if (data !== undefined && error !== undefined) {
+      throw new Error("Cannot send both data and error in the same publish call");
+    }
+
+    if (data === undefined && error === undefined) {
+      throw new Error("Must provide either data or error to publish");
+    }
+
+    const message =
+      data !== undefined
+        ? JSON.stringify({ path: topic, data })
+        : JSON.stringify({ path: topic, error });
+
+    this.server.publish(topic, message, compress);
+  };
 
   public staticRoutes: { path: string; response: Response }[] = [];
 
