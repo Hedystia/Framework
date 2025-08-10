@@ -2,10 +2,10 @@
   "name": "framework",
   "license": "MIT",
   "devDependencies": {
-    "@biomejs/biome": "^2.0.2",
-    "@types/bun": "^1.2.16",
-    "concurrently": "^9.1.2",
-    "typescript": "^5.8.3"
+    "@biomejs/biome": "^2.1.4",
+    "@types/bun": "^1.2.20",
+    "concurrently": "^9.2.0",
+    "typescript": "^5.9.2"
   },
   "scripts": {
     "build:core": "bun run --cwd Packages/validations build && bun run --cwd Packages/server build",
