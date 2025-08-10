@@ -484,6 +484,7 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
           return (async () => {
             try {
               const res = await fetch(url.toString(), init);
+
               const status = res.status;
               const ok = res.ok;
 
@@ -493,10 +494,6 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
               }
 
               const data = await processResponse(res, responseFormat);
-              if (!ok) {
-                const errorData = await processResponse(res, responseFormat);
-                return { error: errorData, data: null, status, ok };
-              }
               return { error: null, data, status, ok };
             } catch (error) {
               return { error, data: null, status: 0, ok: false };
