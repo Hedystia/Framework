@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from "bun:test";
 import { createClient } from "@hedystia/client";
+import { z } from "@zod/mini";
 import Framework from "hedystia";
-import { z } from "./zod";
 
 const app = new Framework()
   .get(
@@ -40,9 +40,9 @@ const app = new Framework()
       response: z.object({ id: z.number(), name: z.string() }),
     },
   )
-  .listen(3023);
+  .listen(3022);
 
-const client = createClient<typeof app>("http://localhost:3023");
+const client = createClient<typeof app>("http://localhost:3022");
 
 describe("Test zod wrapper", () => {
   it("should return a response", async () => {
