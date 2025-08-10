@@ -7,13 +7,17 @@ const app = new Framework()
     return "Test";
   })
   .post("/data/basic", async () => {
-    app.publish("/data/basic", "New data");
+    app.publish("/data/basic", {
+      data: "New data",
+    });
     return new Response("Test");
   })
   .post(
     "/data/basic/body",
     async ({ body }) => {
-      app.publish("/data/basic", body.message);
+      app.publish("/data/basic", {
+        data: body.message,
+      });
       return new Response("Test");
     },
     {
@@ -26,15 +30,18 @@ const app = new Framework()
     return "test";
   })
   .post("/data/params/:id", async (ctx) => {
-    const topic = `/data/params/${ctx.params.id}`;
-    app.publish(topic, ctx.params.id);
+    app.publish(`/data/params/${ctx.params.id}`, {
+      data: ctx.params.id,
+    });
     return new Response("Test");
   })
   .subscription("/data/headers", async (ctx) => {
     return ctx.headers["x-test"];
   })
   .post("/data/headers", async (ctx) => {
-    app.publish("/data/headers", ctx.headers["x-test"]);
+    app.publish("/data/headers", {
+      data: ctx.headers["x-test"],
+    });
     return new Response("Test");
   })
   .get("/data/query", async (ctx) => {
