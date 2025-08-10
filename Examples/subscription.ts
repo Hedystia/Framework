@@ -15,12 +15,21 @@ export const app = new Hedystia()
       params: h.object({
         id: h.string(),
       }),
+      data: h.object({
+        id: h.string(),
+        lang: h.options(h.literal("en"), h.literal("es")),
+      }),
+      error: h.object({
+        id: h.string(),
+      }),
     },
   )
   .post(
     "/guild/:id",
     ({ body, params }) => {
-      app.publish(`/guild/${params.id}`, { id: params.id, lang: body.lang });
+      app.publish(`/guild/${params.id}`, {
+        data: { id: params.id, lang: body.lang },
+      });
       return "ok";
     },
     {
@@ -36,8 +45,9 @@ export const app = new Hedystia()
 
 const client = createClient<typeof app>("http://localhost:3000");
 
-client.guild.id("902265905638150164").subscribe(({ data }) => {
+client.guild.id("902265905638150164").subscribe(({ data, error }) => {
   console.log(data);
+  console.log(error);
 });
 
 setTimeout(async () => {
