@@ -5,6 +5,31 @@ export type ValidationSchema = StandardSchemaV1<any, any>;
 
 export type InferOutput<T extends ValidationSchema> = StandardSchemaV1.InferOutput<T>;
 
+export type CookieOptions = {
+  domain?: string;
+  expires?: Date;
+  httpOnly?: boolean;
+  maxAge?: number;
+  path?: string;
+  sameSite?: "strict" | "lax" | "none";
+  secure?: boolean;
+};
+
+export type ResponseContext = {
+  status: (code: number) => ResponseContext;
+  headers: {
+    set: (key: string, value: string) => ResponseContext;
+    get: (key: string) => string | null;
+    delete: (key: string) => ResponseContext;
+    add: (key: string, value: string) => ResponseContext;
+  };
+  cookies: {
+    get: (name: string) => string | undefined;
+    set: (name: string, value: string, options?: CookieOptions) => ResponseContext;
+    delete: (name: string, options?: Omit<CookieOptions, "expires">) => ResponseContext;
+  };
+};
+
 export type RouteSchema = {
   params?: ValidationSchema;
   query?: ValidationSchema;
@@ -30,6 +55,7 @@ export type InferRouteContext<
     ? InferOutput<T["headers"]>
     : Record<string, string | null>;
   error: (statusCode: number, message?: string) => never;
+  set: ResponseContext;
 } & Pick<M, EnabledMacros>;
 
 export type CorsOptions = {
@@ -70,6 +96,7 @@ export type ContextTypes<T extends RouteSchema = {}> = {
   route?: string;
   method?: string;
   error: (statusCode: number, message?: string) => never;
+  set: ResponseContext;
 };
 
 export type RequestHandler = (ctx: ContextTypes) => Response | Promise<Response>;
@@ -131,7 +158,7 @@ export interface ServerWebSocket {
   cork(cb: (ws: ServerWebSocket) => void): void;
 }
 
-export type SubscriptionContext<T extends RouteSchema = {}> = ContextTypes<T> & {
+export type SubscriptionContext<T extends RouteSchema = {}> = Omit<ContextTypes<T>, "set"> & {
   ws: ServerWebSocket;
   data: T["data"] extends ValidationSchema ? InferOutput<T["data"]> : any;
   errorData: T["error"] extends ValidationSchema ? InferOutput<T["error"]> : undefined;

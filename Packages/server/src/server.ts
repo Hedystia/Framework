@@ -4,8 +4,10 @@ import Core from "./core";
 import generateCorsHeaders from "./handlers/cors";
 import processGenericHandlers from "./handlers/generic";
 import type {
+  CookieOptions,
   CorsOptions,
   MacroData,
+  ResponseContext,
   RouteSchema,
   ServerWebSocket,
   SubscriptionContext,
@@ -229,6 +231,7 @@ export class Hedystia<
             error: (statusCode: number, message?: string): never => {
               throw { statusCode, message: message || "Error" };
             },
+            set: this.createResponseContext(),
           };
 
           for (const transformHandler of this.onTransformHandlers) {
@@ -258,6 +261,8 @@ export class Hedystia<
                   result = Hedystia.createResponse(result);
                 }
               }
+
+              result = this.applyResponseContext(result, ctx.set);
 
               finalResponse = result;
               for (const afterHandler of this.onAfterHandleHandlers) {
@@ -602,6 +607,111 @@ export class Hedystia<
     const allTypes = [routeTypes, subscriptionTypes].filter(Boolean).join(",");
 
     return `// Automatic Hedystia type generation\nexport type AppRoutes=[${allTypes}];`;
+  }
+
+  private createResponseContext(): ResponseContext {
+    const responseData = {
+      statusCode: 200,
+      responseHeaders: new Headers(),
+      cookies: new Map<string, { value: string; options?: CookieOptions }>(),
+      modified: false,
+    };
+
+    const context: ResponseContext = {
+      status: (code: number) => {
+        responseData.statusCode = code;
+        responseData.modified = true;
+        return context;
+      },
+      headers: {
+        set: (key: string, value: string) => {
+          responseData.responseHeaders.set(key, value);
+          responseData.modified = true;
+          return context;
+        },
+        get: (key: string) => responseData.responseHeaders.get(key),
+        delete: (key: string) => {
+          responseData.responseHeaders.delete(key);
+          responseData.modified = true;
+          return context;
+        },
+        add: (key: string, value: string) => {
+          const existing = responseData.responseHeaders.get(key);
+          if (existing) {
+            responseData.responseHeaders.set(key, `${existing}, ${value}`);
+          } else {
+            responseData.responseHeaders.set(key, value);
+          }
+          responseData.modified = true;
+          return context;
+        },
+      },
+      cookies: {
+        get: (name: string) => responseData.cookies.get(name)?.value,
+        set: (name: string, value: string, options?: CookieOptions) => {
+          responseData.cookies.set(name, { value, options });
+          responseData.modified = true;
+          return context;
+        },
+        delete: (name: string, options?: Omit<CookieOptions, "expires">) => {
+          responseData.cookies.set(name, {
+            value: "",
+            options: { ...options, expires: new Date(0) },
+          });
+          responseData.modified = true;
+          return context;
+        },
+      },
+    };
+
+    (context as any).__responseData = responseData;
+    return context;
+  }
+
+  private applyResponseContext(response: Response, setContext: ResponseContext): Response {
+    const responseData = (setContext as any).__responseData;
+    if (!responseData || !responseData.modified) {
+      return response;
+    }
+
+    const newHeaders = new Headers(response.headers);
+
+    for (const [key, value] of responseData.responseHeaders.entries()) {
+      newHeaders.set(key, value);
+    }
+
+    for (const [name, { value, options }] of responseData.cookies.entries()) {
+      let cookieString = `${name}=${value}`;
+      if (options?.path) {
+        cookieString += `; Path=${options.path}`;
+      }
+      if (options?.domain) {
+        cookieString += `; Domain=${options.domain}`;
+      }
+      if (options?.expires) {
+        cookieString += `; Expires=${options.expires.toUTCString()}`;
+      }
+      if (options?.maxAge) {
+        cookieString += `; Max-Age=${options.maxAge}`;
+      }
+      if (options?.httpOnly) {
+        cookieString += "; HttpOnly";
+      }
+      if (options?.secure) {
+        cookieString += "; Secure";
+      }
+      if (options?.sameSite) {
+        cookieString += `; SameSite=${options.sameSite}`;
+      }
+
+      newHeaders.append("Set-Cookie", cookieString);
+    }
+
+    return new Response(response.body, {
+      status: responseData.statusCode !== 200 ? responseData.statusCode : response.status,
+      statusText: response.statusText,
+      headers: newHeaders,
+    });
   }
 
   /**
