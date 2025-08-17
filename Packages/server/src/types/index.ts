@@ -51,6 +51,7 @@ export type InferRouteContext<
   params: T["params"] extends ValidationSchema ? InferOutput<T["params"]> : {};
   query: T["query"] extends ValidationSchema ? InferOutput<T["query"]> : {};
   body: T["body"] extends ValidationSchema ? InferOutput<T["body"]> : unknown;
+  rawBody?: string | ArrayBuffer | Uint8Array;
   headers: T["headers"] extends ValidationSchema
     ? InferOutput<T["headers"]>
     : Record<string, string | null>;
@@ -90,6 +91,7 @@ export type ContextTypes<T extends RouteSchema = {}> = {
   params: T["params"] extends ValidationSchema ? InferOutput<T["params"]> : Record<string, any>;
   query: T["query"] extends ValidationSchema ? InferOutput<T["query"]> : Record<string, any>;
   body: T["body"] extends ValidationSchema ? InferOutput<T["body"]> : any;
+  rawBody?: string | ArrayBuffer | Uint8Array;
   headers: T["headers"] extends ValidationSchema
     ? InferOutput<T["headers"]>
     : Record<string, string | null>;

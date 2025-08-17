@@ -180,6 +180,7 @@ export class Hedystia<
           }
 
           let body;
+          let rawBody: string | ArrayBuffer | Uint8Array | undefined;
           let bodyValidationResult: StandardSchemaV1.Result<any> = { value: undefined };
           if (
             route.method === "PATCH" ||
@@ -188,15 +189,20 @@ export class Hedystia<
             route.method === "DELETE"
           ) {
             try {
+              const clonedRequest = modifiedReq.clone();
+              rawBody = await clonedRequest.text();
+
+              let parsedByHandler = false;
               for (const parseHandler of this.onParseHandlers) {
                 const parsedResult = await parseHandler(modifiedReq);
                 if (parsedResult !== undefined) {
                   body = parsedResult;
+                  parsedByHandler = true;
                   break;
                 }
               }
 
-              if (body === undefined) {
+              if (!parsedByHandler) {
                 body = await parseRequestBody(modifiedReq);
               }
 
@@ -226,6 +232,7 @@ export class Hedystia<
             headers:
               "value" in headersValidationResult ? headersValidationResult.value : rawHeaders,
             body: "value" in bodyValidationResult ? bodyValidationResult.value : body,
+            rawBody,
             route: routePath,
             method: route.method,
             error: (statusCode: number, message?: string): never => {
