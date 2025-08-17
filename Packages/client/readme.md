@@ -90,9 +90,9 @@ const swaggerPlugin = swagger({
   ],
 });
 
-swaggerPlugin.captureRoutes(app);
+app.use("/swagger", swaggerPlugin.plugin(app));
 
-app.use("/swagger", swaggerPlugin.plugin).listen(3000);
+app.listen(3000);
 ```
 
 ### ⚡ Performance First
