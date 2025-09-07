@@ -112,7 +112,7 @@ export class Hedystia<
         if (routeExists) {
           return new Response(null, { status: 204 });
         }
-        return new Response(null, { status: 404 });
+        return new Response(null, { status: 204 });
       }
 
       const route = this.routes.find(
