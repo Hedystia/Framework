@@ -19,6 +19,7 @@ import { matchRoute, parseRequestBody, schemaToTypeString } from "./utils";
 interface FrameworkOptions {
   reusePort?: boolean;
   cors?: CorsOptions;
+  idleTimeout?: number;
 }
 
 export class Hedystia<
@@ -26,11 +27,13 @@ export class Hedystia<
   _Macros extends MacroData = {},
 > extends Core<Routes, _Macros> {
   private reusePort: boolean;
+  private idleTimeout: number;
 
   constructor(options?: FrameworkOptions) {
     super();
     this.reusePort = options?.reusePort ?? false;
     this.cors = options?.cors ?? undefined;
+    this.idleTimeout = options?.idleTimeout ?? 10;
   }
 
   static createResponse(data: any, contentType?: string): Response {
@@ -420,6 +423,7 @@ export class Hedystia<
     this.server = serve({
       port,
       reusePort: this.reusePort,
+      idleTimeout: this.idleTimeout,
       fetch: (req, server) => {
         const url = new URL(req.url);
         if (req.headers.get("upgrade")?.toLowerCase() === "websocket") {
