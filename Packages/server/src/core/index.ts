@@ -947,6 +947,50 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
       this.macros[key] = macro;
     }
 
+    const currentParentHandlers = {
+      onRequest: [...this.onRequestHandlers],
+      onParse: [...this.onParseHandlers],
+      onTransform: [...this.onTransformHandlers],
+      onBeforeHandle: [...this.onBeforeHandleHandlers],
+      onAfterHandle: [...this.onAfterHandleHandlers],
+      onMapResponse: [...this.onMapResponseHandlers],
+      onError: [...this.onErrorHandlers],
+      onAfterResponse: [...this.onAfterResponseHandlers],
+    };
+
+    childFramework.onRequestHandlers = [
+      ...currentParentHandlers.onRequest,
+      ...childFramework.onRequestHandlers,
+    ];
+    childFramework.onParseHandlers = [
+      ...currentParentHandlers.onParse,
+      ...childFramework.onParseHandlers,
+    ];
+    childFramework.onTransformHandlers = [
+      ...currentParentHandlers.onTransform,
+      ...childFramework.onTransformHandlers,
+    ];
+    childFramework.onBeforeHandleHandlers = [
+      ...currentParentHandlers.onBeforeHandle,
+      ...childFramework.onBeforeHandleHandlers,
+    ];
+    childFramework.onAfterHandleHandlers = [
+      ...currentParentHandlers.onAfterHandle,
+      ...childFramework.onAfterHandleHandlers,
+    ];
+    childFramework.onMapResponseHandlers = [
+      ...currentParentHandlers.onMapResponse,
+      ...childFramework.onMapResponseHandlers,
+    ];
+    childFramework.onErrorHandlers = [
+      ...currentParentHandlers.onError,
+      ...childFramework.onErrorHandlers,
+    ];
+    childFramework.onAfterResponseHandlers = [
+      ...currentParentHandlers.onAfterResponse,
+      ...childFramework.onAfterResponseHandlers,
+    ];
+
     const fullPrefix = this.prefix + prefix;
 
     for (const route of childFramework.routes) {
@@ -981,15 +1025,6 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
       const finalPath = fullPrefix === "/" ? path : fullPrefix + path;
       this.subscriptionHandlers.set(finalPath, handlerData);
     }
-
-    this.onRequestHandlers.push(...childFramework.onRequestHandlers);
-    this.onParseHandlers.push(...childFramework.onParseHandlers);
-    this.onTransformHandlers.push(...childFramework.onTransformHandlers);
-    this.onBeforeHandleHandlers.push(...childFramework.onBeforeHandleHandlers);
-    this.onAfterHandleHandlers.push(...childFramework.onAfterHandleHandlers);
-    this.onMapResponseHandlers.push(...childFramework.onMapResponseHandlers);
-    this.onErrorHandlers.push(...childFramework.onErrorHandlers);
-    this.onAfterResponseHandlers.push(...childFramework.onAfterResponseHandlers);
 
     return this as any;
   }
