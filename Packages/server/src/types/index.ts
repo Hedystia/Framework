@@ -82,6 +82,8 @@ export type PrefixRoutes<Prefix extends string, T extends RouteDefinition[]> = {
         headers: T[K]["headers"];
         body: T[K] extends { body: infer B } ? B : undefined;
         response: T[K] extends { response: infer R } ? R : undefined;
+        data: T[K] extends { data: infer D } ? D : undefined;
+        error: T[K] extends { error: infer E } ? E : undefined;
       }
     : never;
 };
