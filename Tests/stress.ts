@@ -1,3 +1,4 @@
+import { gc } from "bun";
 import Framework, { h } from "hedystia";
 
 const memory = process.memoryUsage().heapTotal / 1024 / 1024;
@@ -27,7 +28,7 @@ app.use(plugin);
 
 const t2 = performance.now();
 
-Bun.gc(true);
+gc(true);
 const memoryAfter = process.memoryUsage().heapTotal / 1024 / 1024;
 const totalRoutes = paths.length;
 const totalTime = t2 - t1;
