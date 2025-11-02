@@ -27,6 +27,14 @@ export const app = new Hedystia()
   .post(
     "/guild/:id",
     ({ body, params }) => {
+      if (params.id !== "902265905638150164") {
+        app.publishError(`/guild/${params.id}`, {
+          error: {
+            id: params.id,
+          },
+        });
+        return "error";
+      }
       app.publish(`/guild/${params.id}`, {
         data: { id: params.id, lang: body.lang },
       });
@@ -46,6 +54,10 @@ export const app = new Hedystia()
 const client = createClient<typeof app>("http://localhost:3000");
 
 client.guild.id("902265905638150164").subscribe(({ data, error }) => {
+  console.log(data);
+  console.log(error);
+});
+client.guild.id("111111111111111111").subscribe(({ data, error }) => {
   console.log(data);
   console.log(error);
 });
