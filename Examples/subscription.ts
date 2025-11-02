@@ -28,7 +28,7 @@ export const app = new Hedystia()
     "/guild/:id",
     ({ body, params }) => {
       if (params.id !== "902265905638150164") {
-        app.publishError(`/guild/${params.id}`, {
+        app.publish(`/guild/${params.id}`, {
           error: {
             id: params.id,
           },
