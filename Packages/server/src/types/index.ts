@@ -109,9 +109,12 @@ export type GenericRequestHandler = (request: Request) => Response | Promise<Res
 export type MacroResolveFunction<T extends RouteSchema = {}> = (
   ctx: ContextTypes<T>,
 ) => T | Promise<T>;
-export type MacroErrorFunction = (statusCode: number, message?: string) => never;
 
 export type MacroData = Record<string, any>;
+
+export type MergeMacros<M1 extends MacroData, M2 extends MacroData> = {
+  [K in keyof M1 | keyof M2]: K extends keyof M2 ? M2[K] : K extends keyof M1 ? M1[K] : never;
+};
 
 export type WebSocketHandler = {
   message: (ws: ServerWebSocket, message: string | ArrayBuffer | Uint8Array) => void;
@@ -219,4 +222,13 @@ export type PublishMethod<Routes extends RouteDefinition[]> = <
   options: T extends { data: infer D; error: infer E }
     ? PublishOptions<D, E> & ({ data: D; error?: never } | { data?: never; error: E })
     : PublishOptions,
+) => void;
+
+export type PublishErrorMethod<Routes extends RouteDefinition[]> = <
+  T extends ExtractSubscriptionRoutes<Routes>,
+>(
+  topic: T["path"],
+  options: T extends { error: infer E }
+    ? { error: E; compress?: boolean }
+    : { error: any; compress?: boolean },
 ) => void;
