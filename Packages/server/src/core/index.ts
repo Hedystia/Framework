@@ -11,7 +11,6 @@ import type {
   MacroResolveFunction,
   MergeMacros,
   PrefixRoutes,
-  PublishErrorMethod,
   PublishMethod,
   PublishOptions,
   RequestHandler,
@@ -309,28 +308,6 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
       data !== undefined
         ? JSON.stringify({ path: topic, data })
         : JSON.stringify({ path: topic, error });
-
-    this.server.publish(topic, message, compress);
-  };
-
-  publishError: PublishErrorMethod<Routes> = <T extends ExtractSubscriptionRoutes<Routes>>(
-    topic: T["path"],
-    options: T extends { error: infer E }
-      ? { error: E; compress?: boolean }
-      : { error: any; compress?: boolean },
-  ): void => {
-    if (!this.server) {
-      console.warn("Server is not running. Cannot publish error.");
-      return;
-    }
-
-    const { error, compress = false } = options;
-
-    if (error === undefined) {
-      throw new Error("Must provide error to publishError");
-    }
-
-    const message = JSON.stringify({ path: topic, error });
 
     this.server.publish(topic, message, compress);
   };

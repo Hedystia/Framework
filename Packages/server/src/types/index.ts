@@ -223,12 +223,3 @@ export type PublishMethod<Routes extends RouteDefinition[]> = <
     ? PublishOptions<D, E> & ({ data: D; error?: never } | { data?: never; error: E })
     : PublishOptions,
 ) => void;
-
-export type PublishErrorMethod<Routes extends RouteDefinition[]> = <
-  T extends ExtractSubscriptionRoutes<Routes>,
->(
-  topic: T["path"],
-  options: T extends { error: infer E }
-    ? { error: E; compress?: boolean }
-    : { error: any; compress?: boolean },
-) => void;
