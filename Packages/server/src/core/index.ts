@@ -180,12 +180,12 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
    * Group routes with a common prefix
    * @param {Prefix} prefix - Path prefix for the group
    * @param {(app: Hedystia<[]>)} callback - Function defining group routes
-   * @returns {Hedystia<[...Routes, ...PrefixRoutes<Prefix, GroupRoutes>]>} Instance with grouped routes
+   * @returns {Hedystia<[...Routes, ...PrefixRoutes<Prefix, GroupRoutes>], Macros>} Instance with grouped routes
    */
   group<Prefix extends string, GroupRoutes extends RouteDefinition[]>(
     prefix: Prefix,
     callback: (app: Hedystia<[]>) => Hedystia<GroupRoutes>,
-  ): Hedystia<[...Routes, ...PrefixRoutes<Prefix, GroupRoutes>]> {
+  ): Hedystia<[...Routes, ...PrefixRoutes<Prefix, GroupRoutes>], Macros> {
     const groupApp = new Hedystia({ cors: this.cors });
     groupApp.prefix = "";
 
