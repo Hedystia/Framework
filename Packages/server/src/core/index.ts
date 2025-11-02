@@ -8,9 +8,10 @@ import type {
   InferOutput,
   InferRouteContext,
   MacroData,
-  MacroErrorFunction,
   MacroResolveFunction,
+  MergeMacros,
   PrefixRoutes,
+  PublishErrorMethod,
   PublishMethod,
   PublishOptions,
   RequestHandler,
@@ -149,9 +150,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
    */
   macro<T extends Record<string, (enabled: boolean) => { resolve: MacroResolveFunction<any> }>>(
     config: T,
-  ): Hedystia<Routes, Macros & { [K in keyof T]: ReturnType<ReturnType<T[K]>["resolve"]> }> & {
-    error: MacroErrorFunction;
-  } {
+  ): Hedystia<Routes, Macros & { [K in keyof T]: ReturnType<ReturnType<T[K]>["resolve"]> }> {
     for (const [key, macroFactory] of Object.entries(config)) {
       this.macros[key] = macroFactory(true);
     }
@@ -159,10 +158,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
     const self = this as unknown as Hedystia<
       Routes,
       Macros & { [K in keyof T]: ReturnType<ReturnType<T[K]>["resolve"]> }
-    > & { error: MacroErrorFunction };
-    self.error = (statusCode: number, message?: string): never => {
-      throw { isMacroError: true, statusCode, message: message || "Unauthorized" };
-    };
+    >;
 
     return self;
   }
@@ -889,16 +885,16 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
   /**
    * Mount child framework instance
    * @param {Hedystia<ChildRoutes, ChildMacros>} childFramework - Child framework instance
-   * @returns {Hedystia<[...Routes, ...ChildRoutes], Macros & ChildMacros>} Combined instance
+   * @returns {Hedystia<[...Routes, ...ChildRoutes], MergeMacros<Macros, ChildMacros>>} Combined instance
    */
   use<ChildRoutes extends RouteDefinition[], ChildMacros extends MacroData = {}>(
     childFramework: Hedystia<ChildRoutes, ChildMacros>,
-  ): Hedystia<[...Routes, ...ChildRoutes], Macros & ChildMacros>;
+  ): Hedystia<[...Routes, ...ChildRoutes], MergeMacros<Macros, ChildMacros>>;
   /**
    * Mount child framework instance with prefix
    * @param {Prefix} prefix - Path prefix
    * @param {Hedystia<ChildRoutes, ChildMacros>} childFramework - Child framework instance
-   * @returns {Hedystia<[...Routes, ...], Macros & ChildMacros>} Combined instance
+   * @returns {Hedystia<[...Routes, ...], MergeMacros<Macros, ChildMacros>>} Combined instance
    */
   use<
     Prefix extends string,
@@ -907,7 +903,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
   >(
     prefix: Prefix,
     childFramework: Hedystia<ChildRoutes, ChildMacros>,
-  ): Hedystia<[...Routes, ...PrefixRoutes<Prefix, ChildRoutes>], Macros & ChildMacros>;
+  ): Hedystia<[...Routes, ...PrefixRoutes<Prefix, ChildRoutes>], MergeMacros<Macros, ChildMacros>>;
   use<
     PrefixOrChild extends string | Hedystia<any, any>,
     MaybeChild extends Hedystia<any, any> | undefined = undefined,
@@ -915,11 +911,11 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
     prefixOrChildFramework: PrefixOrChild,
     maybeChildFramework?: MaybeChild,
   ): PrefixOrChild extends Hedystia<infer ChildRoutes, infer ChildMacros>
-    ? Hedystia<[...Routes, ...ChildRoutes], Macros & ChildMacros>
+    ? Hedystia<[...Routes, ...ChildRoutes], MergeMacros<Macros, ChildMacros>>
     : MaybeChild extends Hedystia<infer ChildRoutes, infer ChildMacros>
       ? Hedystia<
           [...Routes, ...PrefixRoutes<PrefixOrChild & string, ChildRoutes>],
-          Macros & ChildMacros
+          MergeMacros<Macros, ChildMacros>
         >
       : never {
     let prefix = "";
@@ -939,14 +935,10 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
     }
 
     for (const [key, macro] of Object.entries(childFramework.macros)) {
-      if (this.macros[key] && !Object.is(this.macros[key], macro)) {
-        console.warn(
-          `Warning: Macro '${key}' already exists in parent framework and is being overwritten.`,
-        );
+      if (!this.macros[key]) {
+        this.macros[key] = macro;
       }
-      this.macros[key] = macro;
     }
-
     const currentParentHandlers = {
       onRequest: [...this.onRequestHandlers],
       onParse: [...this.onParseHandlers],
