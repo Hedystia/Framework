@@ -165,13 +165,17 @@ export interface ServerWebSocket {
   cork(cb: (ws: ServerWebSocket) => void): void;
 }
 
-export type SubscriptionContext<T extends RouteSchema = {}> = Omit<ContextTypes<T>, "set"> & {
+export type SubscriptionContext<
+  T extends RouteSchema = {},
+  M extends MacroData = {},
+  EnabledMacros extends keyof M = never,
+> = Omit<ContextTypes<T>, "set"> & {
   ws: ServerWebSocket;
   data: T["data"] extends ValidationSchema ? InferOutput<T["data"]> : any;
   errorData: T["error"] extends ValidationSchema ? InferOutput<T["error"]> : undefined;
   sendData: (data: T["data"] extends ValidationSchema ? InferOutput<T["data"]> : any) => void;
   sendError: (error: T["error"] extends ValidationSchema ? InferOutput<T["error"]> : any) => void;
-};
+} & Pick<M, EnabledMacros>;
 export type SubscriptionHandler = (ctx: SubscriptionContext) => any | Promise<any>;
 
 type ResolveParams<Path extends string, Params = any> = Params extends Record<string, any>
