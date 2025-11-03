@@ -35,15 +35,31 @@ const app = new Framework()
     });
     return new Response("Test");
   })
-  .subscription("/data/headers", async (ctx) => {
-    return ctx.headers["x-test"];
-  })
-  .post("/data/headers", async (ctx) => {
-    app.publish("/data/headers", {
-      data: ctx.headers["x-test"],
-    });
-    return new Response("Test");
-  })
+  .subscription(
+    "/data/headers",
+    async (ctx) => {
+      return ctx.headers["x-test"];
+    },
+    {
+      headers: h.object({
+        "x-test": h.string(),
+      }),
+    },
+  )
+  .post(
+    "/data/headers",
+    async (ctx) => {
+      app.publish("/data/headers", {
+        data: ctx.headers["x-test"],
+      });
+      return new Response("Test");
+    },
+    {
+      headers: h.object({
+        "x-test": h.string(),
+      }),
+    },
+  )
   .get("/data/query", async (ctx) => {
     const searchQuery = (ctx.query as { search: string }).search;
     return new Response(searchQuery);
