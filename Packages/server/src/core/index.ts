@@ -172,31 +172,71 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
   public prefix = "";
 
   /**
-   * Group routes with a common prefix
+   * Group routes with a common prefix and optional macro configuration
    * @param {Prefix} prefix - Path prefix for the group
-   * @param {(app: Hedystia<[]>)} callback - Function defining group routes
+   * @param {(app: Hedystia<[], Macros>)} callback - Function defining group routes
+   * @param {Object} schema - Optional macro configuration to apply to all routes in the group
    * @returns {Hedystia<[...Routes, ...PrefixRoutes<Prefix, GroupRoutes>], Macros>} Instance with grouped routes
    */
-  group<Prefix extends string, GroupRoutes extends RouteDefinition[]>(
+  group<
+    Prefix extends string,
+    GroupRoutes extends RouteDefinition[],
+    EnabledMacros extends keyof Macros = never,
+  >(
     prefix: Prefix,
-    callback: (app: Hedystia<[]>) => Hedystia<GroupRoutes>,
+    callback: (app: Hedystia<[], Macros>) => Hedystia<GroupRoutes, Macros>,
+    schema?: { [K in EnabledMacros]?: true },
   ): Hedystia<[...Routes, ...PrefixRoutes<Prefix, GroupRoutes>], Macros> {
-    const groupApp = new Hedystia({ cors: this.cors });
+    const groupApp = new Hedystia({ cors: this.cors }) as Hedystia<[], Macros>;
     groupApp.prefix = "";
+    groupApp.macros = { ...this.macros };
+
+    const hasMacros = schema && Object.keys(schema).some((key) => (schema as any)[key] === true);
+
+    if (hasMacros && schema) {
+      const enabledMacros = Object.keys(schema).filter((key) => (schema as any)[key] === true);
+
+      const wrapMethod = (originalMethod: any) => {
+        return function (this: any, path: string, handler: any, routeSchema: any = {}) {
+          const mergedSchema = { ...routeSchema };
+          for (const macroKey of enabledMacros) {
+            if (!mergedSchema[macroKey]) {
+              mergedSchema[macroKey] = true;
+            }
+          }
+          return originalMethod.call(this, path, handler, mergedSchema);
+        };
+      };
+
+      groupApp.get = wrapMethod(groupApp.get.bind(groupApp)) as any;
+      groupApp.post = wrapMethod(groupApp.post.bind(groupApp)) as any;
+      groupApp.put = wrapMethod(groupApp.put.bind(groupApp)) as any;
+      groupApp.patch = wrapMethod(groupApp.patch.bind(groupApp)) as any;
+      groupApp.delete = wrapMethod(groupApp.delete.bind(groupApp)) as any;
+      groupApp.subscription = wrapMethod(groupApp.subscription.bind(groupApp)) as any;
+    }
 
     const configuredApp = callback(groupApp);
     const fullPrefix = this.prefix + prefix;
 
     for (const route of configuredApp.routes) {
-      if (route.path === "/") {
-        this.routes.push({
-          ...route,
+      const newPath = route.path === "/" ? fullPrefix : fullPrefix + route.path;
+      this.routes.push({
+        ...route,
+        path: newPath,
+      });
+    }
+
+    for (const staticRoute of configuredApp.staticRoutes) {
+      if (staticRoute.path === "/" && prefix !== "") {
+        this.staticRoutes.push({
           path: fullPrefix,
+          response: staticRoute.response,
         });
       } else {
-        this.routes.push({
-          ...route,
-          path: fullPrefix + route.path,
+        this.staticRoutes.push({
+          path: fullPrefix + staticRoute.path,
+          response: staticRoute.response,
         });
       }
     }
@@ -223,11 +263,11 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
   public server: any = null;
 
   /**
-   * Register a subscription handler for a WebSocket topic.
+   * Register a subscription handler for a WebSocket topic with optional macro support
    * @param {Path} path - The subscription topic path, can include parameters like /users/:id
-   * @param {(ctx: SubscriptionContext)} handler - Function to handle the subscription. Can return initial data.
-   * @param {Object} schema - Validation schemas for params, query, and headers.
-   * @returns {this} Current instance
+   * @param {Handler} handler - Function to handle the subscription. Can return initial data.
+   * @param {Object} schema - Validation schemas for params, query, headers, data, and error. Can also enable macros.
+   * @returns {Hedystia<[...Routes, {...}], Macros>} Instance with registered subscription
    */
   subscription<
     Path extends string,
@@ -236,14 +276,31 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
     Headers extends ValidationSchema,
     DataSchema extends ValidationSchema,
     ErrorSchema extends ValidationSchema,
+    EnabledMacros extends keyof Macros = never,
     Handler extends (
-      ctx: SubscriptionContext<{
-        params: Params;
-        query: Query;
-        headers: Headers;
-        data: DataSchema;
-        error: ErrorSchema;
-      }>,
+      ctx: SubscriptionContext<
+        {
+          params: Params;
+          query: Query;
+          headers: Headers;
+          data: DataSchema;
+          error: ErrorSchema;
+        },
+        Macros,
+        EnabledMacros
+      >,
+    ) => any = (
+      ctx: SubscriptionContext<
+        {
+          params: Params;
+          query: Query;
+          headers: Headers;
+          data: DataSchema;
+          error: ErrorSchema;
+        },
+        Macros,
+        EnabledMacros
+      >,
     ) => any,
   >(
     path: Path,
@@ -254,7 +311,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
       headers?: Headers;
       data?: DataSchema;
       error?: ErrorSchema;
-    } = {},
+    } & { [K in EnabledMacros]?: true } = {} as any,
   ): Hedystia<
     [
       ...Routes,
@@ -271,7 +328,48 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
     Macros
   > {
     const fullPath = this.prefix + path;
-    this.subscriptionHandlers.set(fullPath, { handler: handler as SubscriptionHandler, schema });
+
+    const hasMacros = Object.keys(schema).some(
+      (key) =>
+        !["params", "query", "headers", "data", "error"].includes(key) &&
+        (schema as any)[key] === true,
+    );
+
+    const finalHandler = hasMacros
+      ? async (ctx: any) => {
+          for (const key of Object.keys(schema)) {
+            if (
+              !["params", "query", "headers", "data", "error"].includes(key) &&
+              (schema as any)[key] === true &&
+              this.macros[key]
+            ) {
+              try {
+                const macroResult = this.macros[key].resolve(ctx);
+                ctx[key] = macroResult instanceof Promise ? await macroResult : macroResult;
+              } catch (err: any) {
+                if (err.isMacroError) {
+                  ctx.sendError({ message: err.message, code: err.statusCode });
+                  return;
+                }
+                throw err;
+              }
+            }
+          }
+          return handler(ctx);
+        }
+      : handler;
+
+    this.subscriptionHandlers.set(fullPath, {
+      handler: finalHandler as SubscriptionHandler,
+      schema: {
+        params: schema.params,
+        query: schema.query,
+        headers: schema.headers,
+        data: schema.data,
+        error: schema.error,
+      },
+    });
+
     return this as any;
   }
 
