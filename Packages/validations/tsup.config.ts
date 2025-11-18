@@ -6,7 +6,7 @@ export default defineConfig(({ watch = false }) => ({
     resolve: true,
   },
   entry: {
-    index: "src/index.ts",
+    index: "lib/index.ts",
   },
   format: "cjs",
   target: "esnext",
