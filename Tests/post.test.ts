@@ -134,9 +134,9 @@ const app = new Framework()
       }),
     },
   )
-  .listen(3001);
+  .listen(3032);
 
-const client = createClient<typeof app>("http://localhost:3001");
+const client = createClient<typeof app>("http://localhost:3032");
 
 describe("Test POST route", () => {
   it("should handle POST with params and body", async () => {
