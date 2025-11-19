@@ -3,3 +3,5 @@ dist/
 .env
 *.db
 test-server.d.ts
+pkg/
+target/
