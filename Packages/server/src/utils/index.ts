@@ -1,7 +1,6 @@
 import {
   AnySchemaType,
   ArraySchema,
-  BaseSchema,
   BooleanSchemaType,
   InstanceOfSchema,
   LiteralSchema,
@@ -40,19 +39,43 @@ export function matchRoute(pathname: string, routePath: string): Record<string, 
 
 export async function parseRequestBody(req: Request): Promise<any> {
   const contentType = req.headers.get("Content-Type") || "";
-  if (contentType.includes("application/json")) {
-    return req.json();
+
+  try {
+    if (contentType.includes("application/json")) {
+      return await req.json();
+    }
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await req.formData();
+      const obj: Record<string, any> = {};
+      formData.forEach((value, key) => {
+        if (obj[key]) {
+          if (Array.isArray(obj[key])) {
+            obj[key].push(value);
+          } else {
+            obj[key] = [obj[key], value];
+          }
+        } else {
+          obj[key] = value;
+        }
+      });
+      return obj;
+    }
+    if (contentType.includes("text/") || contentType.includes("xml")) {
+      return await req.text();
+    }
+    if (contentType.includes("application/x-www-form-urlencoded")) {
+      const text = await req.text();
+      const params = new URLSearchParams(text);
+      return Object.fromEntries(params.entries());
+    }
+  } catch (e) {
+    console.warn("Error parsing body:", e);
   }
-  if (contentType.includes("multipart/form-data")) {
-    return req.formData();
-  }
-  if (contentType.includes("text/")) {
-    return req.text();
-  }
+
   try {
     return await req.json();
   } catch {
-    return req.text();
+    return await req.text();
   }
 }
 
@@ -63,126 +86,23 @@ export function determineContentType(body: any): string {
   if (body instanceof Uint8Array || body instanceof ArrayBuffer) {
     return "application/octet-stream";
   }
-  if (body instanceof Blob) {
+  if (typeof Blob !== "undefined" && body instanceof Blob) {
     return body.type || "application/octet-stream";
   }
-  if (body instanceof FormData) {
+  if (typeof FormData !== "undefined" && body instanceof FormData) {
     return "multipart/form-data";
+  }
+  if (typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams) {
+    return "application/x-www-form-urlencoded";
   }
   return "application/json";
 }
 
 export function schemaToTypeString(schema: any): string {
-  if (
-    !schema ||
-    (typeof schema === "object" && !schema.constructor.name) ||
-    (typeof schema === "object" &&
-      Object.keys(schema).length === 0 &&
-      !(schema instanceof BaseSchema))
-  ) {
+  if (!schema) {
     return "any";
   }
 
-  if (schema && typeof schema === "object" && schema.def) {
-    const def = schema.def;
-
-    if (def.type === "literal" && Array.isArray(def.values) && def.values.length > 0) {
-      const val = def.values[0];
-      return typeof val === "string" ? `'${val}'` : String(val);
-    }
-
-    if (def.const !== undefined) {
-      const val = def.const;
-      return typeof val === "string" ? `'${val}'` : String(val);
-    }
-
-    if (typeof def.type === "string") {
-      switch (def.type) {
-        case "object": {
-          const shape = def.shape;
-          if (!shape || Object.keys(shape).length === 0) {
-            return "{}";
-          }
-          const validIdentifierRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
-          const properties = Object.entries(shape)
-            .map(([key, value]: [string, any]) => {
-              const finalKey = validIdentifierRegex.test(key) ? key : `"${key}"`;
-              const isOptional =
-                value.def && (value.def.type === "optional" || value.def.type === "default");
-              const optionalMarker = isOptional ? "?" : "";
-              return `${finalKey}${optionalMarker}:${schemaToTypeString(value)}`;
-            })
-            .join(";");
-          return `{${properties}}`;
-        }
-        case "string":
-          return "string";
-        case "number":
-          return "number";
-        case "boolean":
-          return "boolean";
-        case "null":
-          return "null";
-        case "any":
-          return "any";
-        case "unknown":
-          return "unknown";
-        case "optional":
-        case "default":
-          return schemaToTypeString(def.innerType);
-        case "array":
-          if (def.items) {
-            return `(${schemaToTypeString(def.items)})[]`;
-          }
-          if (def.type) {
-            return `(${schemaToTypeString(def.type)})[]`;
-          }
-          return "any[]";
-        case "union":
-          return def.options.map((s: any) => schemaToTypeString(s)).join("|");
-        case "enum":
-          return def.values.map((v: any) => (typeof v === "string" ? `'${v}'` : v)).join("|");
-        default:
-          return "any";
-      }
-    }
-  }
-
-  if (schema instanceof OptionalSchema) {
-    return `${schemaToTypeString((schema as any).innerSchema)}|undefined`;
-  }
-  if (schema instanceof InstanceOfSchema) {
-    const constructorName = (schema as any).classConstructor?.name;
-    if (constructorName) {
-      return constructorName;
-    }
-  }
-  if (schema instanceof ArraySchema) {
-    return `(${schemaToTypeString((schema as any).innerSchema)})[]`;
-  }
-  if (schema instanceof UnionSchema) {
-    return (schema as any).schemas.map((s: any) => schemaToTypeString(s)).join("|");
-  }
-  if (schema instanceof LiteralSchema) {
-    const val = (schema as any).value;
-    return typeof val === "string" ? `'${val}'` : String(val);
-  }
-  if (schema instanceof ObjectSchemaType) {
-    const definition = (schema as any).definition;
-    if (!definition || Object.keys(definition).length === 0) {
-      return "{}";
-    }
-    const validIdentifierRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
-    const properties = Object.entries(definition)
-      .map(([key, value]) => {
-        const finalKey = validIdentifierRegex.test(key) ? key : `"${key}"`;
-        const isOptional = value instanceof OptionalSchema;
-        const optionalMarker = isOptional ? "?" : "";
-        return `${finalKey}${optionalMarker}:${schemaToTypeString(value)}`;
-      })
-      .join(";");
-    return `{${properties}}`;
-  }
   if (schema instanceof StringSchemaType) {
     return "string";
   }
@@ -197,6 +117,63 @@ export function schemaToTypeString(schema: any): string {
   }
   if (schema instanceof AnySchemaType) {
     return "any";
+  }
+
+  if (schema instanceof OptionalSchema) {
+    const inner = (schema as any).innerSchema;
+    return `${schemaToTypeString(inner)} | undefined`;
+  }
+
+  if (schema instanceof ArraySchema) {
+    const inner = (schema as any).innerSchema;
+    const innerType = schemaToTypeString(inner);
+    return innerType.includes("|") || innerType.includes("{")
+      ? `(${innerType})[]`
+      : `${innerType}[]`;
+  }
+
+  if (schema instanceof UnionSchema) {
+    const schemas = (schema as any).schemas || [];
+    if (schemas.length === 0) {
+      return "any";
+    }
+    return schemas.map((s: any) => schemaToTypeString(s)).join(" | ");
+  }
+
+  if (schema instanceof LiteralSchema) {
+    const val = (schema as any).value;
+    return typeof val === "string" ? `'${val}'` : String(val);
+  }
+
+  if (schema instanceof InstanceOfSchema) {
+    const ctor = (schema as any).classConstructor;
+    return ctor ? ctor.name : "object";
+  }
+
+  if (schema instanceof ObjectSchemaType) {
+    const definition = (schema as any).definition;
+    if (!definition || Object.keys(definition).length === 0) {
+      return "{}";
+    }
+
+    const validIdentifierRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
+    const properties = Object.entries(definition)
+      .map(([key, value]) => {
+        const finalKey = validIdentifierRegex.test(key) ? key : `"${key}"`;
+        const isOptional = value instanceof OptionalSchema;
+        const optionalMarker = isOptional ? "?" : "";
+
+        let typeStr = schemaToTypeString(value);
+
+        if (isOptional) {
+          typeStr = typeStr.replace(" | undefined", "");
+        }
+
+        return `${finalKey}${optionalMarker}:${typeStr}`;
+      })
+      .join(";");
+
+    return `{${properties}}`;
   }
 
   return "any";
