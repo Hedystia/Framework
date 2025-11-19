@@ -1,6 +1,6 @@
 {
   "name": "@hedystia/validations",
-  "version": "1.6.10",
+  "version": "1.7.0",
   "devDependencies": {
     "@standard-schema/spec": "^1.0.0",
     "@types/bun": "latest",
@@ -17,8 +17,8 @@
   "private": false,
   "license": "MIT",
   "scripts": {
-    "build": "tsup",
-    "dev": "bun --watch --no-clear-screen run src/index.ts"
+    "build": "cargo clean && wasm-pack build --target nodejs && tsup && cp pkg/validations_bg.wasm dist/",
+    "dev": "bun --watch --no-clear-screen run index.ts"
   },
   "repository": {
     "type": "git",
