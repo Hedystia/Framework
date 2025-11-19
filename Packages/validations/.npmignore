@@ -4,9 +4,9 @@ tsconfig.json
 src
 .npmignore
 tsup.config.ts
-!dist
 pkg/
 target/
 lib/
 Cargo.lock
 Cargo.toml
+!dist
