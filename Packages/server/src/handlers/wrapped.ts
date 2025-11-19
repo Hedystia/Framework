@@ -6,26 +6,53 @@ export default function createWrappedHandler(
   schema: Record<string, any>,
   macrosData: Record<string, { resolve: MacroResolveFunction<any> }>,
 ): RequestHandler {
-  const macros = Object.entries(schema)
-    .filter(
-      ([key]) =>
-        !["params", "query", "body", "headers", "response", "description", "tags"].includes(key) &&
-        schema[key] === true,
-    )
-    .map(([key]) => ({ key, macro: macrosData[key] }));
+  const macroKeys: string[] = [];
+  const macroResolvers: MacroResolveFunction<any>[] = [];
+
+  for (const key in schema) {
+    if (
+      key !== "params" &&
+      key !== "query" &&
+      key !== "body" &&
+      key !== "headers" &&
+      key !== "response" &&
+      key !== "description" &&
+      key !== "tags" &&
+      schema[key] === true
+    ) {
+      const macro = macrosData[key];
+      if (macro) {
+        macroKeys.push(key);
+        macroResolvers.push(macro.resolve);
+      }
+    }
+  }
+
+  const hasMacros = macroKeys.length > 0;
+
+  if (!hasMacros) {
+    return async (ctx: any): Promise<Response> => {
+      const result = handler(ctx);
+      const finalResult = result instanceof Promise ? await result : result;
+      return finalResult instanceof Response ? finalResult : Hedystia.createResponse(finalResult);
+    };
+  }
 
   return async (ctx: any): Promise<Response> => {
-    if (macros.length > 0) {
-      for (const { key, macro } of macros) {
-        try {
-          const macroResult = macro?.resolve(ctx);
+    const macroLen = macroKeys.length;
+    for (let i = 0; i < macroLen; i++) {
+      const key = macroKeys[i];
+      const resolver = macroResolvers[i];
+      try {
+        if (resolver && key) {
+          const macroResult = resolver(ctx);
           ctx[key] = macroResult instanceof Promise ? await macroResult : macroResult;
-        } catch (err: any) {
-          if (err.isMacroError) {
-            return new Response(err.message, { status: err.statusCode });
-          }
-          throw err;
         }
+      } catch (err: any) {
+        if (err.isMacroError) {
+          return new Response(err.message, { status: err.statusCode });
+        }
+        throw err;
       }
     }
 

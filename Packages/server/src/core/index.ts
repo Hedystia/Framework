@@ -59,6 +59,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
   protected onMapResponseHandlers: OnMapResponseHandler[] = [];
   protected onErrorHandlers: OnErrorHandler[] = [];
   protected onAfterResponseHandlers: OnAfterResponseHandler[] = [];
+  public staticRoutesMap: Map<string, Response> = new Map();
 
   /**
    * Register a handler for the 'request' lifecycle event
@@ -219,12 +220,15 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
     const configuredApp = callback(groupApp);
     const fullPrefix = this.prefix + prefix;
 
-    for (const route of configuredApp.routes) {
-      const newPath = route.path === "/" ? fullPrefix : fullPrefix + route.path;
-      this.routes.push({
-        ...route,
-        path: newPath,
-      });
+    for (let i = 0; i < configuredApp.routes.length; i++) {
+      const route = configuredApp.routes[i];
+      if (route) {
+        const newPath = route.path === "/" ? fullPrefix : fullPrefix + route.path;
+        this.routes.push({
+          ...route,
+          path: newPath,
+        });
+      }
     }
 
     for (const staticRoute of configuredApp.staticRoutes) {
@@ -964,6 +968,8 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
       response: finalResponse,
     });
 
+    this.staticRoutesMap.set(path, finalResponse);
+
     return this as any;
   }
 
@@ -1082,31 +1088,40 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
 
     const fullPrefix = this.prefix + prefix;
 
-    for (const route of childFramework.routes) {
-      if (route.path === "/") {
-        this.routes.push({
-          ...route,
-          path: fullPrefix,
-        });
-      } else {
-        this.routes.push({
-          ...route,
-          path: fullPrefix + route.path,
-        });
+    for (let i = 0; i < childFramework.routes.length; i++) {
+      const route = childFramework.routes[i];
+      if (route) {
+        if (route.path === "/") {
+          this.routes.push({
+            ...route,
+            path: fullPrefix,
+          });
+        } else {
+          this.routes.push({
+            ...route,
+            path: fullPrefix + route.path,
+          });
+        }
       }
     }
 
-    for (const staticRoute of childFramework.staticRoutes) {
-      if (staticRoute.path === "/" && prefix !== "") {
-        this.staticRoutes.push({
-          path: fullPrefix,
-          response: staticRoute.response,
-        });
-      } else {
-        this.staticRoutes.push({
-          path: fullPrefix + staticRoute.path,
-          response: staticRoute.response,
-        });
+    for (let i = 0; i < childFramework.staticRoutes.length; i++) {
+      const staticRoute = childFramework.staticRoutes[i];
+      if (staticRoute) {
+        if (staticRoute.path === "/" && prefix !== "") {
+          this.staticRoutes.push({
+            path: fullPrefix,
+            response: staticRoute.response,
+          });
+          this.staticRoutesMap.set(fullPrefix, staticRoute.response);
+        } else {
+          const finalPath = fullPrefix + staticRoute.path;
+          this.staticRoutes.push({
+            path: finalPath,
+            response: staticRoute.response,
+          });
+          this.staticRoutesMap.set(finalPath, staticRoute.response);
+        }
       }
     }
 
