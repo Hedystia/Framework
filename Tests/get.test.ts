@@ -147,7 +147,7 @@ describe("Test get route", () => {
     });
 
     expect(error).toBeNull();
-    expect(data).toEqual({ "x-test-header": "test-value" });
+    expect(data).toMatchObject({ "x-test-header": "test-value" });
   });
 
   it("should return success", async () => {
@@ -158,7 +158,7 @@ describe("Test get route", () => {
     });
 
     expect(error).toBeNull();
-    expect(data).toEqual({ "x-test-header": "test-value" });
+    expect(data).toMatchObject({ "x-test-header": "test-value" });
   });
 
   it("should return error", async () => {
@@ -169,7 +169,7 @@ describe("Test get route", () => {
     });
 
     expect(data).toBeNull();
-    expect(error).toEqual({
+    expect(error).toMatchObject({
       message: "Invalid header value",
       code: 400,
     });

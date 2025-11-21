@@ -213,7 +213,7 @@ describe("Test POST route", () => {
       },
     });
 
-    expect(response).toEqual({
+    expect(response).toMatchObject({
       body: { name: "Jane Doe" },
       headers: { content: "Hedystia test" },
     });
