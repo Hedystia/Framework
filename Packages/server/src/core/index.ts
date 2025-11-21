@@ -155,12 +155,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
       this.macros[key] = macroFactory(true);
     }
 
-    const self = this as unknown as Hedystia<
-      Routes,
-      Macros & { [K in keyof T]: ReturnType<ReturnType<T[K]>["resolve"]> }
-    >;
-
-    return self;
+    return this as any;
   }
 
   public routes: {
@@ -416,6 +411,33 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
 
   public staticRoutes: { path: string; response: Response }[] = [];
 
+  private addRoute(method: any, path: any, handler: any, schema: any) {
+    const fullPath = this.prefix + path;
+
+    const hasMacros = Object.keys(schema).some(
+      (key) =>
+        !["params", "query", "body", "headers", "response", "description", "tags"].includes(key) &&
+        schema[key as keyof typeof schema] === true,
+    );
+
+    const finalHandler = hasMacros ? createWrappedHandler(handler, schema, this.macros) : handler;
+
+    this.routes.push({
+      method,
+      path: fullPath,
+      handler: finalHandler,
+      schema: {
+        params: schema.params || ({} as any),
+        query: schema.query || ({} as any),
+        headers: schema.headers || ({} as any),
+        body: schema.body,
+        response: schema.response,
+        description: schema.description,
+        tags: schema.tags,
+      },
+    });
+  }
+
   /**
    * Register a GET route handler
    * @param {Path} path - Route path
@@ -472,38 +494,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
     ],
     Macros
   > {
-    const fullPath = this.prefix + path;
-
-    const hasMacros = Object.keys(schema).some(
-      (key) =>
-        !["params", "query", "body", "headers", "response", "description", "tags"].includes(key) &&
-        schema[key as keyof typeof schema] === true,
-    );
-
-    const wrappedHandler = hasMacros
-      ? createWrappedHandler(handler, schema, this.macros)
-      : async (ctx: any) => {
-          const result = handler(ctx);
-          const finalResult = result instanceof Promise ? await result : result;
-          return finalResult instanceof Response
-            ? finalResult
-            : Hedystia.createResponse(finalResult);
-        };
-
-    this.routes.push({
-      method: "GET",
-      path: fullPath,
-      handler: wrappedHandler,
-      schema: {
-        params: schema.params || ({} as any),
-        query: schema.query || ({} as any),
-        headers: schema.headers || ({} as any),
-        response: schema.response,
-        description: schema.description,
-        tags: schema.tags,
-      },
-    });
-
+    this.addRoute("GET", path, handler, schema);
     return this as any;
   }
 
@@ -564,39 +555,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
     ],
     Macros
   > {
-    const fullPath = this.prefix + path;
-
-    const hasMacros = Object.keys(schema).some(
-      (key) =>
-        !["params", "query", "body", "headers", "response", "description", "tags"].includes(key) &&
-        schema[key as keyof typeof schema] === true,
-    );
-
-    const wrappedHandler = hasMacros
-      ? createWrappedHandler(handler, schema, this.macros)
-      : async (ctx: any) => {
-          const result = handler(ctx);
-          const finalResult = result instanceof Promise ? await result : result;
-          return finalResult instanceof Response
-            ? finalResult
-            : Hedystia.createResponse(finalResult);
-        };
-
-    this.routes.push({
-      method: "PATCH",
-      path: fullPath,
-      handler: wrappedHandler,
-      schema: {
-        params: schema.params || ({} as any),
-        query: schema.query || ({} as any),
-        body: schema.body,
-        headers: schema.headers || ({} as any),
-        response: schema.response,
-        description: schema.description,
-        tags: schema.tags,
-      },
-    });
-
+    this.addRoute("PATCH", path, handler, schema);
     return this as any;
   }
 
@@ -657,39 +616,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
     ],
     Macros
   > {
-    const fullPath = this.prefix + path;
-
-    const hasMacros = Object.keys(schema).some(
-      (key) =>
-        !["params", "query", "body", "headers", "response", "description", "tags"].includes(key) &&
-        schema[key as keyof typeof schema] === true,
-    );
-
-    const wrappedHandler = hasMacros
-      ? createWrappedHandler(handler, schema, this.macros)
-      : async (ctx: any) => {
-          const result = handler(ctx);
-          const finalResult = result instanceof Promise ? await result : result;
-          return finalResult instanceof Response
-            ? finalResult
-            : Hedystia.createResponse(finalResult);
-        };
-
-    this.routes.push({
-      method: "POST",
-      path: fullPath,
-      handler: wrappedHandler,
-      schema: {
-        params: schema.params || ({} as any),
-        query: schema.query || ({} as any),
-        body: schema.body,
-        headers: schema.headers || ({} as any),
-        response: schema.response,
-        description: schema.description,
-        tags: schema.tags,
-      },
-    });
-
+    this.addRoute("POST", path, handler, schema);
     return this as any;
   }
 
@@ -750,39 +677,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
     ],
     Macros
   > {
-    const fullPath = this.prefix + path;
-
-    const hasMacros = Object.keys(schema).some(
-      (key) =>
-        !["params", "query", "body", "headers", "response", "description", "tags"].includes(key) &&
-        schema[key as keyof typeof schema] === true,
-    );
-
-    const wrappedHandler = hasMacros
-      ? createWrappedHandler(handler, schema, this.macros)
-      : async (ctx: any) => {
-          const result = handler(ctx);
-          const finalResult = result instanceof Promise ? await result : result;
-          return finalResult instanceof Response
-            ? finalResult
-            : Hedystia.createResponse(finalResult);
-        };
-
-    this.routes.push({
-      method: "PUT",
-      path: fullPath,
-      handler: wrappedHandler,
-      schema: {
-        params: schema.params || ({} as any),
-        query: schema.query || ({} as any),
-        body: schema.body,
-        headers: schema.headers || ({} as any),
-        response: schema.response,
-        description: schema.description,
-        tags: schema.tags,
-      },
-    });
-
+    this.addRoute("PUT", path, handler, schema);
     return this as any;
   }
 
@@ -843,39 +738,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
     ],
     Macros
   > {
-    const fullPath = this.prefix + path;
-
-    const hasMacros = Object.keys(schema).some(
-      (key) =>
-        !["params", "query", "body", "headers", "response", "description", "tags"].includes(key) &&
-        schema[key as keyof typeof schema] === true,
-    );
-
-    const wrappedHandler = hasMacros
-      ? createWrappedHandler(handler, schema, this.macros)
-      : async (ctx: any) => {
-          const result = handler(ctx);
-          const finalResult = result instanceof Promise ? await result : result;
-          return finalResult instanceof Response
-            ? finalResult
-            : Hedystia.createResponse(finalResult);
-        };
-
-    this.routes.push({
-      method: "DELETE",
-      path: fullPath,
-      handler: wrappedHandler,
-      schema: {
-        params: schema.params || ({} as any),
-        query: schema.query || ({} as any),
-        body: schema.body,
-        headers: schema.headers || ({} as any),
-        response: schema.response,
-        description: schema.description,
-        tags: schema.tags,
-      },
-    });
-
+    this.addRoute("DELETE", path, handler, schema);
     return this as any;
   }
 
@@ -1042,49 +905,15 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
         this.macros[key] = macro;
       }
     }
-    const currentParentHandlers = {
-      onRequest: [...this.onRequestHandlers],
-      onParse: [...this.onParseHandlers],
-      onTransform: [...this.onTransformHandlers],
-      onBeforeHandle: [...this.onBeforeHandleHandlers],
-      onAfterHandle: [...this.onAfterHandleHandlers],
-      onMapResponse: [...this.onMapResponseHandlers],
-      onError: [...this.onErrorHandlers],
-      onAfterResponse: [...this.onAfterResponseHandlers],
-    };
 
-    childFramework.onRequestHandlers = [
-      ...currentParentHandlers.onRequest,
-      ...childFramework.onRequestHandlers,
-    ];
-    childFramework.onParseHandlers = [
-      ...currentParentHandlers.onParse,
-      ...childFramework.onParseHandlers,
-    ];
-    childFramework.onTransformHandlers = [
-      ...currentParentHandlers.onTransform,
-      ...childFramework.onTransformHandlers,
-    ];
-    childFramework.onBeforeHandleHandlers = [
-      ...currentParentHandlers.onBeforeHandle,
-      ...childFramework.onBeforeHandleHandlers,
-    ];
-    childFramework.onAfterHandleHandlers = [
-      ...currentParentHandlers.onAfterHandle,
-      ...childFramework.onAfterHandleHandlers,
-    ];
-    childFramework.onMapResponseHandlers = [
-      ...currentParentHandlers.onMapResponse,
-      ...childFramework.onMapResponseHandlers,
-    ];
-    childFramework.onErrorHandlers = [
-      ...currentParentHandlers.onError,
-      ...childFramework.onErrorHandlers,
-    ];
-    childFramework.onAfterResponseHandlers = [
-      ...currentParentHandlers.onAfterResponse,
-      ...childFramework.onAfterResponseHandlers,
-    ];
+    this.onRequestHandlers.push(...childFramework.onRequestHandlers);
+    this.onParseHandlers.push(...childFramework.onParseHandlers);
+    this.onTransformHandlers.push(...childFramework.onTransformHandlers);
+    this.onBeforeHandleHandlers.push(...childFramework.onBeforeHandleHandlers);
+    this.onAfterHandleHandlers.push(...childFramework.onAfterHandleHandlers);
+    this.onMapResponseHandlers.push(...childFramework.onMapResponseHandlers);
+    this.onErrorHandlers.push(...childFramework.onErrorHandlers);
+    this.onAfterResponseHandlers.push(...childFramework.onAfterResponseHandlers);
 
     const fullPrefix = this.prefix + prefix;
 

@@ -3,6 +3,7 @@ import { writeFile } from "fs/promises";
 import Core from "./core";
 import generateCorsHeaders from "./handlers/cors";
 import processGenericHandlers from "./handlers/generic";
+import { Router } from "./router";
 import type {
   CookieOptions,
   CorsOptions,
@@ -14,7 +15,7 @@ import type {
   SubscriptionHandler,
 } from "./types";
 import type { RouteDefinition } from "./types/routes";
-import { matchRoute, parseRequestBody, schemaToTypeString } from "./utils";
+import { parseRequestBody, schemaToTypeString } from "./utils";
 
 interface FrameworkOptions {
   reusePort?: boolean;
@@ -28,7 +29,8 @@ export class Hedystia<
 > extends Core<Routes, _Macros> {
   private reusePort: boolean;
   private idleTimeout: number;
-  private routeCache: Map<string, (typeof this.routes)[0] | null> = new Map();
+  private router = new Router();
+  private staticRoutesFast: Map<string, (req: Request) => any> = new Map();
 
   constructor(options?: FrameworkOptions) {
     super();
@@ -38,20 +40,21 @@ export class Hedystia<
   }
 
   static createResponse(data: any, contentType?: string): Response {
+    if (data instanceof Response) {
+      return data;
+    }
+
     if (contentType === "text/plain" || typeof data === "string") {
       return new Response(data, {
         headers: { "Content-Type": contentType || "text/plain" },
       });
     }
-
     if (data instanceof Uint8Array || data instanceof ArrayBuffer) {
       return new Response(data);
     }
-
     if (data instanceof Blob) {
       return new Response(data);
     }
-
     if (data instanceof FormData) {
       return new Response(data);
     }
@@ -78,9 +81,293 @@ export class Hedystia<
     return this.routes as unknown as Routes;
   }
 
+  private composeHandler(route: any) {
+    const hasBody = ["PATCH", "POST", "PUT", "DELETE"].includes(route.method);
+    const hooks = {
+      onRequest: this.onRequestHandlers,
+      onTransform: this.onTransformHandlers,
+      onBeforeHandle: this.onBeforeHandleHandlers,
+      onAfterHandle: this.onAfterHandleHandlers,
+      onMapResponse: this.onMapResponseHandlers,
+      onAfterResponse: this.onAfterResponseHandlers,
+      onError: this.onErrorHandlers,
+      onParse: this.onParseHandlers,
+    };
+
+    const paramsSchema = route.schema.params?.["~standard"];
+    const querySchema = route.schema.query?.["~standard"];
+    const headersSchema = route.schema.headers?.["~standard"];
+    const bodySchema = route.schema.body;
+    const errorSchema = route.schema.error?.["~standard"];
+
+    return async (req: Request, params: Record<string, string>) => {
+      let ctx: any;
+      try {
+        const urlStr = req.url;
+        const qIndex = urlStr.indexOf("?");
+        let query =
+          qIndex !== -1
+            ? Object.fromEntries(new URLSearchParams(urlStr.substring(qIndex)).entries())
+            : {};
+
+        for (let i = 0; i < hooks.onRequest.length; i++) {
+          const handler = hooks.onRequest[i];
+          if (handler) {
+            const res = handler(req);
+            if (res instanceof Promise) {
+              req = await res;
+            } else {
+              req = res as Request;
+            }
+          }
+        }
+
+        if (paramsSchema) {
+          const result = paramsSchema.validate(params);
+          if (result instanceof Promise ? (await result).issues : result.issues) {
+            throw { statusCode: 400, message: "Invalid params" };
+          }
+          if ("value" in result) {
+            params = result.value;
+          }
+        }
+
+        if (querySchema) {
+          const result = querySchema.validate(query);
+          if (result instanceof Promise ? (await result).issues : result.issues) {
+            throw { statusCode: 400, message: "Invalid query parameters" };
+          }
+          if ("value" in result) {
+            query = result.value;
+          }
+        }
+
+        const rawHeaders: Record<string, string> = {};
+        if (headersSchema) {
+          req.headers.forEach((v, k) => {
+            rawHeaders[k.toLowerCase()] = v;
+          });
+          const result = headersSchema.validate(rawHeaders);
+          if (result instanceof Promise ? (await result).issues : result.issues) {
+            throw { statusCode: 400, message: "Invalid header value" };
+          }
+        }
+
+        let body: any;
+        let rawBody: any;
+
+        if (hasBody) {
+          try {
+            let parsed = false;
+            if (hooks.onParse.length > 0) {
+              const cloned = req.clone() as unknown as Request;
+              for (let i = 0; i < hooks.onParse.length; i++) {
+                const handler = hooks.onParse[i];
+                if (handler) {
+                  const res = handler(cloned);
+                  const r = res instanceof Promise ? await res : res;
+                  if (r !== undefined) {
+                    body = r;
+                    parsed = true;
+                    break;
+                  }
+                }
+              }
+            }
+
+            if (!parsed) {
+              body = await parseRequestBody(req);
+            }
+
+            if (body === "") {
+              body = undefined;
+            }
+
+            if (bodySchema?.["~standard"]) {
+              const result = bodySchema["~standard"].validate(body);
+              if (result instanceof Promise ? (await result).issues : result.issues) {
+                throw { statusCode: 400, message: "Invalid body" };
+              }
+              if ("value" in result) {
+                body = result.value;
+              }
+            }
+          } catch {
+            if (bodySchema) {
+              throw { statusCode: 400, message: "Invalid body format" };
+            }
+          }
+        }
+
+        ctx = {
+          req,
+          params,
+          query,
+          headers: rawHeaders,
+          body,
+          rawBody,
+          route: route.path,
+          method: route.method,
+          error: (statusCode: number, message?: string) => {
+            throw { statusCode, message: message || "Error" };
+          },
+          set: this.createResponseContext(),
+        };
+
+        for (let i = 0; i < hooks.onTransform.length; i++) {
+          const handler = hooks.onTransform[i];
+          if (handler) {
+            const res = handler(ctx);
+            const transformed = res instanceof Promise ? await res : res;
+            if (transformed && typeof transformed === "object") {
+              Object.assign(ctx, transformed);
+            }
+          }
+        }
+
+        let result;
+
+        const runMain = async () => {
+          return route.handler(ctx);
+        };
+
+        if (hooks.onBeforeHandle.length > 0) {
+          let idx = 0;
+          const next = async (): Promise<any> => {
+            if (idx >= hooks.onBeforeHandle.length) {
+              return runMain();
+            }
+            const handler = hooks.onBeforeHandle[idx++];
+            if (handler) {
+              return handler(ctx, next);
+            }
+            return next();
+          };
+          result = await next();
+        } else {
+          result = await runMain();
+        }
+
+        if (hooks.onMapResponse.length > 0) {
+          for (let i = 0; i < hooks.onMapResponse.length; i++) {
+            const handler = hooks.onMapResponse[i];
+            if (handler) {
+              const res = handler(result, ctx);
+              const r = res instanceof Promise ? await res : res;
+              if (r instanceof Response) {
+                result = r;
+                break;
+              }
+            }
+          }
+        }
+
+        if (!(result instanceof Response)) {
+          result = Hedystia.createResponse(result);
+        }
+
+        result = this.applyResponseContext(result, ctx.set);
+
+        if (hooks.onAfterHandle.length > 0) {
+          for (let i = 0; i < hooks.onAfterHandle.length; i++) {
+            const handler = hooks.onAfterHandle[i];
+            if (handler) {
+              const res = handler(result, ctx);
+              const r = res instanceof Promise ? await res : res;
+              if (r instanceof Response) {
+                result = r;
+              }
+            }
+          }
+        }
+
+        if (hooks.onAfterResponse.length > 0) {
+          setTimeout(() => {
+            for (let i = 0; i < hooks.onAfterResponse.length; i++) {
+              const handler = hooks.onAfterResponse[i];
+              if (handler) {
+                handler(result, ctx);
+              }
+            }
+          }, 0);
+        }
+
+        if (this.cors) {
+          return await this.applyCorsHeaders(result, req);
+        }
+        return result;
+      } catch (err: any) {
+        if (hooks.onError.length > 0) {
+          for (let i = 0; i < hooks.onError.length; i++) {
+            try {
+              const handler = hooks.onError[i];
+              if (handler) {
+                const res = handler(err, ctx);
+                const r = res instanceof Promise ? await res : res;
+                if (r instanceof Response) {
+                  if (this.cors) {
+                    return await this.applyCorsHeaders(r, req);
+                  }
+                  return r;
+                }
+              }
+            } catch {}
+          }
+        }
+
+        const status = err.statusCode || 500;
+        const msg = err.message || "Internal Server Error";
+
+        let finalRes;
+        if (errorSchema) {
+          finalRes = new Response(JSON.stringify({ message: msg, code: status }), {
+            status,
+            headers: { "Content-Type": "application/json" },
+          });
+        } else {
+          finalRes = new Response(JSON.stringify({ message: msg, code: status }), {
+            status,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (this.cors) {
+          return await this.applyCorsHeaders(finalRes, req);
+        }
+        return finalRes;
+      }
+    };
+  }
+
+  private compile() {
+    for (const staticRoute of this.staticRoutes) {
+      const handler = async (req: Request): Promise<Response> => {
+        if (this.cors && req.method === "OPTIONS") {
+          const headers = await generateCorsHeaders(this.cors, req);
+          return new Response(null, { status: 204, headers: headers as HeadersInit });
+        }
+        let res = (staticRoute.response as Response).clone() as Response;
+        if (this.cors) {
+          res = (await this.applyCorsHeaders(res, req)) as Response;
+        }
+        return res;
+      };
+      this.staticRoutesFast.set(staticRoute.path, handler);
+      this.router.add("GET", staticRoute.path, handler);
+    }
+
+    for (const route of this.routes) {
+      const compiledHandler = this.composeHandler(route);
+      this.router.add(route.method, route.path, compiledHandler);
+    }
+  }
+
   public async fetch(req: Request): Promise<Response> {
-    const url = new URL(req.url);
-    const path = url.pathname;
+    this.compile();
+    const url = req.url;
+    const s = url.indexOf("/", 11);
+    const q = url.indexOf("?", s + 1);
+    const path = q === -1 ? url.substring(s) : url.substring(s, q);
     const method = req.method;
 
     if (this.cors && method === "OPTIONS") {
@@ -91,394 +378,20 @@ export class Hedystia<
       });
     }
 
-    const staticRoute = this.staticRoutesMap.get(path);
-    if (staticRoute) {
-      return staticRoute;
+    const fastStatic = this.staticRoutesFast.get(path);
+    if (fastStatic && method === "GET") {
+      return fastStatic(req);
     }
 
-    const route = this.findRoute(method, path);
-
-    if (!route) {
-      if (this.genericHandlers.length > 0) {
-        return processGenericHandlers(req, this.genericHandlers, 0);
-      }
-      return new Response("Not Found", { status: 404 });
+    const match = this.router.find(method, path);
+    if (match) {
+      return match.handler(req, match.params);
     }
 
-    try {
-      let modifiedReq = req;
-      const onRequestLen = this.onRequestHandlers.length;
-      for (let i = 0; i < onRequestLen; i++) {
-        const handler = this.onRequestHandlers[i];
-        if (handler) {
-          const reqResult = handler(modifiedReq);
-          modifiedReq = reqResult instanceof Promise ? await reqResult : reqResult;
-        }
-      }
-
-      const rawParams = matchRoute(path, route.path);
-      if (!rawParams) {
-        return new Response("Invalid route parameters", { status: 400 });
-      }
-
-      const queryParams = Object.fromEntries(url.searchParams.entries());
-
-      const rawHeaders: Record<string, string | null> = {};
-      modifiedReq.headers.forEach((value, key) => {
-        rawHeaders[key.toLowerCase()] = value;
-      });
-
-      let params = rawParams;
-      const paramsSchema = route.schema.params?.["~standard"];
-      if (paramsSchema) {
-        const result = await paramsSchema.validate(rawParams);
-        if ("issues" in result) {
-          return new Response(`Invalid params: ${JSON.stringify(result.issues)}`, { status: 400 });
-        }
-        params = result.value;
-      }
-
-      let query = queryParams;
-      const querySchema = route.schema.query?.["~standard"];
-      if (querySchema) {
-        const result = await querySchema.validate(queryParams);
-        if ("issues" in result) {
-          return new Response(`Invalid query parameters: ${JSON.stringify(result.issues)}`, {
-            status: 400,
-          });
-        }
-        query = result.value;
-      }
-
-      let validatedHeaders = rawHeaders;
-      const headersSchema = route.schema.headers?.["~standard"];
-      if (headersSchema) {
-        const result = await headersSchema.validate(rawHeaders);
-        if ("issues" in result) {
-          return new Response(`Invalid headers: ${JSON.stringify(result.issues)}`, { status: 400 });
-        }
-        validatedHeaders = result.value;
-      }
-
-      let body;
-      let rawBody: string | ArrayBuffer | Uint8Array | undefined;
-      const hasBody =
-        method === "PATCH" || method === "POST" || method === "PUT" || method === "DELETE";
-
-      if (hasBody) {
-        const bodySchema = route.schema.body;
-        try {
-          const clonedRequest = modifiedReq.clone();
-          rawBody = await clonedRequest.text();
-
-          let parsedByHandler = false;
-          const onParseLen = this.onParseHandlers.length;
-          for (let i = 0; i < onParseLen; i++) {
-            const handler = this.onParseHandlers[i];
-            if (handler) {
-              const parsedResult = await handler(modifiedReq);
-              if (parsedResult !== undefined) {
-                body = parsedResult;
-                parsedByHandler = true;
-                break;
-              }
-            }
-          }
-
-          if (!parsedByHandler) {
-            body = await parseRequestBody(modifiedReq);
-          }
-
-          if (body === "") {
-            body = undefined;
-          }
-
-          if (bodySchema?.["~standard"]) {
-            const result = await bodySchema["~standard"].validate(body);
-            if ("issues" in result) {
-              return new Response(`Invalid body: ${JSON.stringify(result.issues)}`, {
-                status: 400,
-              });
-            }
-            body = result.value;
-          }
-        } catch {
-          if (bodySchema) {
-            return new Response("Invalid body format", { status: 400 });
-          }
-        }
-      }
-
-      let ctx = {
-        req: modifiedReq,
-        params,
-        query,
-        headers: validatedHeaders,
-        body,
-        rawBody,
-        route: route.path,
-        method: route.method,
-        error: (statusCode: number, message?: string): never => {
-          throw { statusCode, message: message || "Error" };
-        },
-        set: this.createResponseContext(),
-      };
-
-      const onTransformLen = this.onTransformHandlers.length;
-      for (let i = 0; i < onTransformLen; i++) {
-        const handler = this.onTransformHandlers[i];
-        if (handler) {
-          const transformedCtx = await handler(ctx);
-          if (transformedCtx) {
-            ctx = transformedCtx;
-          }
-        }
-      }
-
-      try {
-        const beforeHandlersLen = this.onBeforeHandleHandlers.length;
-        const afterHandlersLen = this.onAfterHandleHandlers.length;
-        const mapResponseLen = this.onMapResponseHandlers.length;
-        const afterResponseLen = this.onAfterResponseHandlers.length;
-
-        if (beforeHandlersLen === 0) {
-          let result = await route.handler(ctx);
-
-          if (!(result instanceof Response)) {
-            if (mapResponseLen > 0) {
-              for (let i = 0; i < mapResponseLen; i++) {
-                const handler = this.onMapResponseHandlers[i];
-                if (handler) {
-                  const mappedResponse = await handler(result, ctx);
-                  if (mappedResponse instanceof Response) {
-                    result = mappedResponse;
-                    break;
-                  }
-                }
-              }
-            }
-
-            if (!(result instanceof Response)) {
-              result = Hedystia.createResponse(result);
-            }
-          }
-
-          result = this.applyResponseContext(result, ctx.set);
-          let finalResponse = result;
-
-          if (afterHandlersLen > 0) {
-            for (let i = 0; i < afterHandlersLen; i++) {
-              const handler = this.onAfterHandleHandlers[i];
-              if (handler) {
-                const afterResult = await handler(finalResponse, ctx);
-                if (afterResult instanceof Response) {
-                  finalResponse = afterResult;
-                }
-              }
-            }
-          }
-
-          if (afterResponseLen > 0) {
-            setTimeout(() => {
-              for (let i = 0; i < afterResponseLen; i++) {
-                const handler = this.onAfterResponseHandlers[i];
-                if (handler) {
-                  handler(finalResponse, ctx);
-                }
-              }
-            }, 0);
-          }
-
-          if (this.cors) {
-            return await this.applyCorsHeaders(finalResponse, req);
-          }
-
-          return finalResponse;
-        }
-
-        let finalResponse: Response | undefined;
-        let mainHandlerExecuted = false;
-
-        const executeMainHandler = async () => {
-          mainHandlerExecuted = true;
-          let result = await route.handler(ctx);
-
-          if (!(result instanceof Response)) {
-            if (mapResponseLen > 0) {
-              for (let i = 0; i < mapResponseLen; i++) {
-                const handler = this.onMapResponseHandlers[i];
-                if (handler) {
-                  const mappedResponse = await handler(result, ctx);
-                  if (mappedResponse instanceof Response) {
-                    result = mappedResponse;
-                    break;
-                  }
-                }
-              }
-            }
-
-            if (!(result instanceof Response)) {
-              result = Hedystia.createResponse(result);
-            }
-          }
-
-          result = this.applyResponseContext(result, ctx.set);
-          finalResponse = result;
-
-          if (afterHandlersLen > 0) {
-            for (let i = 0; i < afterHandlersLen; i++) {
-              const handler = this.onAfterHandleHandlers[i];
-              if (handler) {
-                const afterResult = await handler(finalResponse, ctx);
-                if (afterResult instanceof Response) {
-                  finalResponse = afterResult;
-                }
-              }
-            }
-          }
-
-          if (afterResponseLen > 0) {
-            setTimeout(() => {
-              for (let i = 0; i < afterResponseLen; i++) {
-                const handler = this.onAfterResponseHandlers[i];
-                if (handler) {
-                  handler(finalResponse!, ctx);
-                }
-              }
-            }, 0);
-          }
-
-          return finalResponse;
-        };
-
-        let i = 0;
-        const executeBeforeHandlers = async (): Promise<Response | undefined> => {
-          if (i >= beforeHandlersLen) {
-            return executeMainHandler();
-          }
-
-          const beforeHandler = this.onBeforeHandleHandlers[i++];
-          if (!beforeHandler) {
-            return executeBeforeHandlers();
-          }
-
-          let nextCalled = false;
-          const next = async () => {
-            nextCalled = true;
-            return (await executeBeforeHandlers()) || new Response("");
-          };
-
-          const earlyResponse = await beforeHandler(ctx, next);
-
-          if (earlyResponse instanceof Response) {
-            return earlyResponse;
-          }
-
-          if (nextCalled && finalResponse) {
-            return finalResponse;
-          }
-
-          return executeBeforeHandlers();
-        };
-
-        const response = await executeBeforeHandlers();
-        if (response) {
-          if (this.cors) {
-            return await this.applyCorsHeaders(response, req);
-          }
-          return response;
-        }
-
-        if (!mainHandlerExecuted) {
-          const final = await executeMainHandler();
-          if (final) {
-            if (this.cors) {
-              return await this.applyCorsHeaders(final, req);
-            }
-            return final;
-          }
-        }
-
-        return new Response("Internal Server Error", { status: 500 });
-      } catch (error) {
-        const onErrorLen = this.onErrorHandlers.length;
-        for (let i = 0; i < onErrorLen; i++) {
-          const handler = this.onErrorHandlers[i];
-          if (handler) {
-            try {
-              const errorResponse = await handler(error as Error, ctx);
-              if (errorResponse instanceof Response) {
-                if (this.cors) {
-                  return await this.applyCorsHeaders(errorResponse, req);
-                }
-                return errorResponse;
-              }
-            } catch {}
-          }
-        }
-
-        if (typeof error === "object" && error !== null && "statusCode" in error) {
-          const contextError = error as { statusCode: number; message: string };
-          const status = contextError.statusCode;
-          const ok = status >= 200 && status < 300;
-
-          if (!ok) {
-            let errorData;
-            const errorSchema = route.schema.error?.["~standard"];
-
-            if (errorSchema) {
-              const errorObj = { message: contextError.message, code: contextError.statusCode };
-              const errorValidation = await errorSchema.validate(errorObj);
-              errorData = "value" in errorValidation ? errorValidation.value : errorObj;
-            } else {
-              errorData = { message: contextError.message, code: contextError.statusCode };
-            }
-
-            const response = new Response(JSON.stringify(errorData), {
-              status,
-              headers: { "Content-Type": "application/json" },
-            });
-
-            if (this.cors) {
-              return await this.applyCorsHeaders(response, req);
-            }
-
-            return response;
-          }
-        }
-
-        console.error(`Error processing request: ${error}`);
-        return new Response(`Internal Server Error: ${(error as Error).message}`, { status: 500 });
-      }
-    } catch (error) {
-      console.error(`Unhandled server error: ${error}`);
-      return new Response("Internal Server Error", { status: 500 });
+    if (this.genericHandlers.length > 0) {
+      return processGenericHandlers(req, this.genericHandlers, 0);
     }
-  }
-
-  private findRoute(method: string, path: string) {
-    const cacheKey = `${method}:${path}`;
-    const cached = this.routeCache.get(cacheKey);
-    if (cached !== undefined) {
-      return cached;
-    }
-
-    const routesLen = this.routes.length;
-    for (let i = 0; i < routesLen; i++) {
-      const route = this.routes[i];
-      if (route) {
-        if (route.method === method) {
-          const match = matchRoute(path, route.path);
-          if (match) {
-            this.routeCache.set(cacheKey, route);
-            return route;
-          }
-        }
-      }
-    }
-
-    this.routeCache.set(cacheKey, null);
-    return null;
+    return new Response("Not Found", { status: 404 });
   }
 
   /**
@@ -498,38 +411,51 @@ export class Hedystia<
 
     const hasWebSocket = this.wsRoutes.size > 0 || this.subscriptionHandlers.size > 0;
 
-    this.server = serve({
-      port,
-      reusePort: this.reusePort,
-      idleTimeout: this.idleTimeout,
-      fetch: hasWebSocket
-        ? (req, server) => {
-            const upgradeHeader = req.headers.get("upgrade");
-            if (upgradeHeader?.toLowerCase() === "websocket") {
-              const url = new URL(req.url);
-              const path = url.pathname;
-              const wsRoute = this.wsRoutes.get(path);
-              if (wsRoute) {
-                const upgraded = server.upgrade(req, { data: { __wsPath: path } });
-                if (upgraded) {
-                  return new Response(null, { status: 101 });
-                }
-                return new Response("WebSocket upgrade failed", { status: 400 });
+    if (hasWebSocket) {
+      type WebSocketData = {
+        __wsPath?: string;
+        request?: Request;
+        subscribedTopics?: Set<string>;
+      };
+      this.server = serve<WebSocketData>({
+        port,
+        reusePort: this.reusePort,
+        idleTimeout: this.idleTimeout,
+        fetch: (req, server) => {
+          const upgradeHeader = req.headers.get("upgrade");
+          if (upgradeHeader?.toLowerCase() === "websocket") {
+            const url = new URL(req.url);
+            const path = url.pathname;
+            const wsRoute = this.wsRoutes.get(path);
+            if (wsRoute) {
+              const upgraded = server.upgrade(req, { data: { __wsPath: path } });
+              if (upgraded) {
+                return new Response(null, { status: 101 });
               }
-              if (this.subscriptionHandlers.size > 0) {
-                const upgraded = server.upgrade(req, {
-                  data: { request: req, subscribedTopics: new Set() },
-                });
-                if (upgraded) {
-                  return new Response(null, { status: 101 });
-                }
+              return new Response("WebSocket upgrade failed", { status: 400 });
+            }
+            if (this.subscriptionHandlers.size > 0) {
+              const upgraded = server.upgrade(req, {
+                data: { request: req, subscribedTopics: new Set() },
+              });
+              if (upgraded) {
+                return new Response(null, { status: 101 });
               }
             }
-            return this.fetch(req);
           }
-        : (req) => this.fetch(req),
-      websocket: hasWebSocket ? this.createWebSocketHandlers() : undefined,
-    });
+          return this.fetch(req);
+        },
+
+        websocket: this.createWebSocketHandlers(),
+      });
+    } else {
+      this.server = serve({
+        port,
+        reusePort: this.reusePort,
+        idleTimeout: this.idleTimeout,
+        fetch: (req) => this.fetch(req),
+      });
+    }
 
     return this;
   }
@@ -555,14 +481,34 @@ export class Hedystia<
         }
 
         let matchedSub: { handler: SubscriptionHandler; schema: RouteSchema } | undefined;
-        let rawParams: Record<string, string> | null = null;
+        let rawParams: Record<string, string> = {};
 
+        const pathParts = path.split("/").filter(Boolean);
         for (const [routePath, handlerData] of this.subscriptionHandlers.entries()) {
-          const params = matchRoute(path, routePath);
-          if (params) {
-            matchedSub = handlerData;
-            rawParams = params;
-            break;
+          const routeParts = routePath.split("/").filter(Boolean);
+          if (pathParts.length === routeParts.length) {
+            let match = true;
+            const tempParams: any = {};
+            for (let i = 0; i < routeParts.length; i++) {
+              const rp = routeParts[i];
+              const pp = pathParts[i];
+              if (!rp || !pp) {
+                match = false;
+                break;
+              }
+
+              if (rp.startsWith(":")) {
+                tempParams[rp.slice(1)] = pp;
+              } else if (rp !== pp) {
+                match = false;
+                break;
+              }
+            }
+            if (match) {
+              matchedSub = handlerData;
+              rawParams = tempParams;
+              break;
+            }
           }
         }
 
@@ -574,10 +520,9 @@ export class Hedystia<
 
         if (type === "subscribe") {
           let validatedParams = rawParams || {};
-          if (matchedSub.schema.params && rawParams) {
+          if (matchedSub.schema.params) {
             const result = await matchedSub.schema.params["~standard"].validate(rawParams);
             if ("issues" in result) {
-              console.error("Validation error (params):", result.issues);
               return;
             }
             validatedParams = result.value;

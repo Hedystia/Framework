@@ -12,71 +12,40 @@ import {
   UnionSchema,
 } from "@hedystia/validations";
 
-export function matchRoute(pathname: string, routePath: string): Record<string, string> | null {
-  const pathParts = pathname.split("/").filter(Boolean);
-  const routeParts = routePath.split("/").filter(Boolean);
-
-  if (pathParts.length !== routeParts.length) {
-    return null;
-  }
-
-  const params: Record<string, string> = {};
-  for (let i = 0; i < routeParts.length; i++) {
-    const routePart = routeParts[i];
-    const pathPart = pathParts[i];
-    if (!routePart) {
-      return null;
-    }
-    if (routePart[0] === ":" && typeof pathPart === "string") {
-      params[routePart.slice(1)] = pathPart;
-    } else if (routePart !== pathPart) {
-      return null;
-    }
-  }
-
-  return params;
-}
-
 export async function parseRequestBody(req: Request): Promise<any> {
   const contentType = req.headers.get("Content-Type") || "";
 
-  try {
-    if (contentType.includes("application/json")) {
-      return await req.json();
-    }
-    if (contentType.includes("multipart/form-data")) {
-      const formData = await req.formData();
-      const obj: Record<string, any> = {};
-      formData.forEach((value, key) => {
-        if (obj[key]) {
-          if (Array.isArray(obj[key])) {
-            obj[key].push(value);
-          } else {
-            obj[key] = [obj[key], value];
-          }
-        } else {
-          obj[key] = value;
-        }
-      });
-      return obj;
-    }
-    if (contentType.includes("text/") || contentType.includes("xml")) {
-      return await req.text();
-    }
-    if (contentType.includes("application/x-www-form-urlencoded")) {
-      const text = await req.text();
-      const params = new URLSearchParams(text);
-      return Object.fromEntries(params.entries());
-    }
-  } catch (e) {
-    console.warn("Error parsing body:", e);
+  if (!contentType) {
+    return req.text();
   }
 
-  try {
+  const c = contentType.charCodeAt(12);
+
+  if (c === 106) {
     return await req.json();
-  } catch {
-    return await req.text();
   }
+  if (c === 120) {
+    const text = await req.text();
+    const params = new URLSearchParams(text);
+    return Object.fromEntries(params.entries());
+  }
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await req.formData();
+    const obj: Record<string, any> = {};
+    formData.forEach((value, key) => {
+      if (obj[key]) {
+        if (Array.isArray(obj[key])) {
+          obj[key].push(value);
+        } else {
+          obj[key] = [obj[key], value];
+        }
+      } else {
+        obj[key] = value;
+      }
+    });
+    return obj;
+  }
+  return await req.text();
 }
 
 export function determineContentType(body: any): string {
