@@ -16,7 +16,7 @@ export const loginUsingServer = new Hedystia().group("/api", (api) =>
                 if (tokenHeader) {
                   const token = parseSetCookieString(tokenHeader);
                   if (token) {
-                    ctx.req.cookies.set(token.name, token.value, token.attributes);
+                    ctx.set.cookies.set(token.name, token.value, token.attributes);
                   }
                 }
               },
@@ -75,7 +75,7 @@ export const loginUsingServer = new Hedystia().group("/api", (api) =>
                 if (tokenHeader) {
                   const token = parseSetCookieString(tokenHeader);
                   if (token) {
-                    ctx.req.cookies.set(token.name, token.value, token.attributes);
+                    ctx.set.cookies.set(token.name, token.value, token.attributes);
                   }
                 }
               },
