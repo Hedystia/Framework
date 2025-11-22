@@ -1,13 +1,13 @@
 {
   "name": "@hedystia/swagger",
-  "version": "1.7.4",
+  "version": "1.7.5",
   "devDependencies": {
     "@types/bun": "^1.3.3",
     "tsup": "^8.3.5"
   },
   "dependencies": {
     "@apidevtools/swagger-parser": "^10.1.1",
-    "hedystia": "^1.7.4",
+    "hedystia": "^1.7.5",
     "openapi-types": "^12.1.3"
   },
   "peerDependencies": {
