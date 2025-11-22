@@ -446,12 +446,12 @@ export class OptionalSchema<I, O> extends BaseSchema<I, O | undefined> {
   readonly "~standard": StandardSchemaV1.Props<I, O | undefined> = {
     version: 1,
     vendor: "h-schema",
-    validate: async (value: unknown) => {
+    validate: (value: unknown) => {
       if (value === undefined || value === null) {
         return { value: undefined };
       }
 
-      const result = await this.innerSchema["~standard"].validate(value);
+      const result = this.innerSchema["~standard"].validate(value);
       return result;
     },
     types: {
@@ -501,10 +501,10 @@ export class UnionSchema<I, O> extends BaseSchema<I, O> {
   readonly "~standard": StandardSchemaV1.Props<I, O> = {
     version: 1,
     vendor: "h-schema",
-    validate: async (value: unknown) => {
+    validate: (value: unknown) => {
       const issuesAccum: StandardSchemaV1.Issue[] = [];
       for (const schema of this.schemas) {
-        const result = await schema["~standard"].validate(value);
+        const result = schema["~standard"].validate(value) as StandardSchemaV1.Result<any>;
         if (!("issues" in result)) {
           return { value: result.value };
         }
@@ -531,28 +531,26 @@ export class ArraySchema<I, O extends any[]> extends BaseSchema<I, O> {
   readonly "~standard": StandardSchemaV1.Props<I, O> = {
     version: 1,
     vendor: "h-schema",
-    validate: async (value: unknown) => {
+    validate: (value: unknown) => {
       if (!Array.isArray(value)) {
         return {
-          issues: [{ message: "Expected array, received " + typeof value }],
+          issues: [{ message: `Expected array, received ${typeof value}` }],
         };
       }
 
-      const results = await Promise.all(
-        value.map(async (item, index) => {
-          const result = await this.innerSchema["~standard"].validate(item);
-          if ("issues" in result) {
-            return {
-              index,
-              issues: result.issues?.map((issue) => ({
-                ...issue,
-                path: issue.path ? [index, ...issue.path] : [index],
-              })),
-            };
-          }
-          return { index, value: result.value };
-        }),
-      );
+      const results = value.map((item, index) => {
+        const result = this.innerSchema["~standard"].validate(item) as StandardSchemaV1.Result<O[number]>;
+        if ("issues" in result) {
+          return {
+            index,
+            issues: result.issues?.map((issue) => ({
+              ...issue,
+              path: issue.path ? [index, ...issue.path] : [index],
+            })),
+          };
+        }
+        return { index, value: result.value };
+      });
 
       const errors = results.filter((r) => "issues" in r) as {
         index: number;
@@ -590,7 +588,7 @@ export class InstanceOfSchema<I, O> extends BaseSchema<I, O> {
   readonly "~standard": StandardSchemaV1.Props<I, O> = {
     version: 1,
     vendor: "h-schema",
-    validate: async (value: unknown) => {
+    validate: (value: unknown) => {
       if (!(value instanceof this.classConstructor)) {
         return {
           issues: [
@@ -601,7 +599,7 @@ export class InstanceOfSchema<I, O> extends BaseSchema<I, O> {
         };
       }
 
-      const result = await this.innerSchema["~standard"].validate(value);
+      const result = this.innerSchema["~standard"].validate(value);
       return result as StandardSchemaV1.Result<O>;
     },
     types: {
@@ -648,7 +646,7 @@ export class ObjectSchemaType<T extends Record<string, unknown>> extends BaseSch
   readonly "~standard": StandardSchemaV1.Props<unknown, T> = {
     version: 1,
     vendor: "h-schema",
-    validate: async (value: unknown): Promise<StandardSchemaV1.Result<T>> => {
+    validate: (value: unknown): StandardSchemaV1.Result<T> => {
       if (typeof value !== "object" || value === null || Array.isArray(value)) {
         return {
           issues: [
@@ -689,7 +687,7 @@ export class ObjectSchemaType<T extends Record<string, unknown>> extends BaseSch
               result[key] = obj[key];
             }
           } else if (schemaItem instanceof BaseSchema) {
-            const validationResult = await schemaItem["~standard"].validate(obj[key]);
+            const validationResult = schemaItem["~standard"].validate(obj[key]) as StandardSchemaV1.Result<any>;
             if ("issues" in validationResult) {
               if (validationResult.issues) {
                 issues.push(

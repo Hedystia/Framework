@@ -1,3 +1,4 @@
+import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type { HeadersInit } from "bun";
 import { writeFile } from "fs/promises";
 import Core from "./core";
@@ -123,10 +124,7 @@ export class Hedystia<
         }
 
         if (paramsSchema) {
-          let result = paramsSchema.validate(params);
-          if (result instanceof Promise) {
-            result = await result;
-          }
+          const result = paramsSchema.validate(params);
           if (result.issues) {
             throw { statusCode: 400, message: "Invalid params" };
           }
@@ -136,10 +134,7 @@ export class Hedystia<
         }
 
         if (querySchema) {
-          let result = querySchema.validate(query);
-          if (result instanceof Promise) {
-            result = await result;
-          }
+          const result = querySchema.validate(query);
           if (result.issues) {
             throw { statusCode: 400, message: "Invalid query parameters" };
           }
@@ -153,10 +148,7 @@ export class Hedystia<
           req.headers.forEach((v, k) => {
             rawHeaders[k.toLowerCase()] = v;
           });
-          let result = headersSchema.validate(rawHeaders);
-          if (result instanceof Promise) {
-            result = await result;
-          }
+          const result = headersSchema.validate(rawHeaders);
           if (result.issues) {
             throw { statusCode: 400, message: "Invalid header value" };
           }
@@ -530,7 +522,9 @@ export class Hedystia<
         if (type === "subscribe") {
           let validatedParams = rawParams || {};
           if (matchedSub.schema.params) {
-            const result = await matchedSub.schema.params["~standard"].validate(rawParams);
+            const result = matchedSub.schema.params["~standard"].validate(
+              rawParams,
+            ) as StandardSchemaV1.Result<any>;
             if ("issues" in result) {
               return;
             }
@@ -539,7 +533,9 @@ export class Hedystia<
 
           let validatedQuery = query || {};
           if (matchedSub.schema.query && query) {
-            const result = await matchedSub.schema.query["~standard"].validate(query);
+            const result = matchedSub.schema.query["~standard"].validate(
+              query,
+            ) as StandardSchemaV1.Result<any>;
             if ("issues" in result) {
               console.error("Validation error (query):", result.issues);
               return;
@@ -549,7 +545,9 @@ export class Hedystia<
 
           let validatedHeaders = headers || {};
           if (matchedSub.schema.headers && headers) {
-            const result = await matchedSub.schema.headers["~standard"].validate(headers);
+            const result = matchedSub.schema.headers["~standard"].validate(
+              headers,
+            ) as StandardSchemaV1.Result<any>;
             if ("issues" in result) {
               console.error("Validation error (headers):", result.issues);
               return;
