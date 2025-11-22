@@ -123,8 +123,11 @@ export class Hedystia<
         }
 
         if (paramsSchema) {
-          const result = paramsSchema.validate(params);
-          if (result instanceof Promise ? (await result).issues : result.issues) {
+          let result = paramsSchema.validate(params);
+          if (result instanceof Promise) {
+            result = await result;
+          }
+          if (result.issues) {
             throw { statusCode: 400, message: "Invalid params" };
           }
           if ("value" in result) {
@@ -133,8 +136,11 @@ export class Hedystia<
         }
 
         if (querySchema) {
-          const result = querySchema.validate(query);
-          if (result instanceof Promise ? (await result).issues : result.issues) {
+          let result = querySchema.validate(query);
+          if (result instanceof Promise) {
+            result = await result;
+          }
+          if (result.issues) {
             throw { statusCode: 400, message: "Invalid query parameters" };
           }
           if ("value" in result) {
@@ -147,8 +153,11 @@ export class Hedystia<
           req.headers.forEach((v, k) => {
             rawHeaders[k.toLowerCase()] = v;
           });
-          const result = headersSchema.validate(rawHeaders);
-          if (result instanceof Promise ? (await result).issues : result.issues) {
+          let result = headersSchema.validate(rawHeaders);
+          if (result instanceof Promise) {
+            result = await result;
+          }
+          if (result.issues) {
             throw { statusCode: 400, message: "Invalid header value" };
           }
         }
