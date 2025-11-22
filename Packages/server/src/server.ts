@@ -293,9 +293,6 @@ export class Hedystia<
           }, 0);
         }
 
-        if (this.cors) {
-          return await this.applyCorsHeaders(result, req);
-        }
         return result;
       } catch (err: any) {
         if (hooks.onError.length > 0) {
@@ -306,9 +303,6 @@ export class Hedystia<
                 const res = handler(err, ctx);
                 const r = res instanceof Promise ? await res : res;
                 if (r instanceof Response) {
-                  if (this.cors) {
-                    return await this.applyCorsHeaders(r, req);
-                  }
                   return r;
                 }
               }
@@ -332,9 +326,6 @@ export class Hedystia<
           });
         }
 
-        if (this.cors) {
-          return await this.applyCorsHeaders(finalRes, req);
-        }
         return finalRes;
       }
     };
@@ -381,18 +372,35 @@ export class Hedystia<
 
     const fastStatic = this.staticRoutesFast.get(path);
     if (fastStatic && method === "GET") {
-      return fastStatic(req);
+      const response = await fastStatic(req);
+      if (this.cors) {
+        return await this.applyCorsHeaders(response, req);
+      }
+      return response;
     }
 
     const match = this.router.find(method, path);
     if (match) {
-      return match.handler(req, match.params);
+      const response = await match.handler(req, match.params);
+      if (this.cors) {
+        return await this.applyCorsHeaders(response, req);
+      }
+      return response;
     }
 
     if (this.genericHandlers.length > 0) {
-      return processGenericHandlers(req, this.genericHandlers, 0);
+      const response = await processGenericHandlers(req, this.genericHandlers, 0);
+      if (this.cors) {
+        return await this.applyCorsHeaders(response, req);
+      }
+      return response;
     }
-    return new Response("Not Found", { status: 404 });
+
+    const notFoundResponse = new Response("Not Found", { status: 404 });
+    if (this.cors) {
+      return await this.applyCorsHeaders(notFoundResponse, req);
+    }
+    return notFoundResponse;
   }
 
   /**
