@@ -32,6 +32,7 @@ export class Hedystia<
   private idleTimeout: number;
   private router = new Router();
   private staticRoutesFast: Map<string, (req: Request) => any> = new Map();
+  private isCompiled = false;
 
   constructor(options?: FrameworkOptions) {
     super();
@@ -332,6 +333,9 @@ export class Hedystia<
   }
 
   private compile() {
+    if (this.isCompiled) {
+      return;
+    }
     for (const staticRoute of this.staticRoutes) {
       const handler = async (req: Request): Promise<Response> => {
         if (this.cors && req.method === "OPTIONS") {
@@ -352,6 +356,8 @@ export class Hedystia<
       const compiledHandler = this.composeHandler(route);
       this.router.add(route.method, route.path, compiledHandler);
     }
+
+    this.isCompiled = true;
   }
 
   public async fetch(req: Request): Promise<Response> {
