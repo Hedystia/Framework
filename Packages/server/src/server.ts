@@ -20,7 +20,7 @@ import { parseRequestBody, schemaToTypeString } from "./utils";
 
 interface FrameworkOptions {
   reusePort?: boolean;
-  cors?: CorsOptions;
+  cors?: CorsOptions | true;
   idleTimeout?: number;
 }
 
@@ -37,7 +37,7 @@ export class Hedystia<
   constructor(options?: FrameworkOptions) {
     super();
     this.reusePort = options?.reusePort ?? false;
-    this.cors = options?.cors ?? undefined;
+    this.cors = options?.cors === true ? {} : options?.cors;
     this.idleTimeout = options?.idleTimeout ?? 10;
   }
 
