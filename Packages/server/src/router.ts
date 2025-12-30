@@ -5,6 +5,7 @@ class Node {
   parametric: Node | null = null;
   store: any = null;
   paramName = "";
+  paramPaths: Map<string, string[]> = new Map();
 
   constructor(part: string) {
     this.part = part;
@@ -20,6 +21,7 @@ export class Router {
     }
     const parts = path.split("/").filter(Boolean);
     let current = this.root;
+    const paramNames: string[] = [];
 
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
@@ -28,9 +30,11 @@ export class Router {
       }
 
       if (part.startsWith(":")) {
+        const paramName = part.slice(1);
+        paramNames.push(paramName);
         if (!current.parametric) {
           current.parametric = new Node(":");
-          current.parametric.paramName = part.slice(1);
+          current.parametric.paramName = paramName;
         }
         current = current.parametric;
       } else if (part === "*") {
@@ -49,6 +53,7 @@ export class Router {
       current.store = {};
     }
     current.store[method] = store;
+    current.paramPaths.set(method, paramNames);
   }
 
   find(method: string, path: string): { handler: any; params: Record<string, string> } | null {
@@ -57,7 +62,7 @@ export class Router {
     }
     const parts = path.split("/").filter(Boolean);
     let current = this.root;
-    const params: Record<string, string> = {};
+    const paramValues: string[] = [];
 
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
@@ -68,7 +73,7 @@ export class Router {
       if (current.children[part]) {
         current = current.children[part];
       } else if (current.parametric) {
-        params[current.parametric.paramName] = part;
+        paramValues.push(part);
         current = current.parametric;
       } else if (current.wildcard) {
         current = current.wildcard;
@@ -79,6 +84,18 @@ export class Router {
     }
 
     const handler = current.store?.[method];
-    return handler ? { handler, params } : null;
+    if (!handler) {
+      return null;
+    }
+    const paramNames = current.paramPaths.get(method) || [];
+    const params: Record<string, string> = {};
+    for (let i = 0; i < paramNames.length && i < paramValues.length; i++) {
+      const name = paramNames[i];
+      const value = paramValues[i];
+      if (name !== undefined && value !== undefined) {
+        params[name] = value;
+      }
+    }
+    return { handler, params };
   }
 }
