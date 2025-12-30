@@ -34,6 +34,15 @@ export class Hedystia<
   private staticRoutesFast: Map<string, (req: Request) => any> = new Map();
   private isCompiled = false;
 
+  private activeConnections: Map<ServerWebSocket, {
+    lastPong: number;
+    subscriptions: Map<string, string>;
+  }> = new Map();
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  private readonly PING_INTERVAL = 30000;
+  private readonly PONG_TIMEOUT = 60000;
+
+
   constructor(options?: FrameworkOptions) {
     super();
     this.reusePort = options?.reusePort ?? false;
@@ -463,6 +472,7 @@ export class Hedystia<
 
         websocket: this.createWebSocketHandlers(),
       });
+      this.startHeartbeat();
     } else {
       this.server = serve({
         port,
@@ -473,6 +483,53 @@ export class Hedystia<
     }
 
     return this;
+  }
+
+  /**
+   * Start the heartbeat interval to ping clients and detect stale connections
+   */
+  private startHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      return;
+    }
+    this.heartbeatInterval = setInterval(() => {
+      const now = Date.now();
+      for (const [ws, connInfo] of this.activeConnections) {
+        if (now - connInfo.lastPong > this.PONG_TIMEOUT) {
+          (async () => {
+            for (const [path, subscriptionId] of connInfo.subscriptions) {
+              const isActive = () => {
+                const conn = this.activeConnections.get(ws);
+                return conn !== undefined && conn.subscriptions.has(path);
+              };
+              const publish = (data: any, targetId?: string) => {
+                const msg = JSON.stringify({ path, data, subscriptionId: targetId || subscriptionId });
+                if (targetId) {
+                  ws.send(msg);
+                } else {
+                  ws.publish(path, msg);
+                }
+              };
+              for (const handler of this.onSubscriptionCloseHandlers) {
+                try {
+                  await handler({ path, subscriptionId, ws, reason: "timeout", isActive, publish });
+                } catch (e) {
+                  console.error("[WS] Error in subscriptionClose handler:", e);
+                }
+              }
+            }
+          })();
+          try {
+            ws.close(1000, "Connection timeout - no pong received");
+          } catch {}
+          this.activeConnections.delete(ws);
+        } else {
+          try {
+            ws.send(JSON.stringify({ type: "ping" }));
+          } catch {}
+        }
+      }
+    }, this.PING_INTERVAL);
   }
 
   private createWebSocketHandlers() {
@@ -571,7 +628,33 @@ export class Hedystia<
 
           ws.subscribe(topic);
           ws.data.subscribedTopics?.add(topic);
-
+          if (!this.activeConnections.has(ws)) {
+            this.activeConnections.set(ws, {
+              lastPong: Date.now(),
+              subscriptions: new Map(),
+            });
+          }
+          const connInfo = this.activeConnections.get(ws)!;
+          connInfo.subscriptions.set(topic, subscriptionId);
+          const isActive = () => {
+            const conn = this.activeConnections.get(ws);
+            return conn !== undefined && conn.subscriptions.has(topic);
+          };
+          const publish = (data: any, targetId?: string) => {
+            const msg = JSON.stringify({ path: topic, data, subscriptionId: targetId || subscriptionId });
+            if (targetId) {
+              ws.send(msg);
+            } else {
+              ws.publish(topic, msg);
+            }
+          };
+          for (const handler of this.onSubscriptionOpenHandlers) {
+            try {
+              await handler({ path: topic, subscriptionId, ws, isActive, publish });
+            } catch (e) {
+              console.error("[WS] Error in subscriptionOpen handler:", e);
+            }
+          }
           const ctx: SubscriptionContext<any> = {
             ws,
             req: ws.data.request,
@@ -583,14 +666,30 @@ export class Hedystia<
             method: "SUB",
             data: undefined,
             errorData: undefined,
+            subscriptionId,
+            isActive,
             error: (statusCode: number, message?: string): never => {
               throw { statusCode, message: message || "Error" };
             },
-            sendData: (data: any) => {
-              ws.send(JSON.stringify({ path: topic, data, subscriptionId }));
+            sendData: (data: any, targetId?: string) => {
+              if (isActive()) {
+                const msg = JSON.stringify({ path: topic, data, subscriptionId: targetId || subscriptionId });
+                if (targetId) {
+                  ws.send(msg);
+                } else {
+                  ws.send(JSON.stringify({ path: topic, data, subscriptionId }));
+                }
+              }
             },
-            sendError: (error: any) => {
-              ws.send(JSON.stringify({ path: topic, error, subscriptionId }));
+            sendError: (error: any, targetId?: string) => {
+              if (isActive()) {
+                const msg = JSON.stringify({ path: topic, error, subscriptionId: targetId || subscriptionId });
+                if (targetId) {
+                  ws.send(msg);
+                } else {
+                  ws.send(JSON.stringify({ path: topic, error, subscriptionId }));
+                }
+              }
             },
           };
 
@@ -601,6 +700,34 @@ export class Hedystia<
         } else if (type === "unsubscribe") {
           ws.unsubscribe(topic);
           ws.data.subscribedTopics?.delete(topic);
+          const connInfo = this.activeConnections.get(ws);
+          if (connInfo) {
+            const subId = connInfo.subscriptions.get(topic);
+            connInfo.subscriptions.delete(topic);
+            if (subId) {
+              const isActive = () => false;
+              const publish = (data: any, targetId?: string) => {
+                const msg = JSON.stringify({ path: topic, data, subscriptionId: targetId || subId });
+                if (targetId) {
+                  ws.send(msg);
+                } else {
+                  ws.publish(topic, msg);
+                }
+              };
+              for (const handler of this.onSubscriptionCloseHandlers) {
+                try {
+                  await handler({ path: topic, subscriptionId: subId, ws, reason: "unsubscribe", isActive, publish });
+                } catch (e) {
+                  console.error("[WS] Error in subscriptionClose handler:", e);
+                }
+              }
+            }
+          }
+        } else if (type === "pong") {
+          const connInfo = this.activeConnections.get(ws);
+          if (connInfo) {
+            connInfo.lastPong = Date.now();
+          }
         }
       },
       open: (ws: ServerWebSocket) => {
@@ -608,11 +735,39 @@ export class Hedystia<
         if (handler?.open) {
           handler.open(ws);
         }
+        if (!this.activeConnections.has(ws)) {
+          this.activeConnections.set(ws, {
+            lastPong: Date.now(),
+            subscriptions: new Map(),
+          });
+        }
       },
-      close: (ws: ServerWebSocket, code: number, reason: string) => {
+      close: async (ws: ServerWebSocket, code: number, reason: string) => {
         const handler = this.wsRoutes.get(ws.data?.__wsPath);
         if (handler?.close) {
           handler.close(ws, code, reason);
+        }
+        const connInfo = this.activeConnections.get(ws);
+        if (connInfo) {
+          for (const [path, subscriptionId] of connInfo.subscriptions) {
+            const isActive = () => false;
+            const publish = (data: any, targetId?: string) => {
+              const msg = JSON.stringify({ path, data, subscriptionId: targetId || subscriptionId });
+              if (targetId) {
+                ws.send(msg);
+              } else {
+                ws.publish(path, msg);
+              }
+            };
+            for (const closeHandler of this.onSubscriptionCloseHandlers) {
+              try {
+                await closeHandler({ path, subscriptionId, ws, reason: "disconnect", isActive, publish });
+              } catch (e) {
+                console.error("[WS] Error in subscriptionClose handler:", e);
+              }
+            }
+          }
+          this.activeConnections.delete(ws);
         }
       },
       error: (ws: ServerWebSocket, error: Error) => {
@@ -810,6 +965,11 @@ export class Hedystia<
    * @returns {void}
    */
   close(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    this.activeConnections.clear();
     if (this.server) {
       this.server.stop();
       this.server = null;
