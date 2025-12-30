@@ -2,7 +2,15 @@ import { afterAll, describe, expect, it } from "bun:test";
 import { createClient } from "@hedystia/client";
 import Framework, { h } from "hedystia";
 
+let lifecycleEvents: string[] = [];
+
 const app = new Framework()
+  .onSubscriptionOpen((ctx) => {
+    lifecycleEvents.push(`open:${ctx.path}:${ctx.subscriptionId}`);
+  })
+  .onSubscriptionClose((ctx) => {
+    lifecycleEvents.push(`close:${ctx.path}:${ctx.subscriptionId}:${ctx.reason}`);
+  })
   .subscription("/data/basic", async () => {
     return "Test";
   })
@@ -98,6 +106,18 @@ const app = new Framework()
       }),
     },
   )
+  .subscription("/data/isactive", async (ctx) => {
+    let count = 0;
+    const interval = setInterval(() => {
+      if (!ctx.isActive()) {
+        clearInterval(interval);
+        return;
+      }
+      count++;
+      ctx.sendData({ count });
+    }, 50);
+    return { count: 0 };
+  })
   .listen(3024);
 
 const client = createClient<typeof app>("http://localhost:3024");
@@ -273,6 +293,34 @@ describe("Test subscriptions", () => {
 
     expect(logs).toContain("Data: 123 - Success");
     expect(logs).toContain("Error2: Test error (400)");
+  });
+
+  it("should trigger lifecycle events on subscribe/unsubscribe", async () => {
+    lifecycleEvents = [];
+    const sub = (client.data as any).isactive.subscribe(({ data }: any) => {
+      if (data) { logs.push(`count: ${data.count}`); }
+    });
+
+    await wait(100);
+    sub.unsubscribe();
+    await wait(100);
+
+    expect(lifecycleEvents.some((e) => e.startsWith("open:/data/isactive:"))).toBe(true);
+    expect(lifecycleEvents.some((e) => e.includes("close:/data/isactive:") && e.includes("unsubscribe"))).toBe(true);
+  });
+
+  it("should stop sending data when isActive returns false", async () => {
+    logs = [];
+    const sub = (client.data as any).isactive.subscribe(({ data }: any) => {
+      if (data) { logs.push(`count: ${data.count}`); }
+    });
+
+    await wait(150);
+    const countBefore = logs.length;
+    sub.unsubscribe();
+    await wait(150);
+    const countAfter = logs.length;
+    expect(countAfter).toBe(countBefore);
   });
 
   afterAll(() => {
