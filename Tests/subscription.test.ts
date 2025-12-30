@@ -60,10 +60,18 @@ const app = new Framework()
       }),
     },
   )
-  .get("/data/query", async (ctx) => {
-    const searchQuery = (ctx.query as { search: string }).search;
-    return new Response(searchQuery);
-  })
+  .get(
+    "/data/query",
+    async (ctx) => {
+      const searchQuery = (ctx.query as { search: string }).search;
+      return new Response(searchQuery, {
+        headers: { "Content-Type": "text/plain" },
+      });
+    },
+    {
+      response: h.string(),
+    },
+  )
   .subscription(
     "/data/typed",
     async (ctx) => {
