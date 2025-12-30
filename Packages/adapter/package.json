@@ -1,16 +1,16 @@
 {
   "name": "@hedystia/adapter",
-  "version": "1.7.8",
+  "version": "1.8.0",
   "devDependencies": {
     "@types/bun": "^1.3.3",
     "tsup": "^8.3.5"
   },
   "dependencies": {
-    "hedystia": "^1.7.8"
+    "hedystia": "^1.8.0"
   },
   "peerDependencies": {
     "typescript": ">= 5.0.0",
-    "hedystia": ">= 1.7.0"
+    "hedystia": ">= 1.8.0"
   },
   "peerDependenciesMeta": {
     "typescript": {

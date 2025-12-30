@@ -1,8 +1,8 @@
 {
   "name": "hedystia",
-  "version": "1.7.8",
+  "version": "1.8.0",
   "dependencies": {
-    "@hedystia/validations": "^1.7.8"
+    "@hedystia/validations": "^1.8.0"
   },
   "devDependencies": {
     "@standard-schema/spec": "^1.0.0",
@@ -10,7 +10,7 @@
     "tsup": "^8.3.5"
   },
   "peerDependencies": {
-    "@hedystia/validations": ">= 1.7.0",
+    "@hedystia/validations": ">= 1.8.0",
     "typescript": ">= 5.0.0"
   },
   "peerDependenciesMeta": {
