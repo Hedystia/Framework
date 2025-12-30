@@ -238,7 +238,9 @@ class WebSocketManager {
               handler.callback({ data, error });
             }
           } else {
-            pathHandlers?.forEach((h) => h.callback({ data, error }));
+            for (const h of pathHandlers ?? []) {
+              h.callback({ data, error });
+            }
           }
         } catch (error) {
           console.error("[WS] Error processing the message:", error);
