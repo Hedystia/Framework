@@ -50,6 +50,9 @@ type OnAfterResponseHandler<T extends RouteSchema = {}> = (
   ctx: ContextTypes<T>,
 ) => void | Promise<void>;
 
+type OnSubscriptionOpenHandler = (ctx: import("../types").SubscriptionLifecycleContext) => void | Promise<void>;
+type OnSubscriptionCloseHandler = (ctx: import("../types").SubscriptionLifecycleContext) => void | Promise<void>;
+
 export default class Core<Routes extends RouteDefinition[] = [], Macros extends MacroData = {}> {
   protected onRequestHandlers: OnRequestHandler[] = [];
   protected onParseHandlers: OnParseHandler[] = [];
@@ -59,6 +62,8 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
   protected onMapResponseHandlers: OnMapResponseHandler[] = [];
   protected onErrorHandlers: OnErrorHandler[] = [];
   protected onAfterResponseHandlers: OnAfterResponseHandler[] = [];
+  protected onSubscriptionOpenHandlers: OnSubscriptionOpenHandler[] = [];
+  protected onSubscriptionCloseHandlers: OnSubscriptionCloseHandler[] = [];
   public staticRoutesMap: Map<string, Response> = new Map();
 
   /**
@@ -138,6 +143,28 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
    */
   onAfterResponse<T extends RouteSchema = {}>(handler: OnAfterResponseHandler<T>): this {
     this.onAfterResponseHandlers.push(handler as OnAfterResponseHandler);
+    return this;
+  }
+
+  /**
+   * Register a handler for the 'subscriptionOpen' lifecycle event
+   * Called when a client subscribes to a topic
+   * @param {OnSubscriptionOpenHandler} handler - Function to handle subscriptionOpen event
+   * @returns {this} Current instance
+   */
+  onSubscriptionOpen(handler: OnSubscriptionOpenHandler): this {
+    this.onSubscriptionOpenHandlers.push(handler);
+    return this;
+  }
+
+  /**
+   * Register a handler for the 'subscriptionClose' lifecycle event
+   * Called when a subscription ends (disconnect, unsubscribe, timeout, or error)
+   * @param {OnSubscriptionCloseHandler} handler - Function to handle subscriptionClose event
+   * @returns {this} Current instance
+   */
+  onSubscriptionClose(handler: OnSubscriptionCloseHandler): this {
+    this.onSubscriptionCloseHandlers.push(handler);
     return this;
   }
 
