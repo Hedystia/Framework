@@ -499,9 +499,9 @@ export class Hedystia<
           (async () => {
           await Promise.all(
             Array.from(connInfo.subscriptions.entries()).map(async ([path, subscriptionId]) => {
-              const isActive = () => {
+              const isActive = (): boolean => {
                 const conn = this.activeConnections.get(ws);
-                return conn !== undefined && conn.subscriptions.has(path);
+                return conn?.subscriptions.has(path) ?? false;
               };
               const publish = (data: any, targetId?: string) => {
                 const msg = JSON.stringify({ path, data, subscriptionId: targetId || subscriptionId });
@@ -640,9 +640,9 @@ export class Hedystia<
           }
           const connInfo = this.activeConnections.get(ws)!;
           connInfo.subscriptions.set(topic, subscriptionId);
-          const isActive = () => {
+          const isActive = (): boolean => {
             const conn = this.activeConnections.get(ws);
-            return conn !== undefined && conn.subscriptions.has(topic);
+            return conn?.subscriptions.has(topic) ?? false;
           };
           const publish = (data: any, targetId?: string) => {
             const msg = JSON.stringify({ path: topic, data, subscriptionId: targetId || subscriptionId });
