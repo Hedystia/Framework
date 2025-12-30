@@ -497,7 +497,8 @@ export class Hedystia<
       for (const [ws, connInfo] of this.activeConnections) {
         if (now - connInfo.lastPong > this.PONG_TIMEOUT) {
           (async () => {
-            for (const [path, subscriptionId] of connInfo.subscriptions) {
+          await Promise.all(
+            Array.from(connInfo.subscriptions.entries()).map(async ([path, subscriptionId]) => {
               const isActive = () => {
                 const conn = this.activeConnections.get(ws);
                 return conn !== undefined && conn.subscriptions.has(path);
@@ -510,14 +511,17 @@ export class Hedystia<
                   ws.publish(path, msg);
                 }
               };
-              for (const handler of this.onSubscriptionCloseHandlers) {
-                try {
-                  await handler({ path, subscriptionId, ws, reason: "timeout", isActive, publish });
-                } catch (e) {
-                  console.error("[WS] Error in subscriptionClose handler:", e);
-                }
-              }
-            }
+              await Promise.all(
+                this.onSubscriptionCloseHandlers.map(async (handler) => {
+                  try {
+                    await handler({ path, subscriptionId, ws, reason: "timeout", isActive, publish });
+                  } catch (e) {
+                    console.error("[WS] Error in subscriptionClose handler:", e);
+                  }
+                })
+              );
+            })
+          );
           })();
           try {
             ws.close(1000, "Connection timeout - no pong received");
@@ -648,13 +652,15 @@ export class Hedystia<
               ws.publish(topic, msg);
             }
           };
-          for (const handler of this.onSubscriptionOpenHandlers) {
-            try {
-              await handler({ path: topic, subscriptionId, ws, isActive, publish });
-            } catch (e) {
-              console.error("[WS] Error in subscriptionOpen handler:", e);
-            }
-          }
+          await Promise.all(
+            this.onSubscriptionOpenHandlers.map(async (handler) => {
+              try {
+                await handler({ path: topic, subscriptionId, ws, isActive, publish });
+              } catch (e) {
+                console.error("[WS] Error in subscriptionOpen handler:", e);
+              }
+            })
+          );
           const ctx: SubscriptionContext<any> = {
             ws,
             req: ws.data.request,
@@ -714,13 +720,15 @@ export class Hedystia<
                   ws.publish(topic, msg);
                 }
               };
-              for (const handler of this.onSubscriptionCloseHandlers) {
-                try {
-                  await handler({ path: topic, subscriptionId: subId, ws, reason: "unsubscribe", isActive, publish });
-                } catch (e) {
-                  console.error("[WS] Error in subscriptionClose handler:", e);
-                }
-              }
+              await Promise.all(
+                this.onSubscriptionCloseHandlers.map(async (handler) => {
+                  try {
+                    await handler({ path: topic, subscriptionId: subId, ws, reason: "unsubscribe", isActive, publish });
+                  } catch (e) {
+                    console.error("[WS] Error in subscriptionClose handler:", e);
+                  }
+                })
+              );
             }
           }
         } else if (type === "pong") {
@@ -749,24 +757,28 @@ export class Hedystia<
         }
         const connInfo = this.activeConnections.get(ws);
         if (connInfo) {
-          for (const [path, subscriptionId] of connInfo.subscriptions) {
-            const isActive = () => false;
-            const publish = (data: any, targetId?: string) => {
-              const msg = JSON.stringify({ path, data, subscriptionId: targetId || subscriptionId });
-              if (targetId) {
-                ws.send(msg);
-              } else {
-                ws.publish(path, msg);
-              }
-            };
-            for (const closeHandler of this.onSubscriptionCloseHandlers) {
-              try {
-                await closeHandler({ path, subscriptionId, ws, reason: "disconnect", isActive, publish });
-              } catch (e) {
-                console.error("[WS] Error in subscriptionClose handler:", e);
-              }
-            }
-          }
+          await Promise.all(
+            Array.from(connInfo.subscriptions.entries()).map(async ([path, subscriptionId]) => {
+              const isActive = () => false;
+              const publish = (data: any, targetId?: string) => {
+                const msg = JSON.stringify({ path, data, subscriptionId: targetId || subscriptionId });
+                if (targetId) {
+                  ws.send(msg);
+                } else {
+                  ws.publish(path, msg);
+                }
+              };
+              await Promise.all(
+                this.onSubscriptionCloseHandlers.map(async (closeHandler) => {
+                  try {
+                    await closeHandler({ path, subscriptionId, ws, reason: "disconnect", isActive, publish });
+                  } catch (e) {
+                    console.error("[WS] Error in subscriptionClose handler:", e);
+                  }
+                })
+              );
+            })
+          );
           this.activeConnections.delete(ws);
         }
       },
