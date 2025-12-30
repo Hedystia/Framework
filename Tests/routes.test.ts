@@ -47,7 +47,7 @@ const commentsRouter = new Framework().group("/:postId/comments", (app) =>
     ),
 );
 
-const subscriptionsRouter = new Framework().group("/:postId/subscribe", (app) =>
+const subscriptionsRouter = new Framework().group("/:postId/subscriptions", (app) =>
   app.post(
     "/",
     (ctx) => {
@@ -202,80 +202,56 @@ describe("Framework Routes Mounting Order Tests", () => {
   });
 
   it("should create a post", async () => {
-    const response = await fetch("http://localhost:3034/api/posts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "New Post" }),
-    });
-    const data = await response.json();
-    expect(response.ok).toBe(true);
-    expect(data.id).toBe("new-post-id");
+    const { data, ok } = await client.api.posts.post({ body: { title: "New Post" } });
+    expect(ok).toBe(true);
+    expect(data?.id).toBe("new-post-id");
   });
 
   it("should get a specific post", async () => {
-    const response = await fetch("http://localhost:3034/api/posts/test-post-123");
-    const data = await response.json();
-    expect(response.ok).toBe(true);
-    expect(data.id).toBe("test-post-123");
+    const { data, ok } = await client.api.posts.id("test-post-123").get();
+    expect(ok).toBe(true);
+    expect(data?.id).toBe("test-post-123");
   });
 
   it("should delete a specific post", async () => {
-    const response = await fetch("http://localhost:3034/api/posts/test-post-123", {
-      method: "DELETE",
-    });
-    const data = await response.json();
-    expect(response.ok).toBe(true);
-    expect(data.deleted).toBe(true);
+    const { data, ok } = await client.api.posts.id("test-post-123").delete();
+    expect(ok).toBe(true);
+    expect(data?.deleted).toBe(true);
   });
 
   it("should get comments for a post", async () => {
-    const response = await fetch("http://localhost:3034/api/posts/test-post-id/comments");
-    const data = await response.json();
-    expect(response.ok).toBe(true);
-    expect(data.postId).toBe("test-post-id");
-    expect(data.comments).toBeDefined();
+    const { data, ok } = await client.api.posts.postId("test-post-id").comments.get();
+    expect(ok).toBe(true);
+    expect(data?.postId).toBe("test-post-id");
+    expect(data?.comments).toBeDefined();
   });
 
   it("should create a comment for a post", async () => {
-    const response = await fetch("http://localhost:3034/api/posts/test-post-id/comments", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: "New comment" }),
-    });
-    const data = await response.json();
-    expect(response.ok).toBe(true);
-    expect(data.postId).toBe("test-post-id");
-    expect(data.created).toBe(true);
+    const { data, ok } = await client.api.posts.postId("test-post-id").comments.post();
+    expect(ok).toBe(true);
+    expect(data?.postId).toBe("test-post-id");
+    expect(data?.created).toBe(true);
   });
 
   it("should subscribe to a post", async () => {
-    const response = await fetch("http://localhost:3034/api/posts/test-post-id/subscribe", {
-      method: "POST",
-    });
-    const data = await response.json();
-    expect(response.ok).toBe(true);
-    expect(data.postId).toBe("test-post-id");
-    expect(data.subscribed).toBe(true);
+    const { data, ok } = await client.api.posts.postId("test-post-id").subscriptions.post();
+    expect(ok).toBe(true);
+    expect(data?.postId).toBe("test-post-id");
+    expect(data?.subscribed).toBe(true);
   });
 
   it("should vote on a post", async () => {
-    const response = await fetch("http://localhost:3034/api/posts/test-post-id/vote", {
-      method: "POST",
-    });
-    const data = await response.json();
-    expect(response.ok).toBe(true);
-    expect(data.postId).toBe("test-post-id");
-    expect(data.voted).toBe(true);
+    const { data, ok } = await client.api.posts.postId("test-post-id").vote.post();
+    expect(ok).toBe(true);
+    expect(data?.postId).toBe("test-post-id");
+    expect(data?.voted).toBe(true);
   });
 
   it("should remove vote from a post", async () => {
-    const response = await fetch("http://localhost:3034/api/posts/test-post-id/vote", {
-      method: "DELETE",
-    });
-    const data = await response.json();
-    expect(response.ok).toBe(true);
-    expect(data.postId).toBe("test-post-id");
-    expect(data.unvoted).toBe(true);
+    const { data, ok } = await client.api.posts.postId("test-post-id").vote.delete();
+    expect(ok).toBe(true);
+    expect(data?.postId).toBe("test-post-id");
+    expect(data?.unvoted).toBe(true);
   });
 
   afterAll(() => {
@@ -318,26 +294,27 @@ const postsRouter2 = new Framework().group("/posts", (app) =>
 
 const app2 = new Framework().group("/api", (app) => app.use(postsRouter2)).listen(3033);
 
+const client2 = createClient<typeof app2>("http://localhost:3033");
+
 describe("Framework Routes - Routes Before Use", () => {
   it("should list all posts", async () => {
-    const response = await fetch("http://localhost:3033/api/posts");
-    const data = await response.json();
-    expect(response.ok).toBe(true);
-    expect(data.posts).toBeDefined();
+    const { data, ok } = await client2.api.posts.get();
+    expect(ok).toBe(true);
+    expect(data?.posts).toBeDefined();
   });
 
   it("should get a specific post when routes defined before .use()", async () => {
     const response = await fetch("http://localhost:3033/api/posts/test-post-123");
-    const data = await response.json();
     expect(response.ok).toBe(true);
-    expect(data.id).toBe("test-post-123");
+    const result = await response.json() as { id: string };
+    expect(result.id).toBe("test-post-123");
   });
 
   it("should get comments when routes defined before .use()", async () => {
     const response = await fetch("http://localhost:3033/api/posts/test-post-id/comments");
-    const data = await response.json();
     expect(response.ok).toBe(true);
-    expect(data.comments).toBeDefined();
+    const result = await response.json() as { comments: unknown[] };
+    expect(result.comments).toBeDefined();
   });
 
   afterAll(() => {
