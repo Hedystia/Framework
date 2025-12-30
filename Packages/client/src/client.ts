@@ -220,6 +220,10 @@ class WebSocketManager {
       this.ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
+          if (message.type === "ping") {
+            this.send({ type: "pong" });
+            return;
+          }
           const { path, data, error, subscriptionId } = message;
 
           if (!path || !this.handlers.has(path)) {
