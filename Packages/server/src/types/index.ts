@@ -173,10 +173,21 @@ export type SubscriptionContext<
   ws: ServerWebSocket;
   data: T["data"] extends ValidationSchema ? InferOutput<T["data"]> : any;
   errorData: T["error"] extends ValidationSchema ? InferOutput<T["error"]> : undefined;
-  sendData: (data: T["data"] extends ValidationSchema ? InferOutput<T["data"]> : any) => void;
-  sendError: (error: T["error"] extends ValidationSchema ? InferOutput<T["error"]> : any) => void;
+  sendData: (data: T["data"] extends ValidationSchema ? InferOutput<T["data"]> : any, targetId?: string) => void;
+  sendError: (error: T["error"] extends ValidationSchema ? InferOutput<T["error"]> : any, targetId?: string) => void;
+  isActive: () => boolean;
+  subscriptionId: string;
 } & Pick<M, EnabledMacros>;
 export type SubscriptionHandler = (ctx: SubscriptionContext) => any | Promise<any>;
+
+export type SubscriptionLifecycleContext = {
+  path: string;
+  subscriptionId: string;
+  ws: ServerWebSocket;
+  reason?: "disconnect" | "timeout" | "unsubscribe" | "error";
+  isActive: () => boolean;
+  publish: (data: any, targetId?: string) => void;
+};
 
 type ResolveParams<Path extends string, Params = any> = Params extends Record<string, any>
   ? ResolveParamsWithTypes<Path, Params>
