@@ -297,8 +297,10 @@ describe("Test subscriptions", () => {
 
   it("should trigger lifecycle events on subscribe/unsubscribe", async () => {
     lifecycleEvents = [];
-    const sub = (client.data as any).isactive.subscribe(({ data }: any) => {
-      if (data) { logs.push(`count: ${data.count}`); }
+    const sub = client.data.isactive.subscribe(({ data }) => {
+      if (data) {
+        logs.push(`count: ${data.count}`);
+      }
     });
 
     await wait(100);
@@ -306,13 +308,17 @@ describe("Test subscriptions", () => {
     await wait(100);
 
     expect(lifecycleEvents.some((e) => e.startsWith("open:/data/isactive:"))).toBe(true);
-    expect(lifecycleEvents.some((e) => e.includes("close:/data/isactive:") && e.includes("unsubscribe"))).toBe(true);
+    expect(
+      lifecycleEvents.some((e) => e.includes("close:/data/isactive:") && e.includes("unsubscribe")),
+    ).toBe(true);
   });
 
   it("should stop sending data when isActive returns false", async () => {
     logs = [];
-    const sub = (client.data as any).isactive.subscribe(({ data }: any) => {
-      if (data) { logs.push(`count: ${data.count}`); }
+    const sub = client.data.isactive.subscribe(({ data }) => {
+      if (data) {
+        logs.push(`count: ${data.count}`);
+      }
     });
 
     await wait(150);
