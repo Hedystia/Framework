@@ -50,8 +50,15 @@ type OnAfterResponseHandler<T extends RouteSchema = {}> = (
   ctx: ContextTypes<T>,
 ) => void | Promise<void>;
 
-type OnSubscriptionOpenHandler = (ctx: import("../types").SubscriptionLifecycleContext) => void | Promise<void>;
-type OnSubscriptionCloseHandler = (ctx: import("../types").SubscriptionLifecycleContext) => void | Promise<void>;
+type OnSubscriptionOpenHandler = (
+  ctx: import("../types").SubscriptionLifecycleContext,
+) => void | Promise<void>;
+type OnSubscriptionCloseHandler = (
+  ctx: import("../types").SubscriptionLifecycleContext,
+) => void | Promise<void>;
+type OnSubscriptionMessageHandler<Routes extends RouteDefinition[] = []> = (
+  ctx: import("../types").SubscriptionMessageContext<Routes>,
+) => void | Promise<void>;
 
 export default class Core<Routes extends RouteDefinition[] = [], Macros extends MacroData = {}> {
   protected onRequestHandlers: OnRequestHandler[] = [];
@@ -64,6 +71,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
   protected onAfterResponseHandlers: OnAfterResponseHandler[] = [];
   protected onSubscriptionOpenHandlers: OnSubscriptionOpenHandler[] = [];
   protected onSubscriptionCloseHandlers: OnSubscriptionCloseHandler[] = [];
+  protected onSubscriptionMessageHandlers: OnSubscriptionMessageHandler<any>[] = [];
   public staticRoutesMap: Map<string, Response> = new Map();
 
   /**
@@ -165,6 +173,17 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
    */
   onSubscriptionClose(handler: OnSubscriptionCloseHandler): this {
     this.onSubscriptionCloseHandlers.push(handler);
+    return this;
+  }
+
+  /**
+   * Register a handler for the 'subscriptionMessage' lifecycle event
+   * Called when a message is received from a client in a subscription
+   * @param {OnSubscriptionMessageHandler} handler - Function to handle subscriptionMessage event
+   * @returns {this} Current instance
+   */
+  onSubscriptionMessage(handler: OnSubscriptionMessageHandler<Routes>): this {
+    this.onSubscriptionMessageHandlers.push(handler);
     return this;
   }
 
@@ -302,6 +321,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
     Headers extends ValidationSchema,
     DataSchema extends ValidationSchema,
     ErrorSchema extends ValidationSchema,
+    MessageSchema extends ValidationSchema,
     EnabledMacros extends keyof Macros = never,
     Handler extends (
       ctx: SubscriptionContext<
@@ -311,6 +331,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
           headers: Headers;
           data: DataSchema;
           error: ErrorSchema;
+          message: MessageSchema;
         },
         Macros,
         EnabledMacros
@@ -323,6 +344,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
           headers: Headers;
           data: DataSchema;
           error: ErrorSchema;
+          message: MessageSchema;
         },
         Macros,
         EnabledMacros
@@ -337,6 +359,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
       headers?: Headers;
       data?: DataSchema;
       error?: ErrorSchema;
+      message?: MessageSchema;
     } & { [K in EnabledMacros]?: true } = {} as any,
   ): Hedystia<
     [
@@ -349,6 +372,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
         headers: Headers extends ValidationSchema ? InferOutput<Headers> : {};
         data: DataSchema extends ValidationSchema ? InferOutput<DataSchema> : any;
         error: ErrorSchema extends ValidationSchema ? InferOutput<ErrorSchema> : undefined;
+        message: MessageSchema extends ValidationSchema ? InferOutput<MessageSchema> : any;
       },
     ],
     Macros
@@ -357,7 +381,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
 
     const hasMacros = Object.keys(schema).some(
       (key) =>
-        !["params", "query", "headers", "data", "error"].includes(key) &&
+        !["params", "query", "headers", "data", "error", "message"].includes(key) &&
         (schema as any)[key] === true,
     );
 
@@ -365,7 +389,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
       ? async (ctx: any) => {
           for (const key of Object.keys(schema)) {
             if (
-              !["params", "query", "headers", "data", "error"].includes(key) &&
+              !["params", "query", "headers", "data", "error", "message"].includes(key) &&
               (schema as any)[key] === true &&
               this.macros[key]
             ) {
@@ -393,6 +417,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
         headers: schema.headers,
         data: schema.data,
         error: schema.error,
+        message: schema.message,
       },
     });
 
@@ -435,6 +460,26 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
 
     this.server.publish(topic, message, compress);
   };
+
+  /**
+   * Tree-based publish API for WebSocket subscriptions.
+   * Usage: app.pubSub.data.messages({ data: { ... } })
+   */
+  get pubSub(): import("../types").PublishTree<Routes> {
+    const self = this;
+    const createProxy = (pathParts: string[] = []): any => {
+      return new Proxy(() => {}, {
+        get(_target, prop: string) {
+          return createProxy([...pathParts, prop]);
+        },
+        apply(_target, _thisArg, args) {
+          const path = "/" + pathParts.join("/");
+          self.publish(path as any, args[0]);
+        },
+      });
+    };
+    return createProxy() as import("../types").PublishTree<Routes>;
+  }
 
   public staticRoutes: { path: string; response: Response }[] = [];
 
