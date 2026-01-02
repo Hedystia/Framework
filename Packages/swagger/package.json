@@ -1,19 +1,19 @@
 {
   "name": "@hedystia/swagger",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "devDependencies": {
     "@types/bun": "^1.3.3",
     "tsup": "^8.3.5"
   },
   "dependencies": {
     "@apidevtools/swagger-parser": "^10.1.1",
-    "hedystia": "^1.8.0",
+    "hedystia": "^1.9.0",
     "openapi-types": "^12.1.3"
   },
   "peerDependencies": {
     "@apidevtools/swagger-parser": "^10.1.1",
     "typescript": ">= 5.0.0",
-    "hedystia": ">= 1.8.0",
+    "hedystia": ">= 1.9.0",
     "openapi-types": ">= 12.0.0"
   },
   "peerDependenciesMeta": {
