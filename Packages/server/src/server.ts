@@ -22,6 +22,7 @@ interface FrameworkOptions {
   reusePort?: boolean;
   cors?: CorsOptions | boolean;
   idleTimeout?: number;
+  sse?: boolean;
 }
 
 export class Hedystia<
@@ -30,24 +31,44 @@ export class Hedystia<
 > extends Core<Routes, _Macros> {
   private reusePort: boolean;
   private idleTimeout: number;
+  private sseMode: boolean;
   private router = new Router();
   private staticRoutesFast: Map<string, (req: Request) => any> = new Map();
   private isCompiled = false;
 
-  private activeConnections: Map<ServerWebSocket, {
-    lastPong: number;
-    subscriptions: Map<string, string>;
-  }> = new Map();
+  private activeConnections: Map<
+    ServerWebSocket,
+    {
+      lastPong: number;
+      subscriptions: Map<string, string>;
+    }
+  > = new Map();
+  private sseConnections: Map<
+    string,
+    {
+      controller: ReadableStreamDefaultController;
+      subscriptionId: string;
+      path: string;
+    }
+  > = new Map();
+  private messageHandlers: Map<
+    string,
+    {
+      callback: (message: any) => void | Promise<void>;
+      schema?: any;
+    }
+  > = new Map();
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private readonly PING_INTERVAL = 30000;
   private readonly PONG_TIMEOUT = 60000;
 
-
   constructor(options?: FrameworkOptions) {
     super();
     this.reusePort = options?.reusePort ?? false;
-    this.cors = options?.cors === false ? undefined : options?.cors === true ? {} : options?.cors ?? {};
+    this.cors =
+      options?.cors === false ? undefined : options?.cors === true ? {} : (options?.cors ?? {});
     this.idleTimeout = options?.idleTimeout ?? 10;
+    this.sseMode = options?.sse ?? false;
   }
 
   static createResponse(data: any, contentType?: string): Response {
@@ -418,6 +439,207 @@ export class Hedystia<
     return notFoundResponse;
   }
 
+  private registerSSERoutes(): void {
+    for (const [routePath, handlerData] of this.subscriptionHandlers.entries()) {
+      const sseHandler = async (req: Request, params: Record<string, string>) => {
+        const url = new URL(req.url);
+        const query = Object.fromEntries(url.searchParams.entries());
+        const rawHeaders: Record<string, string> = {};
+        req.headers.forEach((v, k) => {
+          rawHeaders[k.toLowerCase()] = v;
+        });
+
+        let validatedParams = params || {};
+        if (handlerData.schema.params) {
+          const result = handlerData.schema.params["~standard"].validate(params) as any;
+          if ("issues" in result) {
+            return new Response(JSON.stringify({ error: "Invalid params" }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          validatedParams = result.value;
+        }
+
+        let validatedQuery = query || {};
+        if (handlerData.schema.query) {
+          const result = handlerData.schema.query["~standard"].validate(query) as any;
+          if ("issues" in result) {
+            return new Response(JSON.stringify({ error: "Invalid query" }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          validatedQuery = result.value;
+        }
+
+        let validatedHeaders = rawHeaders || {};
+        if (handlerData.schema.headers) {
+          const result = handlerData.schema.headers["~standard"].validate(rawHeaders) as any;
+          if ("issues" in result) {
+            return new Response(JSON.stringify({ error: "Invalid headers" }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          validatedHeaders = result.value;
+        }
+
+        const subscriptionId = (Math.random() * 1e9).toString(36);
+        const topic = url.pathname;
+
+        let isClosed = false;
+
+        const stream = new ReadableStream({
+          start: (controller) => {
+            this.sseConnections.set(subscriptionId, {
+              controller,
+              subscriptionId,
+              path: topic,
+            });
+
+            (async () => {
+              const isActive = () => !isClosed && this.sseConnections.has(subscriptionId);
+              const publish = (data: any) => {
+                if (isActive()) {
+                  const msg = `data: ${JSON.stringify({ path: topic, data })}\n\n`;
+                  controller.enqueue(new TextEncoder().encode(msg));
+                }
+              };
+
+              await Promise.all(
+                this.onSubscriptionOpenHandlers.map(async (h) => {
+                  try {
+                    await h({
+                      path: topic,
+                      subscriptionId,
+                      ws: null as any,
+                      isActive,
+                      publish,
+                    });
+                  } catch (e) {
+                    console.error("[SSE] Error in subscriptionOpen handler:", e);
+                  }
+                }),
+              );
+
+              const ctx: SubscriptionContext<any> = {
+                ws: null as any,
+                req,
+                params: validatedParams,
+                query: validatedQuery,
+                headers: validatedHeaders,
+                body: undefined,
+                route: topic,
+                method: "SUB",
+                data: undefined,
+                errorData: undefined,
+                subscriptionId,
+                isActive,
+                error: (statusCode: number, message?: string): never => {
+                  throw { statusCode, message: message || "Error" };
+                },
+                sendData: (data: any) => {
+                  if (isActive()) {
+                    const msg = `data: ${JSON.stringify({ path: topic, data, subscriptionId })}\n\n`;
+                    controller.enqueue(new TextEncoder().encode(msg));
+                  }
+                },
+                sendError: (error: any) => {
+                  if (isActive()) {
+                    const msg = `data: ${JSON.stringify({ path: topic, error, subscriptionId })}\n\n`;
+                    controller.enqueue(new TextEncoder().encode(msg));
+                  }
+                },
+                onMessage: () => {
+                  throw new Error(
+                    "Cannot receive messages in SSE mode. Use WebSocket mode for bidirectional communication.",
+                  );
+                },
+              };
+
+              try {
+                const result = await handlerData.handler(ctx);
+                if (result !== undefined) {
+                  const msg = `data: ${JSON.stringify({ path: topic, data: result, subscriptionId })}\n\n`;
+                  controller.enqueue(new TextEncoder().encode(msg));
+                }
+              } catch (e) {
+                console.error("[SSE] Error in subscription handler:", e);
+              }
+            })();
+          },
+          cancel: async () => {
+            isClosed = true;
+            const connInfo = this.sseConnections.get(subscriptionId);
+            if (connInfo) {
+              this.sseConnections.delete(subscriptionId);
+              const isActive = () => false;
+              const publish = () => {};
+              await Promise.all(
+                this.onSubscriptionCloseHandlers.map(async (h) => {
+                  try {
+                    await h({
+                      path: topic,
+                      subscriptionId,
+                      ws: null as any,
+                      reason: "disconnect",
+                      isActive,
+                      publish,
+                    });
+                  } catch (e) {
+                    console.error("[SSE] Error in subscriptionClose handler:", e);
+                  }
+                }),
+              );
+            }
+          },
+        });
+
+        return new Response(stream, {
+          headers: {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+          },
+        });
+      };
+
+      this.router.add("GET", routePath, sseHandler);
+    }
+  }
+
+  public publishSSE(topic: string, data?: any, error?: any): void {
+    for (const [, conn] of this.sseConnections) {
+      if (this.matchPath(conn.path, topic)) {
+        try {
+          const msg =
+            data !== undefined
+              ? `data: ${JSON.stringify({ path: topic, data })}\n\n`
+              : `data: ${JSON.stringify({ path: topic, error })}\n\n`;
+          conn.controller.enqueue(new TextEncoder().encode(msg));
+        } catch {}
+      }
+    }
+  }
+
+  private matchPath(pattern: string, path: string): boolean {
+    const patternParts = pattern.split("/").filter(Boolean);
+    const pathParts = path.split("/").filter(Boolean);
+    if (patternParts.length !== pathParts.length) {
+      return false;
+    }
+    for (let i = 0; i < patternParts.length; i++) {
+      if (patternParts[i]?.startsWith(":")) {
+        continue;
+      }
+      if (patternParts[i] !== pathParts[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /**
    * Start HTTP server
    * @param {number} port - Server port number
@@ -431,6 +653,17 @@ export class Hedystia<
       throw new Error(
         "Listen only works in Bun runtime, please use @hedystia/adapter to work with other environments",
       );
+    }
+
+    if (this.sseMode) {
+      this.registerSSERoutes();
+      this.server = serve({
+        port,
+        reusePort: this.reusePort,
+        idleTimeout: this.idleTimeout,
+        fetch: (req) => this.fetch(req),
+      });
+      return this;
     }
 
     const hasWebSocket = this.wsRoutes.size > 0 || this.subscriptionHandlers.size > 0;
@@ -497,31 +730,42 @@ export class Hedystia<
       for (const [ws, connInfo] of this.activeConnections) {
         if (now - connInfo.lastPong > this.PONG_TIMEOUT) {
           (async () => {
-          await Promise.all(
-            Array.from(connInfo.subscriptions.entries()).map(async ([path, subscriptionId]) => {
-              const isActive = (): boolean => {
-                const conn = this.activeConnections.get(ws);
-                return conn?.subscriptions.has(path) ?? false;
-              };
-              const publish = (data: any, targetId?: string) => {
-                const msg = JSON.stringify({ path, data, subscriptionId: targetId || subscriptionId });
-                if (targetId) {
-                  ws.send(msg);
-                } else {
-                  ws.publish(path, msg);
-                }
-              };
-              await Promise.all(
-                this.onSubscriptionCloseHandlers.map(async (handler) => {
-                  try {
-                    await handler({ path, subscriptionId, ws, reason: "timeout", isActive, publish });
-                  } catch (e) {
-                    console.error("[WS] Error in subscriptionClose handler:", e);
+            await Promise.all(
+              Array.from(connInfo.subscriptions.entries()).map(async ([path, subscriptionId]) => {
+                const isActive = (): boolean => {
+                  const conn = this.activeConnections.get(ws);
+                  return conn?.subscriptions.has(path) ?? false;
+                };
+                const publish = (data: any, targetId?: string) => {
+                  const msg = JSON.stringify({
+                    path,
+                    data,
+                    subscriptionId: targetId || subscriptionId,
+                  });
+                  if (targetId) {
+                    ws.send(msg);
+                  } else {
+                    ws.publish(path, msg);
                   }
-                })
-              );
-            })
-          );
+                };
+                await Promise.all(
+                  this.onSubscriptionCloseHandlers.map(async (handler) => {
+                    try {
+                      await handler({
+                        path,
+                        subscriptionId,
+                        ws,
+                        reason: "timeout",
+                        isActive,
+                        publish,
+                      });
+                    } catch (e) {
+                      console.error("[WS] Error in subscriptionClose handler:", e);
+                    }
+                  }),
+                );
+              }),
+            );
           })();
           try {
             ws.close(1000, "Connection timeout - no pong received");
@@ -645,7 +889,11 @@ export class Hedystia<
             return conn?.subscriptions.has(topic) ?? false;
           };
           const publish = (data: any, targetId?: string) => {
-            const msg = JSON.stringify({ path: topic, data, subscriptionId: targetId || subscriptionId });
+            const msg = JSON.stringify({
+              path: topic,
+              data,
+              subscriptionId: targetId || subscriptionId,
+            });
             if (targetId) {
               ws.send(msg);
             } else {
@@ -659,7 +907,7 @@ export class Hedystia<
               } catch (e) {
                 console.error("[WS] Error in subscriptionOpen handler:", e);
               }
-            })
+            }),
           );
           const ctx: SubscriptionContext<any> = {
             ws,
@@ -679,7 +927,11 @@ export class Hedystia<
             },
             sendData: (data: any, targetId?: string) => {
               if (isActive()) {
-                const msg = JSON.stringify({ path: topic, data, subscriptionId: targetId || subscriptionId });
+                const msg = JSON.stringify({
+                  path: topic,
+                  data,
+                  subscriptionId: targetId || subscriptionId,
+                });
                 if (targetId) {
                   ws.send(msg);
                 } else {
@@ -689,7 +941,11 @@ export class Hedystia<
             },
             sendError: (error: any, targetId?: string) => {
               if (isActive()) {
-                const msg = JSON.stringify({ path: topic, error, subscriptionId: targetId || subscriptionId });
+                const msg = JSON.stringify({
+                  path: topic,
+                  error,
+                  subscriptionId: targetId || subscriptionId,
+                });
                 if (targetId) {
                   ws.send(msg);
                 } else {
@@ -697,11 +953,66 @@ export class Hedystia<
                 }
               }
             },
+            onMessage: (callback: (message: any) => void | Promise<void>) => {
+              this.messageHandlers.set(subscriptionId, {
+                callback,
+                schema: matchedSub.schema.message,
+              });
+            },
           };
 
           const result = await matchedSub.handler(ctx);
           if (result !== undefined) {
             ws.send(JSON.stringify({ path: topic, data: result, subscriptionId }));
+          }
+        } else if (type === "message") {
+          const { data } = subMessage;
+          const isActive = (): boolean => {
+            const conn = this.activeConnections.get(ws);
+            return conn?.subscriptions.has(topic) ?? false;
+          };
+          const sendData = (responseData: any) => {
+            if (isActive()) {
+              ws.send(JSON.stringify({ path: topic, data: responseData, subscriptionId }));
+            }
+          };
+          const sendError = (error: any) => {
+            if (isActive()) {
+              ws.send(JSON.stringify({ path: topic, error, subscriptionId }));
+            }
+          };
+
+          let validatedData = data;
+          const handlerInfo = this.messageHandlers.get(subscriptionId);
+          if (handlerInfo?.schema) {
+            const result = handlerInfo.schema["~standard"].validate(data) as any;
+            if ("issues" in result) {
+              console.error("[WS] Message validation error:", result.issues);
+              return;
+            }
+            validatedData = result.value;
+          }
+
+          await Promise.all(
+            this.onSubscriptionMessageHandlers.map(async (h) => {
+              try {
+                await h({
+                  path: topic,
+                  subscriptionId,
+                  ws,
+                  message: validatedData,
+                  isActive,
+                  sendData,
+                  sendError,
+                });
+              } catch (e) {
+                console.error("[WS] Error in subscriptionMessage handler:", e);
+              }
+            }),
+          );
+
+          if (handlerInfo) {
+            await handlerInfo.callback(validatedData);
           }
         } else if (type === "unsubscribe") {
           ws.unsubscribe(topic);
@@ -713,7 +1024,11 @@ export class Hedystia<
             if (subId) {
               const isActive = () => false;
               const publish = (data: any, targetId?: string) => {
-                const msg = JSON.stringify({ path: topic, data, subscriptionId: targetId || subId });
+                const msg = JSON.stringify({
+                  path: topic,
+                  data,
+                  subscriptionId: targetId || subId,
+                });
                 if (targetId) {
                   ws.send(msg);
                 } else {
@@ -723,11 +1038,18 @@ export class Hedystia<
               await Promise.all(
                 this.onSubscriptionCloseHandlers.map(async (handler) => {
                   try {
-                    await handler({ path: topic, subscriptionId: subId, ws, reason: "unsubscribe", isActive, publish });
+                    await handler({
+                      path: topic,
+                      subscriptionId: subId,
+                      ws,
+                      reason: "unsubscribe",
+                      isActive,
+                      publish,
+                    });
                   } catch (e) {
                     console.error("[WS] Error in subscriptionClose handler:", e);
                   }
-                })
+                }),
               );
             }
           }
@@ -761,7 +1083,11 @@ export class Hedystia<
             Array.from(connInfo.subscriptions.entries()).map(async ([path, subscriptionId]) => {
               const isActive = () => false;
               const publish = (data: any, targetId?: string) => {
-                const msg = JSON.stringify({ path, data, subscriptionId: targetId || subscriptionId });
+                const msg = JSON.stringify({
+                  path,
+                  data,
+                  subscriptionId: targetId || subscriptionId,
+                });
                 if (targetId) {
                   ws.send(msg);
                 } else {
@@ -771,13 +1097,20 @@ export class Hedystia<
               await Promise.all(
                 this.onSubscriptionCloseHandlers.map(async (closeHandler) => {
                   try {
-                    await closeHandler({ path, subscriptionId, ws, reason: "disconnect", isActive, publish });
+                    await closeHandler({
+                      path,
+                      subscriptionId,
+                      ws,
+                      reason: "disconnect",
+                      isActive,
+                      publish,
+                    });
                   } catch (e) {
                     console.error("[WS] Error in subscriptionClose handler:", e);
                   }
-                })
+                }),
               );
-            })
+            }),
           );
           this.activeConnections.delete(ws);
         }
