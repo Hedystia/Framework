@@ -8,4 +8,5 @@ export type RouteDefinition = {
   response?: unknown;
   data?: unknown;
   error?: unknown;
+  message?: unknown;
 };
