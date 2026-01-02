@@ -11,21 +11,20 @@ const app = new Framework()
   .onSubscriptionClose((ctx) => {
     lifecycleEvents.push(`close:${ctx.path}:${ctx.subscriptionId}:${ctx.reason}`);
   })
+  .onSubscriptionMessage((ctx) => {
+    lifecycleEvents.push(`message:${ctx.path}:${JSON.stringify(ctx.message)}`);
+  })
   .subscription("/data/basic", async () => {
     return "Test";
   })
   .post("/data/basic", async () => {
-    app.publish("/data/basic", {
-      data: "New data",
-    });
+    app.pubSub.data.basic({ data: "New data" });
     return new Response("Test");
   })
   .post(
     "/data/basic/body",
     async ({ body }) => {
-      app.publish("/data/basic", {
-        data: body.message,
-      });
+      app.pubSub.data.basic({ data: body.message });
       return new Response("Test");
     },
     {
@@ -57,9 +56,7 @@ const app = new Framework()
   .post(
     "/data/headers",
     async (ctx) => {
-      app.publish("/data/headers", {
-        data: ctx.headers["x-test"],
-      });
+      app.pubSub.data.headers({ data: ctx.headers["x-test"] });
       return new Response("Test");
     },
     {
@@ -118,6 +115,24 @@ const app = new Framework()
     }, 50);
     return { count: 0 };
   })
+  .subscription(
+    "/data/messages",
+    async (ctx) => {
+      ctx.onMessage((msg) => {
+        ctx.sendData({ received: msg.text, echo: true });
+      });
+      return { status: "ready" };
+    },
+    {
+      data: h.object({
+        received: h.string(),
+        echo: h.boolean(),
+      }),
+      message: h.object({
+        text: h.string(),
+      }),
+    },
+  )
   .listen(3024);
 
 const client = createClient<typeof app>("http://localhost:3024");
@@ -327,6 +342,24 @@ describe("Test subscriptions", () => {
     await wait(150);
     const countAfter = logs.length;
     expect(countAfter).toBe(countBefore);
+  });
+
+  it("should send and receive messages via send()", async () => {
+    logs = [];
+    const sub = client.data.messages.subscribe(({ data }) => {
+      if (data) {
+        logs.push(`received: ${data.received}, echo: ${data.echo}`);
+      }
+    });
+
+    await wait(100);
+    sub.send({ text: "Hello from client" });
+    await wait(200);
+
+    sub.unsubscribe();
+
+    expect(logs.some((l) => l.includes("Hello from client"))).toBe(true);
+    expect(lifecycleEvents.some((e) => e.includes("message:/data/messages:"))).toBe(true);
   });
 
   afterAll(() => {
