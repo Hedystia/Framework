@@ -1,12 +1,17 @@
 import type { Subscription, SubscriptionCallback, SubscriptionOptions } from "../types";
 import { generateUUID } from "../utils";
 
+type HandlerEntry = {
+  id: string;
+  callback: SubscriptionCallback;
+  options?: SubscriptionOptions;
+  unsubscribe: () => void;
+  send: (data: any) => void;
+};
+
 export class WebSocketManager {
   private ws?: WebSocket;
-  private handlers = new Map<
-    string,
-    Array<{ id: string; callback: SubscriptionCallback; options?: SubscriptionOptions }>
-  >();
+  private handlers = new Map<string, Array<HandlerEntry>>();
 
   private isConnected = false;
   private isPermanentlyClosed = false;
@@ -73,11 +78,16 @@ export class WebSocketManager {
           if (subscriptionId) {
             const handler = pathHandlers?.find((h) => h.id === subscriptionId);
             if (handler) {
-              handler.callback({ data, error });
+              handler.callback({
+                data,
+                error,
+                unsubscribe: handler.unsubscribe,
+                send: handler.send,
+              });
             }
           } else {
             for (const h of pathHandlers ?? []) {
-              h.callback({ data, error });
+              h.callback({ data, error, unsubscribe: h.unsubscribe, send: h.send });
             }
           }
         } catch (error) {
@@ -127,13 +137,6 @@ export class WebSocketManager {
 
     const id = generateUUID();
 
-    if (!this.handlers.has(path)) {
-      this.handlers.set(path, []);
-    }
-    this.handlers.get(path)!.push({ id, callback, options });
-
-    this.send({ type: "subscribe", path, ...options, subscriptionId: id });
-
     const unsubscribe = () => {
       const currentHandlers = this.handlers.get(path);
       if (!currentHandlers) {
@@ -153,6 +156,13 @@ export class WebSocketManager {
     const sendData = (data: any) => {
       this.send({ type: "message", path, data, subscriptionId: id });
     };
+
+    if (!this.handlers.has(path)) {
+      this.handlers.set(path, []);
+    }
+    this.handlers.get(path)!.push({ id, callback, options, unsubscribe, send: sendData });
+
+    this.send({ type: "subscribe", path, ...options, subscriptionId: id });
 
     return { unsubscribe, send: sendData };
   }

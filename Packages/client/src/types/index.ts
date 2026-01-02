@@ -2,7 +2,12 @@ import type { Hedystia, RouteDefinition } from "hedystia";
 
 export type ResponseFormat = "json" | "text" | "formData" | "bytes" | "arrayBuffer" | "blob";
 
-export type SubscriptionCallback = (event: { data?: any; error?: any }) => void;
+export type SubscriptionCallback<M = any> = (event: {
+  data?: any;
+  error?: any;
+  unsubscribe: () => void;
+  send: (data: M) => void;
+}) => void;
 export type SubscriptionOptions = { headers?: Record<string, any>; query?: Record<string, any> };
 export type Subscription<M = any> = { unsubscribe: () => void; send: (data: M) => void };
 
@@ -114,7 +119,12 @@ export type RouteToSubscription<RouteInfo> = RouteInfo extends [
 ]
   ? M extends "SUB"
     ? (
-        callback: (event: { data?: D; error?: E }) => void,
+        callback: (event: {
+          data?: D;
+          error?: E;
+          unsubscribe: () => void;
+          send: (data: Msg) => void;
+        }) => void,
         options?: SubscriptionOptions,
       ) => Subscription<Msg>
     : never

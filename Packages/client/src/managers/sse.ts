@@ -1,12 +1,19 @@
 import type { Subscription, SubscriptionCallback, SubscriptionOptions } from "../types";
 import { generateUUID } from "../utils";
 
+type HandlerEntry = {
+  id: string;
+  callback: SubscriptionCallback;
+  unsubscribe: () => void;
+  send: () => void;
+};
+
 export class SSEManager {
   private connections = new Map<
     string,
     {
       abortController: AbortController;
-      handlers: Array<{ id: string; callback: SubscriptionCallback }>;
+      handlers: Array<HandlerEntry>;
     }
   >();
   private baseUrl: string;
@@ -21,6 +28,10 @@ export class SSEManager {
     options?: SubscriptionOptions,
   ): Subscription {
     const id = generateUUID();
+
+    const send = () => {
+      throw new Error("Cannot send data in SSE mode. Use WebSocket mode to send data to server.");
+    };
 
     let url = `${this.baseUrl}${path}`;
     if (options?.query) {
@@ -71,7 +82,7 @@ export class SSEManager {
                   const conn = this.connections.get(path);
                   if (conn) {
                     for (const h of conn.handlers) {
-                      h.callback({ data, error });
+                      h.callback({ data, error, unsubscribe: h.unsubscribe, send: h.send });
                     }
                   }
                 } catch (e) {
@@ -88,8 +99,6 @@ export class SSEManager {
       })();
     }
 
-    connection.handlers.push({ id, callback });
-
     const unsubscribe = () => {
       const conn = this.connections.get(path);
       if (!conn) {
@@ -104,9 +113,7 @@ export class SSEManager {
       }
     };
 
-    const send = () => {
-      throw new Error("Cannot send data in SSE mode. Use WebSocket mode to send data to server.");
-    };
+    connection.handlers.push({ id, callback, unsubscribe, send });
 
     return { unsubscribe, send };
   }
