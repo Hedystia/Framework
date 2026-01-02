@@ -16,7 +16,6 @@ export class WebSocketManager {
   private isConnected = false;
   private isPermanentlyClosed = false;
   private connectionPromise: Promise<void> | null = null;
-  private pendingMessages: string[] = [];
 
   private reconnectAttempts = 0;
   private wsUrl: string;
@@ -38,45 +37,45 @@ export class WebSocketManager {
 
         if (this.reconnectAttempts > 0) {
           this.handlers.forEach((pathHandlers, path) => {
-            pathHandlers.forEach((handler) => {
-              this.send({
+            for (const handler of pathHandlers) {
+              this.sendMessage({
                 type: "subscribe",
                 path,
                 ...handler.options,
                 subscriptionId: handler.id,
               });
-            });
+            }
           });
         }
 
         this.reconnectAttempts = 0;
-
-        while (this.pendingMessages.length > 0) {
-          const message = this.pendingMessages.shift();
-          if (message) {
-            this.ws?.send(message);
-          }
-        }
         resolve();
       };
 
       this.ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
+
           if (message.type === "ping") {
-            this.send({ type: "pong" });
+            this.sendMessage({ type: "pong" });
             return;
           }
+
           const { path, data, error, subscriptionId } = message;
 
-          if (!path || !this.handlers.has(path)) {
+          if (!path) {
             return;
           }
 
           const pathHandlers = this.handlers.get(path);
+          if (!pathHandlers || pathHandlers.length === 0) {
+            return;
+          }
+
+          const snapshot = pathHandlers.slice();
 
           if (subscriptionId) {
-            const handler = pathHandlers?.find((h) => h.id === subscriptionId);
+            const handler = snapshot.find((h) => h.id === subscriptionId);
             if (handler) {
               handler.callback({
                 data,
@@ -86,7 +85,7 @@ export class WebSocketManager {
               });
             }
           } else {
-            for (const h of pathHandlers ?? []) {
+            for (const h of snapshot) {
               h.callback({ data, error, unsubscribe: h.unsubscribe, send: h.send });
             }
           }
@@ -112,19 +111,16 @@ export class WebSocketManager {
     });
   }
 
-  private ensureConnected() {
+  private ensureConnected(): Promise<void> {
     if (!this.connectionPromise) {
       this.connectionPromise = this.connect();
     }
+    return this.connectionPromise;
   }
 
-  private send(message: object) {
-    const stringifiedMessage = JSON.stringify(message);
-    if (this.isConnected) {
-      this.ws?.send(stringifiedMessage);
-    } else {
-      this.pendingMessages.push(stringifiedMessage);
-      this.ensureConnected();
+  private sendMessage(message: object) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(message));
     }
   }
 
@@ -133,8 +129,6 @@ export class WebSocketManager {
     callback: SubscriptionCallback,
     options?: SubscriptionOptions,
   ): Subscription {
-    this.ensureConnected();
-
     const id = generateUUID();
 
     const unsubscribe = () => {
@@ -143,26 +137,35 @@ export class WebSocketManager {
         return;
       }
 
-      const newHandlers = currentHandlers.filter((h) => h.id !== id);
+      const index = currentHandlers.findIndex((h) => h.id === id);
+      if (index !== -1) {
+        currentHandlers.splice(index, 1);
+      }
 
-      if (newHandlers.length > 0) {
-        this.handlers.set(path, newHandlers);
-      } else {
+      if (currentHandlers.length === 0) {
         this.handlers.delete(path);
-        this.send({ type: "unsubscribe", path });
+        if (this.isConnected) {
+          this.sendMessage({ type: "unsubscribe", path });
+        }
       }
     };
 
     const sendData = (data: any) => {
-      this.send({ type: "message", path, data, subscriptionId: id });
+      if (this.isConnected) {
+        this.sendMessage({ type: "message", path, data, subscriptionId: id });
+      }
     };
+
+    const handlerEntry: HandlerEntry = { id, callback, options, unsubscribe, send: sendData };
 
     if (!this.handlers.has(path)) {
       this.handlers.set(path, []);
     }
-    this.handlers.get(path)!.push({ id, callback, options, unsubscribe, send: sendData });
+    this.handlers.get(path)!.push(handlerEntry);
 
-    this.send({ type: "subscribe", path, ...options, subscriptionId: id });
+    this.ensureConnected().then(() => {
+      this.sendMessage({ type: "subscribe", path, ...options, subscriptionId: id });
+    });
 
     return { unsubscribe, send: sendData };
   }
@@ -186,6 +189,7 @@ export class WebSocketManager {
 
   public close() {
     this.isPermanentlyClosed = true;
+    this.handlers.clear();
     this.ws?.close();
   }
 }
