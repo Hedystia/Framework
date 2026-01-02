@@ -38,6 +38,7 @@ export type RouteSchema = {
   response?: ValidationSchema & { _type?: any };
   data?: ValidationSchema & { _type?: any };
   error?: ValidationSchema & { _type?: any };
+  message?: ValidationSchema & { _type?: any };
   description?: string;
   tags?: string[];
 };
@@ -173,10 +174,21 @@ export type SubscriptionContext<
   ws: ServerWebSocket;
   data: T["data"] extends ValidationSchema ? InferOutput<T["data"]> : any;
   errorData: T["error"] extends ValidationSchema ? InferOutput<T["error"]> : undefined;
-  sendData: (data: T["data"] extends ValidationSchema ? InferOutput<T["data"]> : any, targetId?: string) => void;
-  sendError: (error: T["error"] extends ValidationSchema ? InferOutput<T["error"]> : any, targetId?: string) => void;
+  sendData: (
+    data: T["data"] extends ValidationSchema ? InferOutput<T["data"]> : any,
+    targetId?: string,
+  ) => void;
+  sendError: (
+    error: T["error"] extends ValidationSchema ? InferOutput<T["error"]> : any,
+    targetId?: string,
+  ) => void;
   isActive: () => boolean;
   subscriptionId: string;
+  onMessage: (
+    callback: (
+      message: T["message"] extends ValidationSchema ? InferOutput<T["message"]> : any,
+    ) => void | Promise<void>,
+  ) => void;
 } & Pick<M, EnabledMacros>;
 export type SubscriptionHandler = (ctx: SubscriptionContext) => any | Promise<any>;
 
@@ -188,6 +200,59 @@ export type SubscriptionLifecycleContext = {
   isActive: () => boolean;
   publish: (data: any, targetId?: string) => void;
 };
+
+type ExtractSubscriptionMessageRoutes<Routes extends RouteDefinition[]> = {
+  [K in keyof Routes]: Routes[K] extends {
+    method: "SUB";
+    path: infer P;
+    params: infer Params;
+    data: infer D;
+    error: infer E;
+    message: infer M;
+  }
+    ? { path: ResolveParams<P & string, Params>; data: D; error: E; message: M }
+    : Routes[K] extends {
+          method: "SUB";
+          path: infer P;
+          params: infer Params;
+          data: infer D;
+          error: infer E;
+        }
+      ? { path: ResolveParams<P & string, Params>; data: D; error: E; message: any }
+      : Routes[K] extends { method: "SUB"; path: infer P }
+        ? { path: P; data: any; error: any; message: any }
+        : never;
+}[number];
+
+type SubscriptionMessageRouteToContext<T> = T extends {
+  path: infer P;
+  data: infer D;
+  error: infer E;
+  message: infer M;
+}
+  ? {
+      path: P;
+      subscriptionId: string;
+      ws: ServerWebSocket;
+      message: M;
+      isActive: () => boolean;
+      sendData: (data: D) => void;
+      sendError: (error: E) => void;
+    }
+  : never;
+
+export type SubscriptionMessageContext<Routes extends RouteDefinition[] = []> =
+  ExtractSubscriptionMessageRoutes<Routes> extends never
+    ? {
+        path: string;
+        subscriptionId: string;
+        ws: ServerWebSocket;
+        message: any;
+        isActive: () => boolean;
+        sendData: (data: any) => void;
+        sendError: (error: any) => void;
+      }
+    : SubscriptionMessageRouteToContext<ExtractSubscriptionMessageRoutes<Routes>>;
 
 type ResolveParams<Path extends string, Params = any> = Params extends Record<string, any>
   ? ResolveParamsWithTypes<Path, Params>
@@ -238,3 +303,68 @@ export type PublishMethod<Routes extends RouteDefinition[]> = <
     ? PublishOptions<D, E> & ({ data: D; error?: never } | { data?: never; error: E })
     : PublishOptions,
 ) => void;
+
+type PathParts<Path extends string> = Path extends `/${infer Rest}`
+  ? Rest extends ""
+    ? []
+    : PathPartsInner<Rest>
+  : [];
+
+type PathPartsInner<Path extends string> = Path extends `${infer Head}/${infer Tail}`
+  ? [Head, ...PathPartsInner<Tail>]
+  : [Path];
+
+type SubscriptionRouteToMeta<R extends RouteDefinition> = R extends {
+  method: "SUB";
+  path: infer P;
+  data: infer D;
+  error: infer E;
+  message: infer M;
+}
+  ? { path: P; data: D; error: E; message: M }
+  : R extends { method: "SUB"; path: infer P; data: infer D; error: infer E }
+    ? { path: P; data: D; error: E; message: any }
+    : R extends { method: "SUB"; path: infer P }
+      ? { path: P; data: any; error: any; message: any }
+      : never;
+
+type SegmentsToPublishNode<
+  Segments extends string[],
+  Meta extends { data: any; error: any },
+> = Segments extends [infer Head extends string, ...infer Tail extends string[]]
+  ? { [K in Head]: SegmentsToPublishNode<Tail, Meta> }
+  : (options: PublishOptions<Meta["data"], Meta["error"]>) => void;
+
+type SubscriptionRouteToTree<R extends RouteDefinition> = R extends { method: "SUB" }
+  ? SegmentsToPublishNode<PathParts<R["path"] & string>, { data: R["data"]; error: R["error"] }>
+  : {};
+
+type UnionToIntersectionServer<U> = (U extends any ? (k: U) => void : never) extends (
+  k: infer I,
+) => void
+  ? I
+  : never;
+
+export type PublishTree<Routes extends RouteDefinition[]> = UnionToIntersectionServer<
+  SubscriptionRouteToTree<Routes[number]>
+>;
+
+type SegmentsToMessageNode<
+  Segments extends string[],
+  Meta extends { data: any; error: any; message: any; path: string },
+> = Segments extends [infer Head extends string, ...infer Tail extends string[]]
+  ? { [K in Head]: SegmentsToMessageNode<Tail, Meta> }
+  : {
+      path: Meta["path"];
+      message: Meta["message"];
+      sendData: (data: Meta["data"]) => void;
+      sendError: (error: Meta["error"]) => void;
+    };
+
+type SubscriptionRouteToMessageTree<R extends RouteDefinition> = R extends { method: "SUB" }
+  ? SegmentsToMessageNode<PathParts<R["path"] & string>, SubscriptionRouteToMeta<R>>
+  : {};
+
+export type SubscriptionMessageTree<Routes extends RouteDefinition[]> = UnionToIntersectionServer<
+  SubscriptionRouteToMessageTree<Routes[number]>
+>;
