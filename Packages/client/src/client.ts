@@ -22,7 +22,7 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
 ): ClientTree<ExtractRoutesFromFramework<T>> {
   const HTTP_METHODS = ["get", "put", "post", "patch", "delete"];
   const subscriptionManager = clientOptions?.sse
-    ? new SSEManager(baseUrl)
+    ? new SSEManager(baseUrl, clientOptions?.credentials)
     : new WebSocketManager(baseUrl);
 
   const createProxy = (segments: string[] = []): any => {

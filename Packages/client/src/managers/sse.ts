@@ -17,9 +17,11 @@ export class SSEManager {
     }
   >();
   private baseUrl: string;
+  private credentials?: "omit" | "same-origin" | "include";
 
-  constructor(baseUrl: string) {
+  constructor(baseUrl: string, credentials?: "omit" | "same-origin" | "include") {
     this.baseUrl = baseUrl;
+    this.credentials = credentials;
   }
 
   public subscribe(
@@ -51,6 +53,7 @@ export class SSEManager {
               Accept: "text/event-stream",
               ...options?.headers,
             },
+            credentials: this.credentials,
             signal: abortController.signal,
           });
 
