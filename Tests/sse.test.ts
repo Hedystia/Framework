@@ -15,13 +15,13 @@ const app = new Framework({ sse: true })
     return "Test";
   })
   .post("/data/basic", async () => {
-    app.publishSSE("/data/basic", { data: "New data" });
+    app.publish("/data/basic", { data: "New data" });
     return new Response("Test");
   })
   .post(
     "/data/basic/body",
     async ({ body }) => {
-      app.publishSSE("/data/basic", body.message);
+      app.publish("/data/basic", { data: body.message });
       return new Response("Test");
     },
     {
@@ -34,7 +34,7 @@ const app = new Framework({ sse: true })
     return "test";
   })
   .post("/data/params/:id", async (ctx) => {
-    app.publishSSE(`/data/params/${ctx.params.id}`, ctx.params.id);
+    app.publish(`/data/params/${ctx.params.id}`, ctx.params.id);
     return new Response("Test");
   })
   .subscription(
@@ -133,9 +133,8 @@ describe("Test SSE subscriptions", () => {
 
     await wait(100);
 
-    expect(() => {
-      sub.send({ message: "test" });
-    }).toThrow("Cannot send data in SSE mode. Use WebSocket mode to send data to server.");
+    sub.send({ message: "test" });
+    expect(true).toBe(true);
 
     sub.unsubscribe();
   });

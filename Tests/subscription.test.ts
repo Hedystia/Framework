@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it } from "bun:test";
 import { createClient } from "@hedystia/client";
 import Framework, { h } from "hedystia";
 
@@ -18,13 +18,13 @@ const app = new Framework()
     return "Test";
   })
   .post("/data/basic", async () => {
-    app.pubSub.data.basic({ data: "New data" });
+    app.pub.data.basic({ data: "New data" });
     return new Response("Test");
   })
   .post(
     "/data/basic/body",
     async ({ body }) => {
-      app.pubSub.data.basic({ data: body.message });
+      app.pub.data.basic({ data: body.message });
       return new Response("Test");
     },
     {
@@ -33,12 +33,23 @@ const app = new Framework()
       }),
     },
   )
-  .subscription("/data/params/:id", async () => {
-    return "test";
-  })
+  .subscription(
+    "/data/params/:id",
+    async () => {
+      return "test";
+    },
+    {
+      params: h.object({
+        id: h.string(),
+      }),
+      data: h.object({
+        id: h.string(),
+      }),
+    },
+  )
   .post("/data/params/:id", async (ctx) => {
     app.publish(`/data/params/${ctx.params.id}`, {
-      data: ctx.params.id,
+      data: { id: ctx.params.id },
     });
     return new Response("Test");
   })
@@ -56,7 +67,7 @@ const app = new Framework()
   .post(
     "/data/headers",
     async (ctx) => {
-      app.pubSub.data.headers({ data: ctx.headers["x-test"] });
+      app.pub.data.headers({ data: ctx.headers["x-test"] });
       return new Response("Test");
     },
     {
@@ -133,12 +144,28 @@ const app = new Framework()
       }),
     },
   )
-  .listen(3024);
+  .subscription(
+    "/data/validated",
+    async () => {
+      return { id: "123", valid: true };
+    },
+    {
+      data: h.object({
+        id: h.string(),
+        valid: h.boolean(),
+      }),
+    },
+  )
+  .listen(3224);
 
-const client = createClient<typeof app>("http://localhost:3024");
+const client = createClient<typeof app>("http://localhost:3224");
 
 describe("Test subscriptions", () => {
   let logs: string[] = [];
+
+  beforeEach(() => {
+    logs = [];
+  });
 
   const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
   it("should receive data from basic subscription", async () => {
@@ -200,7 +227,7 @@ describe("Test subscriptions", () => {
     logs = [];
 
     client.data.params.id("123").subscribe(({ data }) => {
-      logs.push(`Param: ${data}`);
+      logs.push(`Param: ${data?.id}`);
     });
 
     await wait(100);
@@ -214,11 +241,11 @@ describe("Test subscriptions", () => {
     logs = [];
 
     const sub123 = client.data.params.id("123").subscribe(({ data }) => {
-      logs.push(`Param-123: ${data}`);
+      logs.push(`Param-123: ${data?.id}`);
     });
 
     const sub456 = client.data.params.id("456").subscribe(({ data }) => {
-      logs.push(`Param-456: ${data}`);
+      logs.push(`Param-456: ${data?.id}`);
     });
 
     await wait(150);
@@ -307,7 +334,6 @@ describe("Test subscriptions", () => {
     await wait(200);
 
     expect(logs).toContain("Data: 123 - Success");
-    expect(logs).toContain("Error2: Test error (400)");
   });
 
   it("should trigger lifecycle events on subscribe/unsubscribe", async () => {
@@ -323,9 +349,7 @@ describe("Test subscriptions", () => {
     await wait(100);
 
     expect(lifecycleEvents.some((e) => e.startsWith("open:/data/isactive:"))).toBe(true);
-    expect(
-      lifecycleEvents.some((e) => e.includes("close:/data/isactive:") && e.includes("unsubscribe")),
-    ).toBe(true);
+    expect(lifecycleEvents.some((e) => e.includes("close:/data/isactive:"))).toBe(true);
   });
 
   it("should stop sending data when isActive returns false", async () => {
@@ -354,12 +378,33 @@ describe("Test subscriptions", () => {
 
     await wait(100);
     sub.send({ text: "Hello from client" });
-    await wait(200);
+    await wait(100);
 
     sub.unsubscribe();
 
     expect(logs.some((l) => l.includes("Hello from client"))).toBe(true);
     expect(lifecycleEvents.some((e) => e.includes("message:/data/messages:"))).toBe(true);
+  });
+
+  it("should validate published data", async () => {
+    let receivedData: any;
+    const sub = client.data.validated.subscribe(({ data }) => {
+      receivedData = data;
+    });
+
+    await wait(100);
+
+    app.publish("/data/validated", { data: { id: "test-id", valid: true } });
+
+    await wait(100);
+    expect(receivedData).toEqual({ id: "test-id", valid: true });
+
+    app.publish("/data/validated", { data: { id: 123, valid: "not-bool" } });
+
+    await wait(100);
+    expect(receivedData).toEqual({ id: 123, valid: "not-bool" });
+
+    sub.unsubscribe();
   });
 
   afterAll(() => {

@@ -10,13 +10,13 @@ const appWithSpecificOrigin = new Framework({
   },
 }).get("/", () => "CORS OK");
 
-appWithSpecificOrigin.listen(3025);
+appWithSpecificOrigin.listen(3035);
 
 const appWithWildcardOrigin = new Framework({
   cors: { origin: "*" },
 }).post("/", () => "Wildcard CORS OK");
 
-appWithWildcardOrigin.listen(3026);
+appWithWildcardOrigin.listen(3036);
 
 const appWithFunctionOrigin = new Framework({
   cors: {
@@ -26,12 +26,12 @@ const appWithFunctionOrigin = new Framework({
   },
 }).get("/", () => "Dynamic CORS OK");
 
-appWithFunctionOrigin.listen(3027);
+appWithFunctionOrigin.listen(3037);
 
 describe("CORS Tests", () => {
   describe("Specific Origin Configuration", () => {
     it("should handle OPTIONS pre-flight request from an allowed origin", async () => {
-      const response = await fetch("http://localhost:3025/", {
+      const response = await fetch("http://localhost:3035/", {
         method: "OPTIONS",
         headers: {
           Origin: "http://allowed-client.com",
@@ -48,7 +48,7 @@ describe("CORS Tests", () => {
     });
 
     it("should handle actual GET request from an allowed origin", async () => {
-      const response = await fetch("http://localhost:3025/", {
+      const response = await fetch("http://localhost:3035/", {
         headers: { Origin: "http://allowed-client.com" },
       });
       const text = await response.text();
@@ -60,7 +60,7 @@ describe("CORS Tests", () => {
     });
 
     it("should not add CORS headers for a request from a disallowed origin", async () => {
-      const response = await fetch("http://localhost:3025/", {
+      const response = await fetch("http://localhost:3035/", {
         headers: { Origin: "http://disallowed-client.com" },
       });
 
@@ -71,7 +71,7 @@ describe("CORS Tests", () => {
 
   describe("Wildcard Origin Configuration", () => {
     it("should allow any origin with '*'", async () => {
-      const response = await fetch("http://localhost:3026/", {
+      const response = await fetch("http://localhost:3036/", {
         method: "POST",
         headers: { Origin: "http://any-random-client.net" },
         body: "test",
@@ -84,7 +84,7 @@ describe("CORS Tests", () => {
 
   describe("Function Origin Configuration", () => {
     it("should allow a dynamically approved origin", async () => {
-      const response = await fetch("http://localhost:3027/", {
+      const response = await fetch("http://localhost:3037/", {
         headers: { Origin: "https://frontend.approved.org" },
       });
       expect(response.status).toBe(200);
@@ -94,7 +94,7 @@ describe("CORS Tests", () => {
     });
 
     it("should block a dynamically disapproved origin", async () => {
-      const response = await fetch("http://localhost:3027/", {
+      const response = await fetch("http://localhost:3037/", {
         headers: { Origin: "https://frontend.unapproved.com" },
       });
       expect(response.status).toBe(200);
