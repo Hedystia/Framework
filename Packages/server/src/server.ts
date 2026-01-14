@@ -58,9 +58,27 @@ export class Hedystia<
       schema?: any;
     }
   > = new Map();
+  private pendingDisconnections: Map<
+    string,
+    {
+      timeout: ReturnType<typeof setTimeout>;
+      path: string;
+      subscriptionId: string;
+      ws: ServerWebSocket;
+    }
+  > = new Map();
+  private pendingActivityChecks: Map<
+    string,
+    {
+      resolve: (value: boolean) => void;
+      timeout: ReturnType<typeof setTimeout>;
+    }
+  > = new Map();
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private readonly PING_INTERVAL = 30000;
   private readonly PONG_TIMEOUT = 60000;
+  private readonly RECONNECT_GRACE_PERIOD = 30000;
+  private readonly ACTIVITY_CHECK_TIMEOUT = 5000;
 
   constructor(options?: FrameworkOptions) {
     super();
@@ -499,9 +517,9 @@ export class Hedystia<
             });
 
             (async () => {
-              const isActive = () => !isClosed && this.sseConnections.has(subscriptionId);
+              const isActive = async () => !isClosed && this.sseConnections.has(subscriptionId);
               const publish = (data: any) => {
-                if (isActive()) {
+                if (!isClosed && this.sseConnections.has(subscriptionId)) {
                   const msg = `data: ${JSON.stringify({ path: topic, data })}\n\n`;
                   controller.enqueue(new TextEncoder().encode(msg));
                 }
@@ -539,14 +557,14 @@ export class Hedystia<
                 error: (statusCode: number, message?: string): never => {
                   throw { statusCode, message: message || "Error" };
                 },
-                sendData: (data: any) => {
-                  if (isActive()) {
+                sendData: async (data: any) => {
+                  if (!isClosed && this.sseConnections.has(subscriptionId)) {
                     const msg = `data: ${JSON.stringify({ path: topic, data, subscriptionId })}\n\n`;
                     controller.enqueue(new TextEncoder().encode(msg));
                   }
                 },
-                sendError: (error: any) => {
-                  if (isActive()) {
+                sendError: async (error: any) => {
+                  if (!isClosed && this.sseConnections.has(subscriptionId)) {
                     const msg = `data: ${JSON.stringify({ path: topic, error, subscriptionId })}\n\n`;
                     controller.enqueue(new TextEncoder().encode(msg));
                   }
@@ -574,7 +592,7 @@ export class Hedystia<
             const connInfo = this.sseConnections.get(subscriptionId);
             if (connInfo) {
               this.sseConnections.delete(subscriptionId);
-              const isActive = () => false;
+              const isActive = async () => false;
               const publish = () => {};
               await Promise.all(
                 this.onSubscriptionCloseHandlers.map(async (h) => {
@@ -732,9 +750,8 @@ export class Hedystia<
           (async () => {
             await Promise.all(
               Array.from(connInfo.subscriptions.entries()).map(async ([path, subscriptionId]) => {
-                const isActive = (): boolean => {
-                  const conn = this.activeConnections.get(ws);
-                  return conn?.subscriptions.has(path) ?? false;
+                const isActive = async (): Promise<boolean> => {
+                  return this.checkActivity(ws, subscriptionId);
                 };
                 const publish = (data: any, targetId?: string) => {
                   const msg = JSON.stringify({
@@ -780,6 +797,37 @@ export class Hedystia<
     }, this.PING_INTERVAL);
   }
 
+  private checkActivity(ws: ServerWebSocket, subscriptionId: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const checkId = `${subscriptionId}-${Date.now()}`;
+
+      const conn = this.activeConnections.get(ws);
+      if (!conn) {
+        if (this.pendingDisconnections.has(subscriptionId)) {
+          resolve(true);
+          return;
+        }
+        resolve(false);
+        return;
+      }
+
+      const timeout = setTimeout(() => {
+        this.pendingActivityChecks.delete(checkId);
+        resolve(false);
+      }, this.ACTIVITY_CHECK_TIMEOUT);
+
+      this.pendingActivityChecks.set(checkId, { resolve, timeout });
+
+      try {
+        ws.send(JSON.stringify({ type: "activity_check", checkId }));
+      } catch {
+        clearTimeout(timeout);
+        this.pendingActivityChecks.delete(checkId);
+        resolve(false);
+      }
+    });
+  }
+
   private createWebSocketHandlers() {
     return {
       message: async (ws: ServerWebSocket, message: string | ArrayBuffer | Uint8Array) => {
@@ -792,6 +840,16 @@ export class Hedystia<
         try {
           subMessage = JSON.parse(message.toString());
         } catch {
+          return;
+        }
+
+        if (subMessage.type === "activity_check_response" && subMessage.checkId) {
+          const pending = this.pendingActivityChecks.get(subMessage.checkId);
+          if (pending) {
+            clearTimeout(pending.timeout);
+            pending.resolve(true);
+            this.pendingActivityChecks.delete(subMessage.checkId);
+          }
           return;
         }
 
@@ -884,9 +942,16 @@ export class Hedystia<
           }
           const connInfo = this.activeConnections.get(ws)!;
           connInfo.subscriptions.set(topic, subscriptionId);
-          const isActive = (): boolean => {
-            const conn = this.activeConnections.get(ws);
-            return conn?.subscriptions.has(topic) ?? false;
+
+          const pendingKey = subscriptionId;
+          const pending = this.pendingDisconnections.get(pendingKey);
+          if (pending) {
+            clearTimeout(pending.timeout);
+            this.pendingDisconnections.delete(pendingKey);
+          }
+
+          const isActive = async (): Promise<boolean> => {
+            return this.checkActivity(ws, subscriptionId);
           };
           const publish = (data: any, targetId?: string) => {
             const msg = JSON.stringify({
@@ -900,15 +965,18 @@ export class Hedystia<
               ws.publish(topic, msg);
             }
           };
-          await Promise.all(
-            this.onSubscriptionOpenHandlers.map(async (handler) => {
-              try {
-                await handler({ path: topic, subscriptionId, ws, isActive, publish });
-              } catch (e) {
-                console.error("[WS] Error in subscriptionOpen handler:", e);
-              }
-            }),
-          );
+
+          if (!pending) {
+            await Promise.all(
+              this.onSubscriptionOpenHandlers.map(async (handler) => {
+                try {
+                  await handler({ path: topic, subscriptionId, ws, isActive, publish });
+                } catch (e) {
+                  console.error("[WS] Error in subscriptionOpen handler:", e);
+                }
+              }),
+            );
+          }
           const ctx: SubscriptionContext<any> = {
             ws,
             req: ws.data.request,
@@ -925,8 +993,8 @@ export class Hedystia<
             error: (statusCode: number, message?: string): never => {
               throw { statusCode, message: message || "Error" };
             },
-            sendData: (data: any, targetId?: string) => {
-              if (isActive()) {
+            sendData: async (data: any, targetId?: string) => {
+              if (await isActive()) {
                 const msg = JSON.stringify({
                   path: topic,
                   data,
@@ -939,8 +1007,8 @@ export class Hedystia<
                 }
               }
             },
-            sendError: (error: any, targetId?: string) => {
-              if (isActive()) {
+            sendError: async (error: any, targetId?: string) => {
+              if (await isActive()) {
                 const msg = JSON.stringify({
                   path: topic,
                   error,
@@ -967,17 +1035,16 @@ export class Hedystia<
           }
         } else if (type === "message") {
           const { data } = subMessage;
-          const isActive = (): boolean => {
-            const conn = this.activeConnections.get(ws);
-            return conn?.subscriptions.has(topic) ?? false;
+          const isActive = async (): Promise<boolean> => {
+            return this.checkActivity(ws, subscriptionId);
           };
-          const sendData = (responseData: any) => {
-            if (isActive()) {
+          const sendData = async (responseData: any) => {
+            if (await isActive()) {
               ws.send(JSON.stringify({ path: topic, data: responseData, subscriptionId }));
             }
           };
-          const sendError = (error: any) => {
-            if (isActive()) {
+          const sendError = async (error: any) => {
+            if (await isActive()) {
               ws.send(JSON.stringify({ path: topic, error, subscriptionId }));
             }
           };
@@ -1022,7 +1089,7 @@ export class Hedystia<
             const subId = connInfo.subscriptions.get(topic);
             connInfo.subscriptions.delete(topic);
             if (subId) {
-              const isActive = () => false;
+              const isActive = async () => false;
               const publish = (data: any, targetId?: string) => {
                 const msg = JSON.stringify({
                   path: topic,
@@ -1079,9 +1146,13 @@ export class Hedystia<
         }
         const connInfo = this.activeConnections.get(ws);
         if (connInfo) {
-          await Promise.all(
-            Array.from(connInfo.subscriptions.entries()).map(async ([path, subscriptionId]) => {
-              const isActive = () => false;
+          for (const [path, subscriptionId] of connInfo.subscriptions.entries()) {
+            const pendingKey = subscriptionId;
+
+            const timeout = setTimeout(async () => {
+              this.pendingDisconnections.delete(pendingKey);
+
+              const isActive = async () => false;
               const publish = (data: any, targetId?: string) => {
                 const msg = JSON.stringify({
                   path,
@@ -1089,11 +1160,16 @@ export class Hedystia<
                   subscriptionId: targetId || subscriptionId,
                 });
                 if (targetId) {
-                  ws.send(msg);
+                  try {
+                    ws.send(msg);
+                  } catch {}
                 } else {
-                  ws.publish(path, msg);
+                  try {
+                    ws.publish(path, msg);
+                  } catch {}
                 }
               };
+
               await Promise.all(
                 this.onSubscriptionCloseHandlers.map(async (closeHandler) => {
                   try {
@@ -1110,8 +1186,15 @@ export class Hedystia<
                   }
                 }),
               );
-            }),
-          );
+            }, this.RECONNECT_GRACE_PERIOD);
+
+            this.pendingDisconnections.set(pendingKey, {
+              timeout,
+              path,
+              subscriptionId,
+              ws,
+            });
+          }
           this.activeConnections.delete(ws);
         }
       },

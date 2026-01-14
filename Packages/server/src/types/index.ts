@@ -182,7 +182,7 @@ export type SubscriptionContext<
     error: T["error"] extends ValidationSchema ? InferOutput<T["error"]> : any,
     targetId?: string,
   ) => void;
-  isActive: () => boolean;
+  isActive: () => Promise<boolean>;
   subscriptionId: string;
   onMessage: (
     callback: (
@@ -197,7 +197,7 @@ export type SubscriptionLifecycleContext = {
   subscriptionId: string;
   ws: ServerWebSocket;
   reason?: "disconnect" | "timeout" | "unsubscribe" | "error";
-  isActive: () => boolean;
+  isActive: () => Promise<boolean>;
   publish: (data: any, targetId?: string) => void;
 };
 
@@ -235,7 +235,7 @@ type SubscriptionMessageRouteToContext<T> = T extends {
       subscriptionId: string;
       ws: ServerWebSocket;
       message: M;
-      isActive: () => boolean;
+      isActive: () => Promise<boolean>;
       sendData: (data: D) => void;
       sendError: (error: E) => void;
     }
@@ -248,7 +248,7 @@ export type SubscriptionMessageContext<Routes extends RouteDefinition[] = []> =
         subscriptionId: string;
         ws: ServerWebSocket;
         message: any;
-        isActive: () => boolean;
+        isActive: () => Promise<boolean>;
         sendData: (data: any) => void;
         sendError: (error: any) => void;
       }
