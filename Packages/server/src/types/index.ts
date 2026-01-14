@@ -185,7 +185,6 @@ export type SubscriptionContext<
   ) => void;
   isActive: () => Promise<boolean>;
   subscriptionId: string;
-  isReconnect: boolean;
   onMessage: (
     callback: (
       message: T["message"] extends ValidationSchema ? InferOutput<T["message"]> : any,
@@ -201,7 +200,6 @@ export type SubscriptionLifecycleContext = {
   reason?: "disconnect" | "timeout" | "unsubscribe" | "error";
   isActive: () => Promise<boolean>;
   publish: (data: any, targetId?: string) => void;
-  isReconnect?: boolean;
 };
 
 type ExtractSubscriptionMessageRoutes<Routes extends RouteDefinition[]> = {

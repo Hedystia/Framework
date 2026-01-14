@@ -605,7 +605,6 @@ export class Hedystia<
                 data: undefined,
                 errorData: undefined,
                 subscriptionId,
-                isReconnect: false,
                 isActive,
                 error: (statusCode: number, message?: string): never => {
                   throw { statusCode, message: message || "Error" };
@@ -682,7 +681,6 @@ export class Hedystia<
                       reason: "disconnect",
                       isActive,
                       publish,
-                      isReconnect: false,
                     });
                   } catch (e) {
                     console.error("[SSE] Error in subscriptionClose handler:", e);
@@ -1063,7 +1061,6 @@ export class Hedystia<
             data: undefined,
             errorData: undefined,
             subscriptionId,
-            isReconnect: !!pending,
             isActive,
             publish: this.publish,
             error: (statusCode: number, message?: string): never => {
@@ -1105,17 +1102,19 @@ export class Hedystia<
             },
           };
 
-          try {
-            const result = await matchedSub.handler(ctx);
-            if (result !== undefined) {
-              ws.send(JSON.stringify({ path: topic, data: result, subscriptionId }));
+          if (!pending) {
+            try {
+              const result = await matchedSub.handler(ctx);
+              if (result !== undefined) {
+                ws.send(JSON.stringify({ path: topic, data: result, subscriptionId }));
+              }
+            } catch (e: any) {
+              const error = {
+                message: e.message || "Internal Server Error",
+                code: e.statusCode || 500,
+              };
+              ws.send(JSON.stringify({ path: topic, error, subscriptionId }));
             }
-          } catch (e: any) {
-            const error = {
-              message: e.message || "Internal Server Error",
-              code: e.statusCode || 500,
-            };
-            ws.send(JSON.stringify({ path: topic, error, subscriptionId }));
           }
         } else if (type === "message") {
           this.log("debug", "Message received on subscription", { path: topic, subscriptionId });
@@ -1204,7 +1203,6 @@ export class Hedystia<
                       reason: "unsubscribe",
                       isActive,
                       publish,
-                      isReconnect: false,
                     });
                   } catch (e) {
                     console.error("[WS] Error in subscriptionClose handler:", e);
@@ -1283,7 +1281,6 @@ export class Hedystia<
                       reason: "disconnect",
                       isActive,
                       publish,
-                      isReconnect: false,
                     });
                   } catch (e) {
                     console.error("[WS] Error in subscriptionClose handler:", e);
