@@ -34,7 +34,7 @@ export class SubscriptionManager {
   private baseUrl: string;
   private credentials?: "omit" | "same-origin" | "include";
   private sse: boolean;
-  private readonly MIN_RECONNECT_DELAY = 1000;
+  private readonly MIN_RECONNECT_DELAY = 100;
   private readonly HEARTBEAT_INTERVAL = 25000;
   private debugLevel: DebugLevel;
 
