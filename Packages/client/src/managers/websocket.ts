@@ -15,6 +15,7 @@ export class WebSocketManager {
 
   private isConnected = false;
   private isPermanentlyClosed = false;
+  private isReconnecting = false;
   private connectionPromise: Promise<void> | null = null;
 
   private reconnectAttempts = 0;
@@ -34,6 +35,7 @@ export class WebSocketManager {
 
       this.ws.onopen = () => {
         this.isConnected = true;
+        this.isReconnecting = false;
 
         if (this.reconnectAttempts > 0) {
           this.handlers.forEach((pathHandlers, path) => {
@@ -58,6 +60,11 @@ export class WebSocketManager {
 
           if (message.type === "ping") {
             this.sendMessage({ type: "pong" });
+            return;
+          }
+
+          if (message.type === "activity_check" && message.checkId) {
+            this.sendMessage({ type: "activity_check_response", checkId: message.checkId });
             return;
           }
 
@@ -97,7 +104,7 @@ export class WebSocketManager {
       this.ws.onclose = () => {
         this.isConnected = false;
         this.connectionPromise = null;
-        if (!this.isPermanentlyClosed) {
+        if (!this.isPermanentlyClosed && !this.isReconnecting) {
           this.scheduleReconnect();
         }
       };
@@ -171,18 +178,24 @@ export class WebSocketManager {
   }
 
   private scheduleReconnect() {
+    if (this.isReconnecting || this.isPermanentlyClosed) {
+      return;
+    }
+
     if (this.reconnectAttempts >= 5) {
       console.error("[WS] Maximum reconnect attempts reached. Closing permanently.");
       this.close();
       return;
     }
 
+    this.isReconnecting = true;
     const delay = 2 ** this.reconnectAttempts * 1000;
     this.reconnectAttempts++;
 
     console.log(`[WS] Connection lost. Attempting to reconnect in ${delay / 1000}s...`);
 
     setTimeout(() => {
+      this.isReconnecting = false;
       this.ensureConnected();
     }, delay);
   }
