@@ -76,7 +76,7 @@ export class Hedystia<
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private readonly PING_INTERVAL = 30000;
   private readonly PONG_TIMEOUT = 60000;
-  private readonly RECONNECT_GRACE_PERIOD = 30000;
+  private readonly RECONNECT_GRACE_PERIOD = 5000;
   private readonly ACTIVITY_CHECK_TIMEOUT = 5000;
 
   constructor(options?: FrameworkOptions) {
@@ -847,20 +847,43 @@ export class Hedystia<
 
   private checkActivity(ws: ServerWebSocket, subscriptionId: string): Promise<boolean> {
     return new Promise((resolve) => {
-      const checkId = `${subscriptionId}-${Date.now()}`;
-
       const conn = this.activeConnections.get(ws);
+
+      if (conn?.subscriptions.has(subscriptionId)) {
+        this.log("debug", "Activity check: connection active", { subscriptionId });
+        resolve(true);
+        return;
+      }
+
+      const pending = this.pendingDisconnections.get(subscriptionId);
+      if (pending) {
+        this.log("debug", "Activity check: in reconnect grace period - waiting for reconnection", {
+          subscriptionId,
+        });
+        const waitTimeout = setTimeout(() => {
+          resolve(false);
+        }, this.RECONNECT_GRACE_PERIOD);
+
+        const checkReconnect = setInterval(() => {
+          const updatedConn = this.activeConnections.get(ws);
+          if (updatedConn?.subscriptions.has(subscriptionId)) {
+            clearTimeout(waitTimeout);
+            clearInterval(checkReconnect);
+            this.log("debug", "Activity check: reconnected successfully", { subscriptionId });
+            resolve(true);
+          }
+        }, 100);
+
+        return;
+      }
+
       if (!conn) {
-        if (this.pendingDisconnections.has(subscriptionId)) {
-          this.log("debug", "Activity check on pending disconnection");
-          resolve(true);
-          return;
-        }
-        this.log("debug", "Activity check failed - no connection");
+        this.log("debug", "Activity check: no connection found", { subscriptionId });
         resolve(false);
         return;
       }
 
+      const checkId = `${subscriptionId}-${Date.now()}`;
       const timeout = setTimeout(() => {
         this.log("warn", "Activity check timeout", { checkId, subscriptionId });
         this.pendingActivityChecks.delete(checkId);
@@ -875,7 +898,7 @@ export class Hedystia<
       } catch {
         clearTimeout(timeout);
         this.pendingActivityChecks.delete(checkId);
-        this.log("error", "Failed to send activity check", { checkId });
+        this.log("error", "Failed to send activity check - connection likely closed", { checkId });
         resolve(false);
       }
     });
