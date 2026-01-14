@@ -163,4 +163,3 @@ MIT License © 2025 Hedystia
 ## 🗣️ Community
 - [GitHub Issues](https://github.com/Hedystia/Framework/issues)
 - [Discord Server](https://hedystia.com/support)
-
