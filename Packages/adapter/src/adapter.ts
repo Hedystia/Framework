@@ -161,7 +161,9 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
       if (typeof value === "string") {
         headers.set(key, value);
       } else if (Array.isArray(value)) {
-        value.forEach((v) => headers.append(key, v));
+        for (const v of value) {
+          headers.append(key, v);
+        }
       }
     }
 
@@ -180,13 +182,15 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
   private nodeToRequest(req: any, prefix: string): Request {
     const url = new URL(prefix + req.url, `http://${req.headers.host || "localhost"}`);
     const headers = new Headers();
-    Object.entries(req.headers).forEach(([key, value]) => {
+    for (const [key, value] of Object.entries(req.headers)) {
       if (Array.isArray(value)) {
-        value.forEach((v) => headers.append(key, v));
+        for (const v of value) {
+          headers.append(key, v);
+        }
       } else if (value !== undefined) {
         headers.set(key, String(value));
       }
-    });
+    }
 
     let body: any = null;
     if (req.body && req.method !== "GET" && req.method !== "HEAD") {
@@ -197,7 +201,6 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
       method: req.method,
       headers,
       body,
-      // @ts-ignore - for Node.js compatibility
       duplex: "half",
     });
   }
@@ -218,14 +221,16 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
     );
 
     if (event.queryStringParameters) {
-      Object.entries(event.queryStringParameters).forEach(([key, value]) => {
+      for (const [key, value] of Object.entries(event.queryStringParameters)) {
         url.searchParams.append(key, String(value));
-      });
+      }
     }
 
     const headers = new Headers();
     if (event.headers) {
-      Object.entries(event.headers).forEach(([key, value]) => headers.set(key, String(value)));
+      for (const [key, value] of Object.entries(event.headers)) {
+        headers.set(key, String(value));
+      }
     }
 
     const body = event.isBase64Encoded ? Buffer.from(event.body, "base64") : event.body;
@@ -239,9 +244,9 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
 
   private async responseToLambda(response: Response) {
     const headers: Record<string, string> = {};
-    response.headers.forEach((value, key) => {
+    for (const [key, value] of response.headers) {
       headers[key] = value;
-    });
+    }
 
     const bodyBuffer = await response.arrayBuffer();
     const isBase64Encoded = this.isBinary(response.headers.get("content-type"));
