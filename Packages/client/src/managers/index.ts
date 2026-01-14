@@ -1,2 +1,1 @@
-export { SSEManager } from "./sse";
-export { WebSocketManager } from "./websocket";
+export { SubscriptionManager } from "./subscription";

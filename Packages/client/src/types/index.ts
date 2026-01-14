@@ -8,7 +8,12 @@ export type SubscriptionCallback<M = any> = (event: {
   unsubscribe: () => void;
   send: (data: M) => void;
 }) => void;
-export type SubscriptionOptions = { headers?: Record<string, any>; query?: Record<string, any> };
+export type SubscriptionOptions = {
+  headers?: Record<string, any>;
+  query?: Record<string, any>;
+  onMessage?: (message: any) => void;
+  sse?: boolean;
+};
 export type Subscription<M = any> = { unsubscribe: () => void; send: (data: M) => void };
 
 export type PathParts<Path extends string> = Path extends `/${infer Rest}`

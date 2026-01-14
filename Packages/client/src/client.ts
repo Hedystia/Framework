@@ -1,5 +1,5 @@
 import type { Hedystia, RouteDefinition } from "hedystia";
-import { SSEManager, WebSocketManager } from "./managers";
+import { SubscriptionManager } from "./managers";
 import type {
   ClientTree,
   ExtractRoutesFromFramework,
@@ -21,9 +21,11 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
   },
 ): ClientTree<ExtractRoutesFromFramework<T>> {
   const HTTP_METHODS = ["get", "put", "post", "patch", "delete"];
-  const subscriptionManager = clientOptions?.sse
-    ? new SSEManager(baseUrl, clientOptions?.credentials)
-    : new WebSocketManager(baseUrl);
+  const subscriptionManager = new SubscriptionManager(
+    baseUrl,
+    clientOptions?.credentials,
+    clientOptions?.sse,
+  );
 
   const createProxy = (segments: string[] = []): any => {
     const proxyTarget = () => {};
