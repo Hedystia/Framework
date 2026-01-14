@@ -23,6 +23,7 @@ interface FrameworkOptions {
   cors?: CorsOptions | boolean;
   idleTimeout?: number;
   sse?: boolean;
+  debugLevel?: "none" | "debug" | "warn" | "log" | "error";
 }
 
 type WebSocketData = {
@@ -40,6 +41,7 @@ export class Hedystia<
   private router = new Router();
   private staticRoutesFast: Map<string, (req: Request) => any> = new Map();
   private isCompiled = false;
+  private debugLevel: "none" | "debug" | "warn" | "log" | "error";
 
   private activeConnections: Map<
     ServerWebSocket,
@@ -84,6 +86,33 @@ export class Hedystia<
       options?.cors === false ? undefined : options?.cors === true ? {} : (options?.cors ?? {});
     this.idleTimeout = options?.idleTimeout ?? 10;
     this.sseMode = options?.sse ?? false;
+    this.debugLevel = options?.debugLevel ?? "none";
+  }
+
+  private log(level: "debug" | "warn" | "log" | "error", message: string, data?: any) {
+    if (this.debugLevel === "none") {
+      return;
+    }
+
+    const levels: Record<"debug" | "warn" | "log" | "error", number> = {
+      debug: 0,
+      log: 1,
+      warn: 2,
+      error: 3,
+    };
+    const currentLevel = levels[this.debugLevel];
+    const messageLevel = levels[level];
+
+    if (messageLevel < currentLevel) {
+      return;
+    }
+
+    const prefix = `[${level.toUpperCase()}]`;
+    if (data !== undefined) {
+      console[level === "debug" ? "log" : level](prefix, message, data);
+    } else {
+      console[level === "debug" ? "log" : level](prefix, message);
+    }
   }
 
   static createResponse(data: any, contentType?: string): Response {
@@ -576,6 +605,7 @@ export class Hedystia<
                 data: undefined,
                 errorData: undefined,
                 subscriptionId,
+                isReconnect: false,
                 isActive,
                 error: (statusCode: number, message?: string): never => {
                   throw { statusCode, message: message || "Error" };
@@ -652,6 +682,7 @@ export class Hedystia<
                       reason: "disconnect",
                       isActive,
                       publish,
+                      isReconnect: false,
                     });
                   } catch (e) {
                     console.error("[SSE] Error in subscriptionClose handler:", e);
@@ -803,10 +834,12 @@ export class Hedystia<
           })();
           try {
             ws.close(1000, "Connection timeout - no pong received");
+            this.log("warn", "Connection closed due to pong timeout");
           } catch {}
           this.activeConnections.delete(ws);
         } else {
           try {
+            this.log("debug", "Sending ping to client");
             ws.send(JSON.stringify({ type: "ping" }));
           } catch {}
         }
@@ -821,14 +854,17 @@ export class Hedystia<
       const conn = this.activeConnections.get(ws);
       if (!conn) {
         if (this.pendingDisconnections.has(subscriptionId)) {
+          this.log("debug", "Activity check on pending disconnection");
           resolve(true);
           return;
         }
+        this.log("debug", "Activity check failed - no connection");
         resolve(false);
         return;
       }
 
       const timeout = setTimeout(() => {
+        this.log("warn", "Activity check timeout", { checkId, subscriptionId });
         this.pendingActivityChecks.delete(checkId);
         resolve(false);
       }, this.ACTIVITY_CHECK_TIMEOUT);
@@ -836,10 +872,12 @@ export class Hedystia<
       this.pendingActivityChecks.set(checkId, { resolve, timeout });
 
       try {
+        this.log("debug", "Sending activity check", { checkId });
         ws.send(JSON.stringify({ type: "activity_check", checkId }));
       } catch {
         clearTimeout(timeout);
         this.pendingActivityChecks.delete(checkId);
+        this.log("error", "Failed to send activity check", { checkId });
         resolve(false);
       }
     });
@@ -861,6 +899,7 @@ export class Hedystia<
         }
 
         if (subMessage.type === "activity_check_response" && subMessage.checkId) {
+          this.log("debug", "Activity check response received", { checkId: subMessage.checkId });
           const pending = this.pendingActivityChecks.get(subMessage.checkId);
           if (pending) {
             clearTimeout(pending.timeout);
@@ -970,8 +1009,14 @@ export class Hedystia<
           const pendingKey = subscriptionId;
           const pending = this.pendingDisconnections.get(pendingKey);
           if (pending) {
+            this.log("debug", "Client reconnected, canceling disconnection timeout", {
+              path: topic,
+              subscriptionId,
+            });
             clearTimeout(pending.timeout);
             this.pendingDisconnections.delete(pendingKey);
+          } else {
+            this.log("debug", "New subscription", { path: topic, subscriptionId });
           }
 
           const isActive = async (): Promise<boolean> => {
@@ -1018,6 +1063,7 @@ export class Hedystia<
             data: undefined,
             errorData: undefined,
             subscriptionId,
+            isReconnect: !!pending,
             isActive,
             publish: this.publish,
             error: (statusCode: number, message?: string): never => {
@@ -1072,6 +1118,7 @@ export class Hedystia<
             ws.send(JSON.stringify({ path: topic, error, subscriptionId }));
           }
         } else if (type === "message") {
+          this.log("debug", "Message received on subscription", { path: topic, subscriptionId });
           const { data } = subMessage;
           const isActive = async (): Promise<boolean> => {
             return this.checkActivity(ws, subscriptionId);
@@ -1126,6 +1173,7 @@ export class Hedystia<
             }),
           );
         } else if (type === "unsubscribe") {
+          this.log("debug", "Unsubscribe request", { path: topic, subscriptionId });
           ws.unsubscribe(topic);
           ws.data.subscribedTopics?.delete(topic);
           const connInfo = this.activeConnections.get(ws);
@@ -1156,6 +1204,7 @@ export class Hedystia<
                       reason: "unsubscribe",
                       isActive,
                       publish,
+                      isReconnect: false,
                     });
                   } catch (e) {
                     console.error("[WS] Error in subscriptionClose handler:", e);
@@ -1165,6 +1214,7 @@ export class Hedystia<
             }
           }
         } else if (type === "pong") {
+          this.log("debug", "Pong received", { subscriptionId });
           const connInfo = this.activeConnections.get(ws);
           if (connInfo) {
             connInfo.lastPong = Date.now();
@@ -1184,6 +1234,7 @@ export class Hedystia<
         }
       },
       close: async (ws: ServerWebSocket, code: number, reason: string) => {
+        this.log("debug", "WebSocket closed", { code, reason });
         const handler = this.wsRoutes.get(ws.data?.__wsPath);
         if (handler?.close) {
           handler.close(ws, code, reason);
@@ -1192,8 +1243,16 @@ export class Hedystia<
         if (connInfo) {
           for (const [path, subscriptionId] of connInfo.subscriptions.entries()) {
             const pendingKey = subscriptionId;
+            this.log("debug", "Subscription client disconnected, starting grace period", {
+              path,
+              subscriptionId,
+            });
 
             const timeout = setTimeout(async () => {
+              this.log("warn", "Grace period timeout, closing subscription", {
+                path,
+                subscriptionId,
+              });
               this.pendingDisconnections.delete(pendingKey);
 
               const isActive = async () => false;
@@ -1224,6 +1283,7 @@ export class Hedystia<
                       reason: "disconnect",
                       isActive,
                       publish,
+                      isReconnect: false,
                     });
                   } catch (e) {
                     console.error("[WS] Error in subscriptionClose handler:", e);

@@ -18,6 +18,7 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
   clientOptions?: {
     credentials?: "omit" | "same-origin" | "include";
     sse?: boolean;
+    debugLevel?: "none" | "debug" | "warn" | "log" | "error";
   },
 ): ClientTree<ExtractRoutesFromFramework<T>> {
   const HTTP_METHODS = ["get", "put", "post", "patch", "delete"];
@@ -25,6 +26,7 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
     baseUrl,
     clientOptions?.credentials,
     clientOptions?.sse,
+    clientOptions?.debugLevel,
   );
 
   const createProxy = (segments: string[] = []): any => {
