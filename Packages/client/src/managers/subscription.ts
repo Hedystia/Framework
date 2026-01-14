@@ -150,17 +150,14 @@ export class SubscriptionManager {
         try {
           const message = JSON.parse(event.data);
 
-          if (message.type === "ping") {
-            this.log("debug", "Ping received, sending pong", { path });
-            socket.send(JSON.stringify({ type: "pong" }));
-            return;
-          }
-
           if (message.type === "activity_check" && message.checkId) {
-            this.log("debug", "Activity check received", { path, checkId: message.checkId });
+            const subscriptionId = connRef.serverSubscriptionId || connRef.clientSubscriptionId;
+            this.log("debug", "Activity check received, sending response", { path, subscriptionId, checkId: message.checkId });
             const response = {
               type: "activity_check_response",
               checkId: message.checkId,
+              path,
+              subscriptionId,
             };
             socket.send(JSON.stringify(response));
             return;
@@ -369,31 +366,10 @@ export class SubscriptionManager {
                     const jsonData = line.slice(6);
                     const message = JSON.parse(jsonData);
 
-                    if (message.type === "ping") {
-                      this.log("debug", "Ping received via SSE, sending pong", { path });
-                      const conn = this.connections.get(path);
-                      if (conn?.serverSubscriptionId) {
-                        let sendUrl = `${this.baseUrl}${path}`;
-                        if (options?.query) {
-                          sendUrl += `?${new URLSearchParams(options.query as Record<string, string>).toString()}`;
-                        }
-                        fetch(sendUrl, {
-                          method: "POST",
-                          headers: {
-                            "Content-Type": "application/json",
-                            "x-hedystia-subscription-id": conn.serverSubscriptionId,
-                            ...options?.headers,
-                          },
-                          body: JSON.stringify({ type: "pong" }),
-                          credentials: this.credentials,
-                        }).catch((e) => this.log("error", "SSE Failed to send pong", e));
-                      }
-                      return;
-                    }
-
                     if (message.type === "activity_check" && message.checkId) {
-                      this.log("debug", "Activity check received via SSE", { path, checkId: message.checkId });
                       const conn = this.connections.get(path);
+                      const subscriptionId = conn?.serverSubscriptionId || conn?.clientSubscriptionId;
+                      this.log("debug", "Activity check received via SSE, sending response", { path, subscriptionId, checkId: message.checkId });
                       if (conn?.serverSubscriptionId) {
                         let sendUrl = `${this.baseUrl}${path}`;
                         if (options?.query) {
@@ -406,7 +382,7 @@ export class SubscriptionManager {
                             "x-hedystia-subscription-id": conn.serverSubscriptionId,
                             ...options?.headers,
                           },
-                          body: JSON.stringify({ type: "activity_check_response", checkId: message.checkId }),
+                          body: JSON.stringify({ type: "activity_check_response", checkId: message.checkId, path, subscriptionId }),
                           credentials: this.credentials,
                         }).catch((e) => this.log("error", "SSE Failed to send activity check response", e));
                       }

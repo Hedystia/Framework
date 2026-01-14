@@ -778,7 +778,7 @@ export class Hedystia<
   }
 
   /**
-   * Start the heartbeat interval to ping clients and detect stale connections
+   * Start the heartbeat interval to check client activity and detect stale connections
    */
   private startHeartbeat(): void {
     if (this.heartbeatInterval) {
@@ -831,15 +831,22 @@ export class Hedystia<
             );
           })();
           try {
-            ws.close(1000, "Connection timeout - no pong received");
-            this.log("warn", "Connection closed due to pong timeout");
+            ws.close(1000, "Connection timeout - no activity response received");
+            this.log("warn", "Connection closed due to activity check timeout");
           } catch {}
           this.activeConnections.delete(ws);
         } else {
-          try {
-            this.log("debug", "Sending ping to client");
-            ws.send(JSON.stringify({ type: "ping" }));
-          } catch {}
+          for (const [path, subscriptionId] of connInfo.subscriptions) {
+            try {
+              const checkId = `${subscriptionId}-${Date.now()}`;
+              this.log("debug", "Sending heartbeat activity check", {
+                path,
+                subscriptionId,
+                checkId,
+              });
+              ws.send(JSON.stringify({ type: "activity_check", checkId, path, subscriptionId }));
+            } catch {}
+          }
         }
       }
     }, this.PING_INTERVAL);
@@ -920,7 +927,15 @@ export class Hedystia<
         }
 
         if (subMessage.type === "activity_check_response" && subMessage.checkId) {
-          this.log("debug", "Activity check response received", { checkId: subMessage.checkId });
+          this.log("debug", "Activity check response received", { 
+            checkId: subMessage.checkId, 
+            path: subMessage.path, 
+            subscriptionId: subMessage.subscriptionId 
+          });
+          const connInfo = this.activeConnections.get(ws);
+          if (connInfo) {
+            connInfo.lastPong = Date.now();
+          }
           const pending = this.pendingActivityChecks.get(subMessage.checkId);
           if (pending) {
             clearTimeout(pending.timeout);
@@ -1233,12 +1248,6 @@ export class Hedystia<
                 }),
               );
             }
-          }
-        } else if (type === "pong") {
-          this.log("debug", "Pong received", { subscriptionId });
-          const connInfo = this.activeConnections.get(ws);
-          if (connInfo) {
-            connInfo.lastPong = Date.now();
           }
         }
       },
