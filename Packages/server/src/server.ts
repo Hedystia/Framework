@@ -25,13 +25,18 @@ interface FrameworkOptions {
   sse?: boolean;
 }
 
+type WebSocketData = {
+  __wsPath?: string;
+  request?: Request;
+  subscribedTopics?: Set<string>;
+};
+
 export class Hedystia<
   Routes extends RouteDefinition[] = [],
   _Macros extends MacroData = {},
 > extends Core<Routes, _Macros> {
   private reusePort: boolean;
   private idleTimeout: number;
-  private sseMode: boolean;
   private router = new Router();
   private staticRoutesFast: Map<string, (req: Request) => any> = new Map();
   private isCompiled = false;
@@ -41,14 +46,6 @@ export class Hedystia<
     {
       lastPong: number;
       subscriptions: Map<string, string>;
-    }
-  > = new Map();
-  private sseConnections: Map<
-    string,
-    {
-      controller: ReadableStreamDefaultController;
-      subscriptionId: string;
-      path: string;
     }
   > = new Map();
   private messageHandlers: Map<
@@ -262,6 +259,7 @@ export class Hedystia<
             throw { statusCode, message: message || "Error" };
           },
           set: this.createResponseContext(),
+          publish: this.publish,
         };
 
         for (let i = 0; i < hooks.onTransform.length; i++) {
@@ -424,6 +422,31 @@ export class Hedystia<
       });
     }
 
+    if (method === "POST") {
+      const subscriptionId = req.headers.get("x-hedystia-subscription-id");
+      if (subscriptionId) {
+        const conn = this.sseConnections.get(subscriptionId);
+        if (conn?.onMessage) {
+          try {
+            const body = await parseRequestBody(req);
+            conn.onMessage(body);
+            const response = new Response("OK", { status: 200 });
+            return this.cors
+              ? ((await this.applyCorsHeaders(response, req)) as Response)
+              : response;
+          } catch {
+            const response = new Response("Invalid Body", { status: 400 });
+            return this.cors
+              ? ((await this.applyCorsHeaders(response, req)) as Response)
+              : response;
+          }
+        } else {
+          const response = new Response("Subscription not found", { status: 404 });
+          return this.cors ? ((await this.applyCorsHeaders(response, req)) as Response) : response;
+        }
+      }
+    }
+
     const fastStatic = this.staticRoutesFast.get(path);
     if (fastStatic && method === "GET") {
       const response = await fastStatic(req);
@@ -569,10 +592,35 @@ export class Hedystia<
                     controller.enqueue(new TextEncoder().encode(msg));
                   }
                 },
-                onMessage: () => {
-                  throw new Error(
-                    "Cannot receive messages in SSE mode. Use WebSocket mode for bidirectional communication.",
-                  );
+                publish: this.publish,
+                onMessage: (handler: (message: any) => void) => {
+                  const conn = this.sseConnections.get(subscriptionId);
+                  if (conn) {
+                    conn.onMessage = async (data: any) => {
+                      try {
+                        await Promise.all(
+                          this.onSubscriptionMessageHandlers.map(async (h) => {
+                            try {
+                              await h({
+                                path: topic,
+                                subscriptionId,
+                                ws: null as any,
+                                isActive,
+                                message: data,
+                                sendData: ctx.sendData,
+                                sendError: ctx.sendError,
+                              });
+                            } catch (e) {
+                              console.error("[SSE] Error in subscriptionMessage handler:", e);
+                            }
+                          }),
+                        );
+                        handler(data);
+                      } catch (e) {
+                        console.error("[SSE] Error in onMessage handler:", e);
+                      }
+                    };
+                  }
                 },
               };
 
@@ -627,37 +675,6 @@ export class Hedystia<
     }
   }
 
-  public publishSSE(topic: string, data?: any, error?: any): void {
-    for (const [, conn] of this.sseConnections) {
-      if (this.matchPath(conn.path, topic)) {
-        try {
-          const msg =
-            data !== undefined
-              ? `data: ${JSON.stringify({ path: topic, data })}\n\n`
-              : `data: ${JSON.stringify({ path: topic, error })}\n\n`;
-          conn.controller.enqueue(new TextEncoder().encode(msg));
-        } catch {}
-      }
-    }
-  }
-
-  private matchPath(pattern: string, path: string): boolean {
-    const patternParts = pattern.split("/").filter(Boolean);
-    const pathParts = path.split("/").filter(Boolean);
-    if (patternParts.length !== pathParts.length) {
-      return false;
-    }
-    for (let i = 0; i < patternParts.length; i++) {
-      if (patternParts[i]?.startsWith(":")) {
-        continue;
-      }
-      if (patternParts[i] !== pathParts[i]) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   /**
    * Start HTTP server
    * @param {number} port - Server port number
@@ -687,11 +704,6 @@ export class Hedystia<
     const hasWebSocket = this.wsRoutes.size > 0 || this.subscriptionHandlers.size > 0;
 
     if (hasWebSocket) {
-      type WebSocketData = {
-        __wsPath?: string;
-        request?: Request;
-        subscribedTopics?: Set<string>;
-      };
       this.server = serve<WebSocketData>({
         port,
         reusePort: this.reusePort,
@@ -753,12 +765,17 @@ export class Hedystia<
                 const isActive = async (): Promise<boolean> => {
                   return this.checkActivity(ws, subscriptionId);
                 };
-                const publish = (data: any, targetId?: string) => {
-                  const msg = JSON.stringify({
+                const publish = (payload: any, targetId?: string) => {
+                  const messagePayload = {
                     path,
-                    data,
+                    ...(payload &&
+                    typeof payload === "object" &&
+                    ("data" in payload || "error" in payload)
+                      ? payload
+                      : { data: payload }),
                     subscriptionId: targetId || subscriptionId,
-                  });
+                  };
+                  const msg = JSON.stringify(messagePayload);
                   if (targetId) {
                     ws.send(msg);
                   } else {
@@ -927,6 +944,13 @@ export class Hedystia<
             ) as StandardSchemaV1.Result<any>;
             if ("issues" in result) {
               console.error("Validation error (headers):", result.issues);
+              ws.send(
+                JSON.stringify({
+                  path: topic,
+                  error: { message: "Validation error", issues: result.issues },
+                  subscriptionId: subscriptionId,
+                }),
+              );
               return;
             }
             validatedHeaders = result.value;
@@ -953,12 +977,17 @@ export class Hedystia<
           const isActive = async (): Promise<boolean> => {
             return this.checkActivity(ws, subscriptionId);
           };
-          const publish = (data: any, targetId?: string) => {
-            const msg = JSON.stringify({
+          const publish = (payload: any, targetId?: string) => {
+            const messagePayload = {
               path: topic,
-              data,
+              ...(payload &&
+              typeof payload === "object" &&
+              ("data" in payload || "error" in payload)
+                ? payload
+                : { data: payload }),
               subscriptionId: targetId || subscriptionId,
-            });
+            };
+            const msg = JSON.stringify(messagePayload);
             if (targetId) {
               ws.send(msg);
             } else {
@@ -990,6 +1019,7 @@ export class Hedystia<
             errorData: undefined,
             subscriptionId,
             isActive,
+            publish: this.publish,
             error: (statusCode: number, message?: string): never => {
               throw { statusCode, message: message || "Error" };
             },
@@ -1029,9 +1059,17 @@ export class Hedystia<
             },
           };
 
-          const result = await matchedSub.handler(ctx);
-          if (result !== undefined) {
-            ws.send(JSON.stringify({ path: topic, data: result, subscriptionId }));
+          try {
+            const result = await matchedSub.handler(ctx);
+            if (result !== undefined) {
+              ws.send(JSON.stringify({ path: topic, data: result, subscriptionId }));
+            }
+          } catch (e: any) {
+            const error = {
+              message: e.message || "Internal Server Error",
+              code: e.statusCode || 500,
+            };
+            ws.send(JSON.stringify({ path: topic, error, subscriptionId }));
           }
         } else if (type === "message") {
           const { data } = subMessage;
@@ -1051,13 +1089,23 @@ export class Hedystia<
 
           let validatedData = data;
           const handlerInfo = this.messageHandlers.get(subscriptionId);
-          if (handlerInfo?.schema) {
-            const result = handlerInfo.schema["~standard"].validate(data) as any;
-            if ("issues" in result) {
-              console.error("[WS] Message validation error:", result.issues);
+          if (handlerInfo) {
+            let validationResult = handlerInfo.schema["~standard"].validate(data);
+            if (validationResult instanceof Promise) {
+              validationResult = await validationResult;
+            }
+
+            if ("issues" in validationResult) {
+              console.error("[WS] Message validation error:", validationResult.issues);
               return;
             }
-            validatedData = result.value;
+
+            validatedData = validationResult.value;
+            try {
+              await handlerInfo.callback(validatedData);
+            } catch (e) {
+              console.error("Error processing subscription message:", e);
+            }
           }
 
           await Promise.all(
@@ -1077,10 +1125,6 @@ export class Hedystia<
               }
             }),
           );
-
-          if (handlerInfo) {
-            await handlerInfo.callback(validatedData);
-          }
         } else if (type === "unsubscribe") {
           ws.unsubscribe(topic);
           ws.data.subscribedTopics?.delete(topic);

@@ -89,7 +89,7 @@ export type PrefixRoutes<Prefix extends string, T extends RouteDefinition[]> = {
     : never;
 };
 
-export type ContextTypes<T extends RouteSchema = {}> = {
+export type ContextTypes<T extends RouteSchema = {}, Routes extends RouteDefinition[] = []> = {
   req: Request;
   params: T["params"] extends ValidationSchema ? InferOutput<T["params"]> : Record<string, any>;
   query: T["query"] extends ValidationSchema ? InferOutput<T["query"]> : Record<string, any>;
@@ -102,6 +102,7 @@ export type ContextTypes<T extends RouteSchema = {}> = {
   method?: string;
   error: (statusCode: number, message?: string) => never;
   set: ResponseContext;
+  publish: PublishMethod<Routes>;
 };
 
 export type RequestHandler = (ctx: ContextTypes) => Response | Promise<Response>;
@@ -368,3 +369,32 @@ type SubscriptionRouteToMessageTree<R extends RouteDefinition> = R extends { met
 export type SubscriptionMessageTree<Routes extends RouteDefinition[]> = UnionToIntersectionServer<
   SubscriptionRouteToMessageTree<Routes[number]>
 >;
+
+export type IterableSource<T> = Iterable<T> | AsyncIterable<T>;
+
+export interface BaseEvent {
+  type: string;
+  message?: string;
+  data?: unknown;
+  error?: unknown;
+  stream?: boolean;
+  chunkSize?: number;
+}
+
+export type EventMap = Record<string, BaseEvent>;
+
+export type EmitPayload<T, K extends keyof T> = T[K] extends BaseEvent
+  ? Omit<T[K], "type" | "stream" | "chunkSize">
+  : never;
+
+export interface EmitterConfig {
+  headers?: Record<string, string>;
+}
+
+export type EventHandler<T> = (data: T) => void;
+
+export interface ClientInfo {
+  writer: WritableStreamDefaultWriter;
+  cleanup: (reason?: unknown) => Promise<void>;
+  subscriptions: Map<string, string>;
+}

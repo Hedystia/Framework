@@ -1,3 +1,4 @@
+import { SSEEmitter } from "./emitter";
 import { Hedystia } from "./server";
 
 import type {
@@ -12,6 +13,7 @@ export { h } from "@hedystia/validations";
 
 export {
   Hedystia,
+  SSEEmitter,
   type MacroData,
   type RouteSchema,
   type ServerWebSocket,

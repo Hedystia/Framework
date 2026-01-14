@@ -61,6 +61,16 @@ type OnSubscriptionMessageHandler<Routes extends RouteDefinition[] = []> = (
 ) => void | Promise<void>;
 
 export default class Core<Routes extends RouteDefinition[] = [], Macros extends MacroData = {}> {
+  protected sseMode = false;
+  protected sseConnections: Map<
+    string,
+    {
+      controller: ReadableStreamDefaultController;
+      subscriptionId: string;
+      path: string;
+      onMessage?: (message: any) => void;
+    }
+  > = new Map();
   protected onRequestHandlers: OnRequestHandler[] = [];
   protected onParseHandlers: OnParseHandler[] = [];
   protected onTransformHandlers: OnTransformHandler[] = [];
@@ -438,34 +448,107 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
       ? PublishOptions<D, E> & ({ data: D; error?: never } | { data?: never; error: E })
       : PublishOptions,
   ): void => {
-    if (!this.server) {
-      console.warn("Server is not running. Cannot publish message.");
+    const messagePayload = {
+      path: topic,
+      ...(options && typeof options === "object" && ("data" in options || "error" in options)
+        ? options
+        : { data: options }),
+    };
+
+    let matchedSchema: RouteSchema | undefined;
+
+    for (const [routePath, handlerData] of this.subscriptionHandlers) {
+      if (this.matchPath(routePath, topic)) {
+        matchedSchema = handlerData.schema;
+        break;
+      }
+    }
+
+    if (matchedSchema) {
+      if ("data" in messagePayload && matchedSchema.data) {
+        const result = matchedSchema.data["~standard"].validate(messagePayload.data);
+        if (result instanceof Promise) {
+          result.then((res: any) => {
+            if ("issues" in res) {
+              console.error(
+                `[Publish Validation Error] Data for topic ${topic} is invalid:`,
+                res.issues,
+              );
+            }
+          });
+        } else {
+          if ("issues" in result) {
+            console.error(
+              `[Publish Validation Error] Data for topic ${topic} is invalid:`,
+              result.issues,
+            );
+          }
+        }
+      }
+      if ("error" in messagePayload && matchedSchema.error) {
+        const result = matchedSchema.error["~standard"].validate(messagePayload.error);
+        if (result instanceof Promise) {
+          result.then((res: any) => {
+            if ("issues" in res) {
+              console.error(
+                `[Publish Validation Error] Error for topic ${topic} is invalid:`,
+                res.issues,
+              );
+            }
+          });
+        } else {
+          if ("issues" in result) {
+            console.error(
+              `[Publish Validation Error] Error for topic ${topic} is invalid:`,
+              result.issues,
+            );
+          }
+        }
+      }
+    }
+
+    if (this.sseMode) {
+      for (const [, conn] of this.sseConnections) {
+        if (this.matchPath(conn.path, topic)) {
+          try {
+            const msg = `data: ${JSON.stringify(messagePayload)}\n\n`;
+            conn.controller.enqueue(new TextEncoder().encode(msg));
+          } catch {}
+        }
+      }
       return;
     }
 
-    const { data, error, compress = false } = options;
-
-    if (data !== undefined && error !== undefined) {
-      throw new Error("Cannot send both data and error in the same publish call");
+    if (this.server) {
+      const message = JSON.stringify(messagePayload);
+      this.server.publish(topic, message, options.compress);
+    } else {
+      console.warn("Server is not running. Cannot publish message.");
     }
-
-    if (data === undefined && error === undefined) {
-      throw new Error("Must provide either data or error to publish");
-    }
-
-    const message =
-      data !== undefined
-        ? JSON.stringify({ path: topic, data })
-        : JSON.stringify({ path: topic, error });
-
-    this.server.publish(topic, message, compress);
   };
+
+  protected matchPath(pattern: string, path: string): boolean {
+    const patternParts = pattern.split("/").filter(Boolean);
+    const pathParts = path.split("/").filter(Boolean);
+    if (patternParts.length !== pathParts.length) {
+      return false;
+    }
+    for (let i = 0; i < patternParts.length; i++) {
+      if (patternParts[i]?.startsWith(":")) {
+        continue;
+      }
+      if (patternParts[i] !== pathParts[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   /**
    * Tree-based publish API for WebSocket subscriptions.
-   * Usage: app.pubSub.data.messages({ data: { ... } })
+   * Usage: app.pub.data.messages({ data: { ... } })
    */
-  get pubSub(): import("../types").PublishTree<Routes> {
+  get pub(): import("../types").PublishTree<Routes> {
     const self = this;
     const createProxy = (pathParts: string[] = []): any => {
       return new Proxy(() => {}, {
@@ -473,7 +556,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
           return createProxy([...pathParts, prop]);
         },
         apply(_target, _thisArg, args) {
-          const path = "/" + pathParts.join("/");
+          const path = `/${pathParts.join("/")}`;
           self.publish(path as any, args[0]);
         },
       });
