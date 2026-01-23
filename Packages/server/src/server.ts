@@ -927,10 +927,10 @@ export class Hedystia<
         }
 
         if (subMessage.type === "activity_check_response" && subMessage.checkId) {
-          this.log("debug", "Activity check response received", { 
-            checkId: subMessage.checkId, 
-            path: subMessage.path, 
-            subscriptionId: subMessage.subscriptionId 
+          this.log("debug", "Activity check response received", {
+            checkId: subMessage.checkId,
+            path: subMessage.path,
+            subscriptionId: subMessage.subscriptionId,
           });
           const connInfo = this.activeConnections.get(ws);
           if (connInfo) {
@@ -1104,33 +1104,33 @@ export class Hedystia<
             error: (statusCode: number, message?: string): never => {
               throw { statusCode, message: message || "Error" };
             },
-            sendData: async (data: any, targetId?: string) => {
-              if (await isActive()) {
+            sendData: (data: any, targetId?: string) => {
+              const connInfo = this.activeConnections.get(ws);
+              if (!connInfo?.subscriptions.has(topic)) {
+                return;
+              }
+              try {
                 const msg = JSON.stringify({
                   path: topic,
                   data,
                   subscriptionId: targetId || subscriptionId,
                 });
-                if (targetId) {
-                  ws.send(msg);
-                } else {
-                  ws.send(JSON.stringify({ path: topic, data, subscriptionId }));
-                }
-              }
+                ws.send(msg);
+              } catch {}
             },
-            sendError: async (error: any, targetId?: string) => {
-              if (await isActive()) {
+            sendError: (error: any, targetId?: string) => {
+              const connInfo = this.activeConnections.get(ws);
+              if (!connInfo?.subscriptions.has(topic)) {
+                return;
+              }
+              try {
                 const msg = JSON.stringify({
                   path: topic,
                   error,
                   subscriptionId: targetId || subscriptionId,
                 });
-                if (targetId) {
-                  ws.send(msg);
-                } else {
-                  ws.send(JSON.stringify({ path: topic, error, subscriptionId }));
-                }
-              }
+                ws.send(msg);
+              } catch {}
             },
             onMessage: (callback: (message: any) => void | Promise<void>) => {
               this.messageHandlers.set(subscriptionId, {
@@ -1160,15 +1160,23 @@ export class Hedystia<
           const isActive = async (): Promise<boolean> => {
             return this.checkActivity(ws, subscriptionId);
           };
-          const sendData = async (responseData: any) => {
-            if (await isActive()) {
+          const sendData = (responseData: any) => {
+            const connInfo = this.activeConnections.get(ws);
+            if (!connInfo?.subscriptions.has(topic)) {
+              return;
+            }
+            try {
               ws.send(JSON.stringify({ path: topic, data: responseData, subscriptionId }));
-            }
+            } catch {}
           };
-          const sendError = async (error: any) => {
-            if (await isActive()) {
-              ws.send(JSON.stringify({ path: topic, error, subscriptionId }));
+          const sendError = (error: any) => {
+            const connInfo = this.activeConnections.get(ws);
+            if (!connInfo?.subscriptions.has(topic)) {
+              return;
             }
+            try {
+              ws.send(JSON.stringify({ path: topic, error, subscriptionId }));
+            } catch {}
           };
 
           let validatedData = data;
