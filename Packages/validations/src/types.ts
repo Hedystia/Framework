@@ -95,6 +95,10 @@ export abstract class BaseSchema<I, O> implements Schema<I, O> {
     return new OptionalSchema<I, O>(this);
   }
 
+  null(): UnionSchema<I, O | null> {
+    return new UnionSchema<I, O | null>(this, new NullSchemaType() as any);
+  }
+
   enum<V extends O & (string | number | boolean), Values extends readonly [V, ...V[]]>(
     values: Values,
   ): UnionSchema<I, Values[number]> {
