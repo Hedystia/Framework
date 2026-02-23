@@ -132,6 +132,7 @@ function validatePrimitive(schema: SchemaPrimitive, value: unknown): boolean {
 
 export class StringSchemaType extends BaseSchema<unknown, string> {
   readonly type: SchemaPrimitive = "string";
+  private _validateDate = false;
   private _validateUUID = false;
   private _validateRegex = false;
   private _validateEmail = false;
@@ -169,6 +170,14 @@ export class StringSchemaType extends BaseSchema<unknown, string> {
       ...this.jsonSchema,
       maxLength: n,
     };
+    return schema;
+  }
+
+  date(): StringSchemaType {
+    const schema = new StringSchemaType();
+    Object.assign(schema, this);
+    schema._validateDate = true;
+    schema.jsonSchema = { ...this.jsonSchema, format: "date" };
     return schema;
   }
 
@@ -260,6 +269,10 @@ export class StringSchemaType extends BaseSchema<unknown, string> {
         };
       }
 
+      if (this._validateDate && !this._isValidDate(value)) {
+        return { issues: [{ message: "Invalid date format" }] };
+      }
+
       return { value };
     },
     types: {
@@ -267,6 +280,11 @@ export class StringSchemaType extends BaseSchema<unknown, string> {
       output: {} as string,
     },
   };
+
+  private _isValidDate(value: string): boolean {
+    const date = new Date(value);
+    return !Number.isNaN(date.getTime());
+  }
 
   private _isValidUUID(value: string): boolean {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -877,6 +895,12 @@ export const h = {
     const baseSchema = h.object({});
     return baseSchema.instanceOf(constructor);
   },
+
+  /**
+   * Create date schema type
+   * @returns {StringSchemaType} Date schema type
+   */
+  date: (): StringSchemaType => h.string().date(),
 
   /**
    * Create UUID schema type
