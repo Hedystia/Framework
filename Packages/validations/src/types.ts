@@ -23,13 +23,14 @@ type SchemaPrimitiveMap = {
   any: unknown;
 };
 
-type SchemaType<S> = S extends BaseSchema<any, infer O>
-  ? O
-  : S extends keyof SchemaPrimitiveMap
-    ? SchemaPrimitiveMap[S]
-    : S extends Record<string, any>
-      ? InferSchema<S>
-      : unknown;
+type SchemaType<S> =
+  S extends BaseSchema<any, infer O>
+    ? O
+    : S extends keyof SchemaPrimitiveMap
+      ? SchemaPrimitiveMap[S]
+      : S extends Record<string, any>
+        ? InferSchema<S>
+        : unknown;
 
 type InferObject<S extends SchemaDefinition> = Simplify<
   {
@@ -39,21 +40,26 @@ type InferObject<S extends SchemaDefinition> = Simplify<
   }
 >;
 
-type InferSchema<S> = S extends BaseSchema<any, infer O>
-  ? O
-  : S extends "string"
-    ? string
-    : S extends "number"
-      ? number
-      : S extends "boolean"
-        ? boolean
-        : S extends { [key: string]: any }
-          ? {
-              [K in keyof S as undefined extends InferSchema<S[K]> ? K : never]?: InferSchema<S[K]>;
-            } & {
-              [K in keyof S as undefined extends InferSchema<S[K]> ? never : K]: InferSchema<S[K]>;
-            }
-          : unknown;
+type InferSchema<S> =
+  S extends BaseSchema<any, infer O>
+    ? O
+    : S extends "string"
+      ? string
+      : S extends "number"
+        ? number
+        : S extends "boolean"
+          ? boolean
+          : S extends { [key: string]: any }
+            ? {
+                [K in keyof S as undefined extends InferSchema<S[K]> ? K : never]?: InferSchema<
+                  S[K]
+                >;
+              } & {
+                [K in keyof S as undefined extends InferSchema<S[K]> ? never : K]: InferSchema<
+                  S[K]
+                >;
+              }
+            : unknown;
 
 type SchemaDefinition = SchemaLike;
 
@@ -208,7 +214,7 @@ export class StringSchemaType extends BaseSchema<unknown, string> {
 
       if (typeof value !== "string") {
         return {
-          issues: [{ message: "Expected string, received " + typeof value }],
+          issues: [{ message: `Expected string, received ${typeof value}` }],
         };
       }
 
@@ -539,7 +545,9 @@ export class ArraySchema<I, O extends any[]> extends BaseSchema<I, O> {
       }
 
       const results = value.map((item, index) => {
-        const result = this.innerSchema["~standard"].validate(item) as StandardSchemaV1.Result<O[number]>;
+        const result = this.innerSchema["~standard"].validate(item) as StandardSchemaV1.Result<
+          O[number]
+        >;
         if ("issues" in result) {
           return {
             index,
@@ -687,7 +695,9 @@ export class ObjectSchemaType<T extends Record<string, unknown>> extends BaseSch
               result[key] = obj[key];
             }
           } else if (schemaItem instanceof BaseSchema) {
-            const validationResult = schemaItem["~standard"].validate(obj[key]) as StandardSchemaV1.Result<any>;
+            const validationResult = schemaItem["~standard"].validate(
+              obj[key],
+            ) as StandardSchemaV1.Result<any>;
             if ("issues" in validationResult) {
               if (validationResult.issues) {
                 issues.push(
