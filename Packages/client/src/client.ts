@@ -17,6 +17,7 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
   baseUrl: string,
   clientOptions?: {
     credentials?: "omit" | "same-origin" | "include";
+    headers?: Record<string, string>;
     sse?: boolean;
     debugLevel?: "none" | "debug" | "warn" | "log" | "error";
   },
@@ -75,6 +76,7 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
               ...(body && !(body instanceof FormData)
                 ? { "Content-Type": "application/json" }
                 : {}),
+              ...clientOptions?.headers,
               ...headers,
             },
           };
