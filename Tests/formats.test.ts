@@ -3,6 +3,25 @@ import { createClient } from "@hedystia/client";
 import Framework, { h } from "hedystia";
 
 const app = new Framework()
+  .post(
+    "/date",
+    (context) => {
+      return Response.json({
+        date: context.body.date,
+        valid: true,
+      });
+    },
+    {
+      body: h.object({
+        date: h.date(),
+      }),
+      response: h.object({
+        date: h.string(),
+        valid: h.boolean(),
+      }),
+    },
+  )
+
   .get(
     "/json",
     () => {
@@ -250,6 +269,41 @@ const app = new Framework()
 const client = createClient<typeof app>("http://localhost:3007");
 
 describe("Response Format Tests", () => {
+  describe("Date Format", () => {
+    it("should accept a valid ISO date string", async () => {
+      const { data, error } = await client.date.post({
+        body: { date: "2024-06-15" },
+      });
+
+      expect(error).toBeNull();
+      expect(data).toEqual({
+        date: "2024-06-15",
+        valid: true,
+      });
+    });
+
+    it("should accept a valid datetime string", async () => {
+      const { data, error } = await client.date.post({
+        body: { date: "2024-06-15T10:30:00.000Z" },
+      });
+
+      expect(error).toBeNull();
+      expect(data?.date).toBe("2024-06-15T10:30:00.000Z");
+    });
+
+    it("should reject an invalid date string", async () => {
+      try {
+        await client.date.post({
+          body: { date: "not-a-date" as any },
+        });
+
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeDefined();
+      }
+    });
+  });
+
   describe("JSON Format", () => {
     it("should get JSON response", async () => {
       const { data, error } = await client.json.get();
