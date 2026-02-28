@@ -5,6 +5,20 @@ import Framework, { h } from "hedystia";
 let lifecycleEvents: string[] = [];
 
 const app = new Framework()
+  .macro({
+    tokenAuth: () => ({
+      resolve: async (ctx) => {
+        const apiKey = (ctx.headers as Record<string, string>)["x-api-key"];
+        if (!apiKey) {
+          const error = new Error("Missing x-api-key header");
+          (error as any).isMacroError = true;
+          (error as any).statusCode = 401;
+          throw error;
+        }
+        return { apiKey };
+      },
+    }),
+  })
   .onSubscriptionOpen((ctx) => {
     lifecycleEvents.push(`open:${ctx.path}:${ctx.subscriptionId}`);
   })
@@ -153,6 +167,26 @@ const app = new Framework()
       data: h.object({
         id: h.string(),
         valid: h.boolean(),
+      }),
+    },
+  )
+  .subscription(
+    "/data/macro-headers",
+    async (ctx) => {
+      const { apiKey } = await ctx.tokenAuth;
+      return { receivedKey: apiKey };
+    },
+    {
+      tokenAuth: true,
+      headers: h.object({
+        "x-api-key": h.string(),
+      }),
+      data: h.object({
+        receivedKey: h.string(),
+      }),
+      error: h.object({
+        message: h.string(),
+        code: h.number(),
       }),
     },
   )
@@ -405,6 +439,52 @@ describe("Test subscriptions", () => {
     expect(receivedData).toEqual({ id: 123, valid: "not-bool" });
 
     sub.unsubscribe();
+  });
+
+  it("should pass headers to macro in subscription", async () => {
+    logs = [];
+    let macroErrorReceived = false;
+    let macroDataReceived = false;
+    let receivedKey = "";
+
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    const failSub = client.data["macro-headers"].subscribe(
+      ({ data, error }) => {
+        if (error) {
+          macroErrorReceived = true;
+        }
+        if (data) {
+          macroDataReceived = true;
+        }
+      },
+      { headers: { "x-api-key": "" } },
+    );
+
+    await wait(100);
+    failSub.unsubscribe();
+
+    macroErrorReceived = false;
+    macroDataReceived = false;
+
+    const validSub = client.data["macro-headers"].subscribe(
+      ({ data, error }) => {
+        if (error) {
+          macroErrorReceived = true;
+        }
+        if (data) {
+          macroDataReceived = true;
+          receivedKey = data.receivedKey;
+        }
+      },
+      { headers: { "x-api-key": "my-secret-key" } },
+    );
+
+    await wait(100);
+    expect(macroErrorReceived).toBe(false);
+    expect(macroDataReceived).toBe(true);
+    expect(receivedKey).toBe("my-secret-key");
+    validSub.unsubscribe();
   });
 
   afterAll(() => {
