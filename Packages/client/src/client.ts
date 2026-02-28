@@ -28,6 +28,7 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
     clientOptions?.credentials,
     clientOptions?.sse,
     clientOptions?.debugLevel,
+    clientOptions?.headers,
   );
 
   const createProxy = (segments: string[] = []): any => {

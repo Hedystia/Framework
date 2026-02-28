@@ -37,17 +37,20 @@ export class SubscriptionManager {
   private readonly MIN_RECONNECT_DELAY = 100;
   private readonly HEARTBEAT_INTERVAL = 25000;
   private debugLevel: DebugLevel;
+  private headers?: Record<string, string>;
 
   constructor(
     baseUrl: string,
     credentials?: "omit" | "same-origin" | "include",
     sse = false,
     debugLevel: DebugLevel = "none",
+    headers?: Record<string, string>,
   ) {
     this.baseUrl = baseUrl;
     this.credentials = credentials;
     this.sse = sse;
     this.debugLevel = debugLevel;
+    this.headers = headers;
   }
 
   private log(level: Exclude<DebugLevel, "none">, message: string, data?: any) {
@@ -138,7 +141,7 @@ export class SubscriptionManager {
         const payload = {
           type: "subscribe",
           path,
-          headers: options?.headers,
+          headers: { ...this.headers, ...options?.headers },
           query: options?.query,
           subscriptionId,
         };
@@ -152,7 +155,11 @@ export class SubscriptionManager {
 
           if (message.type === "activity_check" && message.checkId) {
             const subscriptionId = connRef.serverSubscriptionId || connRef.clientSubscriptionId;
-            this.log("debug", "Activity check received, sending response", { path, subscriptionId, checkId: message.checkId });
+            this.log("debug", "Activity check received, sending response", {
+              path,
+              subscriptionId,
+              checkId: message.checkId,
+            });
             const response = {
               type: "activity_check_response",
               checkId: message.checkId,
@@ -287,6 +294,7 @@ export class SubscriptionManager {
         headers: {
           "Content-Type": "application/json",
           "x-hedystia-subscription-id": conn?.serverSubscriptionId || "",
+          ...this.headers,
           ...options?.headers,
         },
         body: JSON.stringify(payload),
@@ -317,6 +325,7 @@ export class SubscriptionManager {
             const response = await fetch(url, {
               headers: {
                 Accept: "text/event-stream",
+                ...this.headers,
                 ...options?.headers,
               },
               credentials: this.credentials,
@@ -368,8 +377,13 @@ export class SubscriptionManager {
 
                     if (message.type === "activity_check" && message.checkId) {
                       const conn = this.connections.get(path);
-                      const subscriptionId = conn?.serverSubscriptionId || conn?.clientSubscriptionId;
-                      this.log("debug", "Activity check received via SSE, sending response", { path, subscriptionId, checkId: message.checkId });
+                      const subscriptionId =
+                        conn?.serverSubscriptionId || conn?.clientSubscriptionId;
+                      this.log("debug", "Activity check received via SSE, sending response", {
+                        path,
+                        subscriptionId,
+                        checkId: message.checkId,
+                      });
                       if (conn?.serverSubscriptionId) {
                         let sendUrl = `${this.baseUrl}${path}`;
                         if (options?.query) {
@@ -380,11 +394,19 @@ export class SubscriptionManager {
                           headers: {
                             "Content-Type": "application/json",
                             "x-hedystia-subscription-id": conn.serverSubscriptionId,
+                            ...this.headers,
                             ...options?.headers,
                           },
-                          body: JSON.stringify({ type: "activity_check_response", checkId: message.checkId, path, subscriptionId }),
+                          body: JSON.stringify({
+                            type: "activity_check_response",
+                            checkId: message.checkId,
+                            path,
+                            subscriptionId,
+                          }),
                           credentials: this.credentials,
-                        }).catch((e) => this.log("error", "SSE Failed to send activity check response", e));
+                        }).catch((e) =>
+                          this.log("error", "SSE Failed to send activity check response", e),
+                        );
                       }
                       return;
                     }
