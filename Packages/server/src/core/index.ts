@@ -60,7 +60,11 @@ type OnSubscriptionMessageHandler<Routes extends RouteDefinition[] = []> = (
   ctx: import("../types").SubscriptionMessageContext<Routes>,
 ) => void | Promise<void>;
 
-export default class Core<Routes extends RouteDefinition[] = [], Macros extends MacroData = {}> {
+export default class Core<
+  Routes extends RouteDefinition[] = [],
+  Macros extends MacroData = {},
+  GlobalHeaders extends ValidationSchema | undefined = undefined,
+> {
   protected sseMode = false;
   protected sseConnections: Map<
     string,
@@ -206,7 +210,11 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
    */
   macro<T extends Record<string, (enabled: boolean) => { resolve: MacroResolveFunction<any> }>>(
     config: T,
-  ): Hedystia<Routes, Macros & { [K in keyof T]: ReturnType<ReturnType<T[K]>["resolve"]> }> {
+  ): Hedystia<
+    Routes,
+    Macros & { [K in keyof T]: ReturnType<ReturnType<T[K]>["resolve"]> },
+    GlobalHeaders
+  > {
     for (const [key, macroFactory] of Object.entries(config)) {
       this.macros[key] = macroFactory(true);
     }
@@ -236,9 +244,11 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
     EnabledMacros extends keyof Macros = never,
   >(
     prefix: Prefix,
-    callback: (app: Hedystia<[], Macros>) => Hedystia<GroupRoutes, Macros>,
+    callback: (
+      app: Hedystia<[], Macros, GlobalHeaders>,
+    ) => Hedystia<GroupRoutes, Macros, GlobalHeaders>,
     schema?: { [K in EnabledMacros]?: true },
-  ): Hedystia<[...Routes, ...PrefixRoutes<Prefix, GroupRoutes>], Macros> {
+  ): Hedystia<[...Routes, ...PrefixRoutes<Prefix, GroupRoutes>], Macros, GlobalHeaders> {
     const groupApp = new Hedystia({ cors: this.cors }) as Hedystia<[], Macros>;
     groupApp.prefix = "";
     groupApp.macros = { ...this.macros };
@@ -379,13 +389,15 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
         path: Path;
         params: Params extends ValidationSchema ? InferOutput<Params> : {};
         query: Query extends ValidationSchema ? InferOutput<Query> : {};
-        headers: Headers extends ValidationSchema ? InferOutput<Headers> : {};
+        headers: (Headers extends ValidationSchema ? InferOutput<Headers> : {}) &
+          (GlobalHeaders extends ValidationSchema ? InferOutput<GlobalHeaders> : {});
         data: DataSchema extends ValidationSchema ? InferOutput<DataSchema> : any;
         error: ErrorSchema extends ValidationSchema ? InferOutput<ErrorSchema> : undefined;
         message: MessageSchema extends ValidationSchema ? InferOutput<MessageSchema> : any;
       },
     ],
-    Macros
+    Macros,
+    GlobalHeaders
   > {
     const fullPath = this.prefix + path;
 
@@ -640,14 +652,16 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
         path: Path;
         params: Params extends ValidationSchema ? InferOutput<Params> : {};
         query: Query extends ValidationSchema ? InferOutput<Query> : {};
-        headers: Headers extends ValidationSchema
+        headers: (Headers extends ValidationSchema
           ? InferOutput<Headers>
-          : Record<string, string | null>;
+          : Record<string, string | null>) &
+          (GlobalHeaders extends ValidationSchema ? InferOutput<GlobalHeaders> : {});
         response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : unknown;
         error: ErrorSchema extends ValidationSchema ? InferOutput<ErrorSchema> : undefined;
       },
     ],
-    Macros
+    Macros,
+    GlobalHeaders
   > {
     this.addRoute("GET", path, handler, schema);
     return this as any;
@@ -702,13 +716,15 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
         params: Params extends ValidationSchema ? InferOutput<Params> : {};
         query: Query extends ValidationSchema ? InferOutput<Query> : {};
         body: Body extends ValidationSchema ? InferOutput<Body> : unknown;
-        headers: Headers extends ValidationSchema
+        headers: (Headers extends ValidationSchema
           ? InferOutput<Headers>
-          : Record<string, string | null>;
+          : Record<string, string | null>) &
+          (GlobalHeaders extends ValidationSchema ? InferOutput<GlobalHeaders> : {});
         response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : unknown;
       },
     ],
-    Macros
+    Macros,
+    GlobalHeaders
   > {
     this.addRoute("PATCH", path, handler, schema);
     return this as any;
@@ -763,13 +779,15 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
         params: Params extends ValidationSchema ? InferOutput<Params> : {};
         query: Query extends ValidationSchema ? InferOutput<Query> : {};
         body: Body extends ValidationSchema ? InferOutput<Body> : unknown;
-        headers: Headers extends ValidationSchema
+        headers: (Headers extends ValidationSchema
           ? InferOutput<Headers>
-          : Record<string, string | null>;
+          : Record<string, string | null>) &
+          (GlobalHeaders extends ValidationSchema ? InferOutput<GlobalHeaders> : {});
         response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : unknown;
       },
     ],
-    Macros
+    Macros,
+    GlobalHeaders
   > {
     this.addRoute("POST", path, handler, schema);
     return this as any;
@@ -824,13 +842,15 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
         params: Params extends ValidationSchema ? InferOutput<Params> : {};
         query: Query extends ValidationSchema ? InferOutput<Query> : {};
         body: Body extends ValidationSchema ? InferOutput<Body> : unknown;
-        headers: Headers extends ValidationSchema
+        headers: (Headers extends ValidationSchema
           ? InferOutput<Headers>
-          : Record<string, string | null>;
+          : Record<string, string | null>) &
+          (GlobalHeaders extends ValidationSchema ? InferOutput<GlobalHeaders> : {});
         response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : unknown;
       },
     ],
-    Macros
+    Macros,
+    GlobalHeaders
   > {
     this.addRoute("PUT", path, handler, schema);
     return this as any;
@@ -885,13 +905,15 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
         params: Params extends ValidationSchema ? InferOutput<Params> : {};
         query: Query extends ValidationSchema ? InferOutput<Query> : {};
         body: Body extends ValidationSchema ? InferOutput<Body> : unknown;
-        headers: Headers extends ValidationSchema
+        headers: (Headers extends ValidationSchema
           ? InferOutput<Headers>
-          : Record<string, string | null>;
+          : Record<string, string | null>) &
+          (GlobalHeaders extends ValidationSchema ? InferOutput<GlobalHeaders> : {});
         response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : unknown;
       },
     ],
-    Macros
+    Macros,
+    GlobalHeaders
   > {
     this.addRoute("DELETE", path, handler, schema);
     return this as any;
@@ -935,7 +957,8 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
         response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : unknown;
       },
     ],
-    Macros
+    Macros,
+    GlobalHeaders
   > {
     let finalResponse: Response;
 
@@ -1010,7 +1033,7 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
    */
   use<ChildRoutes extends RouteDefinition[], ChildMacros extends MacroData = {}>(
     childFramework: Hedystia<ChildRoutes, ChildMacros>,
-  ): Hedystia<[...Routes, ...ChildRoutes], MergeMacros<Macros, ChildMacros>>;
+  ): Hedystia<[...Routes, ...ChildRoutes], MergeMacros<Macros, ChildMacros>, GlobalHeaders>;
   /**
    * Mount child framework instance with prefix
    * @param {Prefix} prefix - Path prefix
@@ -1024,7 +1047,11 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
   >(
     prefix: Prefix,
     childFramework: Hedystia<ChildRoutes, ChildMacros>,
-  ): Hedystia<[...Routes, ...PrefixRoutes<Prefix, ChildRoutes>], MergeMacros<Macros, ChildMacros>>;
+  ): Hedystia<
+    [...Routes, ...PrefixRoutes<Prefix, ChildRoutes>],
+    MergeMacros<Macros, ChildMacros>,
+    GlobalHeaders
+  >;
   use<
     PrefixOrChild extends string | Hedystia<any, any>,
     MaybeChild extends Hedystia<any, any> | undefined = undefined,
@@ -1032,11 +1059,12 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
     prefixOrChildFramework: PrefixOrChild,
     maybeChildFramework?: MaybeChild,
   ): PrefixOrChild extends Hedystia<infer ChildRoutes, infer ChildMacros>
-    ? Hedystia<[...Routes, ...ChildRoutes], MergeMacros<Macros, ChildMacros>>
+    ? Hedystia<[...Routes, ...ChildRoutes], MergeMacros<Macros, ChildMacros>, GlobalHeaders>
     : MaybeChild extends Hedystia<infer ChildRoutes, infer ChildMacros>
       ? Hedystia<
           [...Routes, ...PrefixRoutes<PrefixOrChild & string, ChildRoutes>],
-          MergeMacros<Macros, ChildMacros>
+          MergeMacros<Macros, ChildMacros>,
+          GlobalHeaders
         >
       : never {
     let prefix = "";
@@ -1143,7 +1171,8 @@ export default class Core<Routes extends RouteDefinition[] = [], Macros extends 
         response: unknown;
       },
     ],
-    Macros
+    Macros,
+    GlobalHeaders
   > {
     const fullPath = this.prefix + path;
     this.wsRoutes.set(fullPath, { ...handler, ...options });

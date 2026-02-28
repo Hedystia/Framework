@@ -14,16 +14,18 @@ import type {
   ServerWebSocket,
   SubscriptionContext,
   SubscriptionHandler,
+  ValidationSchema,
 } from "./types";
 import type { RouteDefinition } from "./types/routes";
 import { parseRequestBody, schemaToTypeString } from "./utils";
 
-interface FrameworkOptions {
+interface FrameworkOptions<H extends ValidationSchema | undefined = undefined> {
   reusePort?: boolean;
   cors?: CorsOptions | boolean;
   idleTimeout?: number;
   sse?: boolean;
   debugLevel?: "none" | "debug" | "warn" | "log" | "error";
+  headers?: H;
 }
 
 type WebSocketData = {
@@ -35,13 +37,15 @@ type WebSocketData = {
 export class Hedystia<
   Routes extends RouteDefinition[] = [],
   _Macros extends MacroData = {},
-> extends Core<Routes, _Macros> {
+  GlobalHeaders extends ValidationSchema | undefined = undefined,
+> extends Core<Routes, _Macros, GlobalHeaders> {
   private reusePort: boolean;
   private idleTimeout: number;
   private router = new Router();
   private staticRoutesFast: Map<string, (req: Request) => any> = new Map();
   private isCompiled = false;
   private debugLevel: "none" | "debug" | "warn" | "log" | "error";
+  private defaultHeaders: ValidationSchema | undefined;
 
   private activeConnections: Map<
     ServerWebSocket,
@@ -79,7 +83,7 @@ export class Hedystia<
   private readonly RECONNECT_GRACE_PERIOD = 5000;
   private readonly ACTIVITY_CHECK_TIMEOUT = 5000;
 
-  constructor(options?: FrameworkOptions) {
+  constructor(options?: FrameworkOptions<GlobalHeaders>) {
     super();
     this.reusePort = options?.reusePort ?? false;
     this.cors =
@@ -87,6 +91,7 @@ export class Hedystia<
     this.idleTimeout = options?.idleTimeout ?? 10;
     this.sseMode = options?.sse ?? false;
     this.debugLevel = options?.debugLevel ?? "none";
+    this.defaultHeaders = options?.headers;
   }
 
   private log(level: "debug" | "warn" | "log" | "error", message: string, data?: any) {
@@ -219,13 +224,24 @@ export class Hedystia<
         }
 
         const rawHeaders: Record<string, string> = {};
+        req.headers.forEach((v, k) => {
+          rawHeaders[k.toLowerCase()] = v;
+        });
+
+        let headers: Record<string, string> = { ...rawHeaders };
+        if (this.defaultHeaders) {
+          const globalResult = this.defaultHeaders["~standard"].validate(rawHeaders);
+          if (globalResult && "value" in globalResult) {
+            headers = { ...headers, ...globalResult.value };
+          }
+        }
         if (headersSchema) {
-          req.headers.forEach((v, k) => {
-            rawHeaders[k.toLowerCase()] = v;
-          });
           const result = headersSchema.validate(rawHeaders);
           if (result.issues) {
             throw { statusCode: 400, message: "Invalid header value" };
+          }
+          if ("value" in result) {
+            headers = { ...headers, ...result.value };
           }
         }
 
@@ -279,7 +295,8 @@ export class Hedystia<
           req,
           params,
           query,
-          headers: rawHeaders,
+          headers,
+          rawHeaders,
           body,
           rawBody,
           route: route.path,
@@ -543,7 +560,13 @@ export class Hedystia<
           validatedQuery = result.value;
         }
 
-        let validatedHeaders = rawHeaders || {};
+        let validatedHeaders: Record<string, string> = { ...rawHeaders };
+        if (this.defaultHeaders) {
+          const globalResult = this.defaultHeaders["~standard"].validate(rawHeaders) as any;
+          if (globalResult && "value" in globalResult) {
+            validatedHeaders = { ...validatedHeaders, ...globalResult.value };
+          }
+        }
         if (handlerData.schema.headers) {
           const result = handlerData.schema.headers["~standard"].validate(rawHeaders) as any;
           if ("issues" in result) {
@@ -552,7 +575,7 @@ export class Hedystia<
               headers: { "Content-Type": "application/json" },
             });
           }
-          validatedHeaders = result.value;
+          validatedHeaders = { ...validatedHeaders, ...result.value };
         }
 
         const subscriptionId = (Math.random() * 1e9).toString(36);
@@ -599,6 +622,7 @@ export class Hedystia<
                 params: validatedParams,
                 query: validatedQuery,
                 headers: validatedHeaders,
+                rawHeaders,
                 body: undefined,
                 route: topic,
                 method: "SUB",
@@ -1013,6 +1037,14 @@ export class Hedystia<
           }
 
           let validatedHeaders = headers || {};
+          if (this.defaultHeaders) {
+            const globalResult = this.defaultHeaders["~standard"].validate(
+              headers || {},
+            ) as StandardSchemaV1.Result<any>;
+            if (globalResult && "value" in globalResult) {
+              validatedHeaders = { ...validatedHeaders, ...globalResult.value };
+            }
+          }
           if (matchedSub.schema.headers && headers) {
             const result = matchedSub.schema.headers["~standard"].validate(
               headers,
@@ -1028,7 +1060,7 @@ export class Hedystia<
               );
               return;
             }
-            validatedHeaders = result.value;
+            validatedHeaders = { ...validatedHeaders, ...result.value };
           }
 
           ws.subscribe(topic);
@@ -1093,6 +1125,7 @@ export class Hedystia<
             params: validatedParams,
             query: validatedQuery,
             headers: validatedHeaders,
+            rawHeaders: headers || {},
             body: body,
             route: path,
             method: "SUB",
