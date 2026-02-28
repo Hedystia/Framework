@@ -56,6 +56,7 @@ export type InferRouteContext<
   headers: T["headers"] extends ValidationSchema
     ? InferOutput<T["headers"]>
     : Record<string, string | null>;
+  rawHeaders: Record<string, string>;
   error: (statusCode: number, message?: string) => never;
   set: ResponseContext;
 } & Pick<M, EnabledMacros>;
@@ -98,6 +99,7 @@ export type ContextTypes<T extends RouteSchema = {}, Routes extends RouteDefinit
   headers: T["headers"] extends ValidationSchema
     ? InferOutput<T["headers"]>
     : Record<string, string | null>;
+  rawHeaders: Record<string, string>;
   route?: string;
   method?: string;
   error: (statusCode: number, message?: string) => never;
@@ -173,6 +175,7 @@ export type SubscriptionContext<
   EnabledMacros extends keyof M = never,
 > = Omit<ContextTypes<T>, "set"> & {
   ws: ServerWebSocket;
+  rawHeaders: Record<string, string>;
   data: T["data"] extends ValidationSchema ? InferOutput<T["data"]> : any;
   errorData: T["error"] extends ValidationSchema ? InferOutput<T["error"]> : undefined;
   sendData: (
