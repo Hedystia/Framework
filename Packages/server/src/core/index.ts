@@ -21,8 +21,8 @@ import type {
   WebSocketHandler,
   WebSocketOptions,
 } from "../types";
-import type { RouteDefinition } from "../types/routes";
-import { determineContentType } from "../utils";
+import type { RouteDefinition, TestContext } from "../types/routes";
+import { determineContentType, isBunHTMLBundle } from "../utils";
 
 type NextFunction = () => Promise<Response>;
 
@@ -36,15 +36,15 @@ type OnBeforeHandleHandler<T extends RouteSchema = {}> = (
 type OnAfterHandleHandler<T extends RouteSchema = {}> = (
   response: Response,
   ctx: ContextTypes<T>,
-) => Response | Promise<Response>;
+) => any | Promise<any>;
 type OnMapResponseHandler<T extends RouteSchema = {}> = (
   result: ContextTypes<T>,
   ctx: ContextTypes<T>,
-) => Response | Promise<Response>;
+) => any | Promise<any>;
 type OnErrorHandler<T extends RouteSchema = {}> = (
   error: Error,
   ctx: ContextTypes<T>,
-) => Response | Promise<Response>;
+) => any | Promise<any>;
 type OnAfterResponseHandler<T extends RouteSchema = {}> = (
   response: Response,
   ctx: ContextTypes<T>,
@@ -227,6 +227,7 @@ export default class Core<
     path: string;
     schema: RouteSchema;
     handler: RequestHandler;
+    test?: (context: TestContext<any, any, any, any, any>) => Promise<void> | void;
   }[] = [];
   public cors: CorsOptions | undefined = undefined;
   public prefix = "";
@@ -583,11 +584,15 @@ export default class Core<
 
     const hasMacros = Object.keys(schema).some(
       (key) =>
-        !["params", "query", "body", "headers", "response", "description", "tags"].includes(key) &&
-        schema[key as keyof typeof schema] === true,
+        !["params", "query", "body", "headers", "response", "description", "tags", "test"].includes(
+          key,
+        ) && schema[key as keyof typeof schema] === true,
     );
 
-    const finalHandler = hasMacros ? createWrappedHandler(handler, schema, this.macros) : handler;
+    const actualHandler = typeof handler === "function" ? handler : () => handler;
+    const finalHandler = hasMacros
+      ? createWrappedHandler(actualHandler, schema, this.macros)
+      : actualHandler;
 
     this.routes.push({
       method,
@@ -602,6 +607,7 @@ export default class Core<
         description: schema.description,
         tags: schema.tags,
       },
+      test: schema.test,
     });
   }
 
@@ -634,7 +640,7 @@ export default class Core<
         Macros,
         EnabledMacros
       >,
-    ) => Response | any,
+    ) => Response | any | Promise<Response | any>,
     schema: {
       params?: Params;
       query?: Query;
@@ -643,6 +649,9 @@ export default class Core<
       error?: ErrorSchema;
       description?: string;
       tags?: string[];
+      test?: (
+        context: TestContext<Params, Query, undefined, Headers, ResponseSchema>,
+      ) => Promise<void> | void;
     } & { [K in EnabledMacros]?: true } = {} as any,
   ): Hedystia<
     [
@@ -697,7 +706,7 @@ export default class Core<
         Macros,
         EnabledMacros
       >,
-    ) => Response | any,
+    ) => Response | any | Promise<Response | any>,
     schema: {
       params?: Params;
       query?: Query;
@@ -706,6 +715,9 @@ export default class Core<
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
+      test?: (
+        context: TestContext<Params, Query, Body, Headers, ResponseSchema>,
+      ) => Promise<void> | void;
     } & { [K in EnabledMacros]?: true } = {} as any,
   ): Hedystia<
     [
@@ -760,7 +772,7 @@ export default class Core<
         Macros,
         EnabledMacros
       >,
-    ) => Response | any,
+    ) => Response | any | Promise<Response | any>,
     schema: {
       params?: Params;
       query?: Query;
@@ -769,6 +781,9 @@ export default class Core<
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
+      test?: (
+        context: TestContext<Params, Query, Body, Headers, ResponseSchema>,
+      ) => Promise<void> | void;
     } & { [K in EnabledMacros]?: true } = {} as any,
   ): Hedystia<
     [
@@ -823,7 +838,7 @@ export default class Core<
         Macros,
         EnabledMacros
       >,
-    ) => Response | any,
+    ) => Response | any | Promise<Response | any>,
     schema: {
       params?: Params;
       query?: Query;
@@ -832,6 +847,9 @@ export default class Core<
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
+      test?: (
+        context: TestContext<Params, Query, Body, Headers, ResponseSchema>,
+      ) => Promise<void> | void;
     } & { [K in EnabledMacros]?: true } = {} as any,
   ): Hedystia<
     [
@@ -886,7 +904,7 @@ export default class Core<
         Macros,
         EnabledMacros
       >,
-    ) => Response | any,
+    ) => Response | any | Promise<Response | any>,
     schema: {
       params?: Params;
       query?: Query;
@@ -895,6 +913,9 @@ export default class Core<
       response?: ResponseSchema;
       description?: string;
       tags?: string[];
+      test?: (
+        context: TestContext<Params, Query, Body, Headers, ResponseSchema>,
+      ) => Promise<void> | void;
     } & { [K in EnabledMacros]?: true } = {} as any,
   ): Hedystia<
     [
@@ -937,6 +958,7 @@ export default class Core<
     path: Path,
     response:
       | Response
+      | (ResponseBody & { body?: never })
       | {
           body: ResponseBody;
           contentType?: ContentType;
@@ -965,7 +987,41 @@ export default class Core<
     if (response instanceof Response) {
       finalResponse = response;
     } else {
-      const { body, contentType, status = 200, headers = {} } = response;
+      let body: any;
+      let contentType: string | undefined;
+      let status = 200;
+      let headers: any = {};
+
+      if (
+        response &&
+        typeof response === "object" &&
+        "body" in (response as any) &&
+        !Array.isArray(response) &&
+        !(response instanceof Uint8Array) &&
+        !(response instanceof ArrayBuffer) &&
+        !(response instanceof Blob) &&
+        !(response instanceof FormData)
+      ) {
+        const config = response as {
+          body: any;
+          contentType?: string;
+          status?: number;
+          headers?: any;
+        };
+        body = config.body;
+        contentType = config.contentType;
+        status = config.status ?? 200;
+        headers = config.headers ?? {};
+      } else if (isBunHTMLBundle(response)) {
+        const anyBun = (globalThis as any).Bun;
+        if (anyBun) {
+          body = anyBun.file(response.index);
+        } else {
+          body = response;
+        }
+      } else {
+        body = response;
+      }
 
       const result = schema.response?.["~standard"]?.validate?.(body);
       if (result && typeof (result as any).then === "function") {
@@ -1141,6 +1197,54 @@ export default class Core<
       const finalPath = fullPrefix === "/" ? path : fullPrefix + path;
       this.subscriptionHandlers.set(finalPath, handlerData);
     }
+
+    return this as any;
+  }
+
+  /**
+   * Conditionally register routes based on runtime conditions
+   * Routes registered inside the callback are captured at the type level.
+   * The callback can optionally return the app instance to propagate types.
+   * @param {(app: Hedystia<[], Macros, GlobalHeaders>) => Hedystia<IfRoutes, Macros, GlobalHeaders> | void} callback
+   * @returns {Hedystia<[...Routes, ...IfRoutes], Macros, GlobalHeaders>} Instance with merged routes
+   */
+  if<IfRoutes extends RouteDefinition[] = []>(
+    callback: (
+      app: Hedystia<[], Macros, GlobalHeaders>,
+    ) => Hedystia<IfRoutes, Macros, GlobalHeaders> | undefined,
+  ): Hedystia<[...Routes, ...IfRoutes], Macros, GlobalHeaders> {
+    const ifApp = new Hedystia({ cors: this.cors }) as Hedystia<[], Macros, GlobalHeaders>;
+    ifApp.prefix = this.prefix;
+    ifApp.macros = { ...this.macros };
+
+    const result = callback(ifApp);
+
+    const sourceApp = result instanceof Hedystia ? result : ifApp;
+
+    for (const route of (sourceApp as any).routes) {
+      this.routes.push(route);
+    }
+
+    for (const staticRoute of (sourceApp as any).staticRoutes) {
+      this.staticRoutes.push(staticRoute);
+    }
+
+    for (const [path, handlerData] of (sourceApp as any).subscriptionHandlers.entries()) {
+      this.subscriptionHandlers.set(path, handlerData);
+    }
+
+    for (const [path, wsHandler] of (sourceApp as any).wsRoutes.entries()) {
+      this.wsRoutes.set(path, wsHandler);
+    }
+
+    this.onRequestHandlers.push(...(sourceApp as any).onRequestHandlers);
+    this.onParseHandlers.push(...(sourceApp as any).onParseHandlers);
+    this.onTransformHandlers.push(...(sourceApp as any).onTransformHandlers);
+    this.onBeforeHandleHandlers.push(...(sourceApp as any).onBeforeHandleHandlers);
+    this.onAfterHandleHandlers.push(...(sourceApp as any).onAfterHandleHandlers);
+    this.onMapResponseHandlers.push(...(sourceApp as any).onMapResponseHandlers);
+    this.onErrorHandlers.push(...(sourceApp as any).onErrorHandlers);
+    this.onAfterResponseHandlers.push(...(sourceApp as any).onAfterResponseHandlers);
 
     return this as any;
   }
