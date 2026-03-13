@@ -8,8 +8,7 @@
   },
   "devDependencies": {
     "@standard-schema/spec": "^1.0.0",
-    "@types/bun": "^1.3.3",
-    "tsup": "^8.3.5"
+    "@types/bun": "^1.3.3"
   },
   "peerDependencies": {
     "@hedystia/types": ">= 1.10.0",
@@ -41,7 +40,7 @@
   ],
   "license": "MIT",
   "scripts": {
-    "build": "tsup",
+    "build": "tsdown --config-loader unrun",
     "dev": "bun --watch --no-clear-screen run src/index.ts"
   },
   "repository": {
@@ -56,5 +55,12 @@
   "type": "commonjs",
   "types": "./dist/index.d.ts",
   "main": "./dist/index.js",
-  "module": "./dist/index.js"
+  "module": "./dist/index.mjs",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  }
 }

@@ -4,18 +4,17 @@
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
     "@types/bun": "^1.3.6",
-    "concurrently": "^9.2.1",
+    "tsdown": "^0.21.2",
+    "turbo": "^2.8.17",
     "typescript": "^5.9.3"
   },
   "scripts": {
-    "build:core": "bun run --cwd Packages/validations build && bun run --cwd Packages/types build && bun run --cwd Packages/server build",
-    "build:rest": "concurrently \"bun run --cwd Packages/client build\" \"bun run --cwd Packages/swagger build\" \"bun run --cwd Packages/adapter build\"",
-    "build": "bun run build:core && bun run build:rest",
-    "dev": "concurrently \"bun run --cwd Packages/server dev\" \"bun run --cwd Tests dev\"",
+    "build": "turbo run build",
+    "dev": "turbo run dev",
     "test": "bun run --cwd Tests test",
-    "test:build": "bun run build && bun run --cwd Tests build.js",
+    "test:build": "turbo run build && bun run --cwd Tests build.js",
     "test:stress": "bun run --cwd Tests stress.ts",
-    "publish": "bun run build && concurrently \"bun run --cwd Packages/adapter npm publish --access public\" \"bun run --cwd Packages/client npm publish --access public\" \"bun run --cwd Packages/server npm publish --access public\" \"bun run --cwd Packages/swagger npm publish --access public\" \"bun run --cwd Packages/validations npm publish --access public\" \"bun run --cwd Packages/types npm publish --access public\""
+    "publish": "turbo run build && bun run --cwd Packages/adapter npm publish --access public && bun run --cwd Packages/client npm publish --access public && bun run --cwd Packages/server npm publish --access public && bun run --cwd Packages/swagger npm publish --access public && bun run --cwd Packages/validations npm publish --access public && bun run --cwd Packages/types npm publish --access public"
   },
   "repository": {
     "type": "git",
@@ -26,6 +25,7 @@
     "email": "contact@zastinian.com",
     "url": "https://github.com/Zastinian"
   },
+  "packageManager": "bun@1.3.9",
   "workspaces": [
     "./Packages/adapter",
     "./Packages/types",
