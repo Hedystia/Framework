@@ -16,7 +16,7 @@ export function swagger(options: SwaggerOptions = {}) {
       });
     })
     .get("/json", () => {
-      return Response.json(swaggerInstance.getSpec());
+      return swaggerInstance.getSpec();
     });
 
   function createPlugin(app: Hedystia<any, any>) {
