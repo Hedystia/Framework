@@ -160,13 +160,13 @@ app.listen(3000);
 ```
 
 ## 📜 License
-MIT License © 2025 Hedystia
+MIT License © 2026 Hedystia
 
-## � Documentation
+## 📖 Documentation
 - [Full Documentation](https://docs.hedystia.com)
 - [Getting Started Guide](https://docs.hedystia.com/framework/getting-started)
 - [API Reference](https://docs.hedystia.com/framework/overview)
 
-## �🗣️ Community
+## 🗣️ Community
 - [GitHub Issues](https://github.com/Hedystia/Framework/issues)
 - [Discord Server](https://hedystia.com/support)
