@@ -22,4 +22,4 @@ export {
 };
 export default Hedystia;
 
-export type { RouteDefinition } from "./types/routes";
+export type { Assertion, RouteDefinition, TestContext } from "./types/routes";
