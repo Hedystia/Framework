@@ -38,4 +38,4 @@ Provide any other important details below.
 
 :question:
 
-[1]: https://github.com/Hedystia/Framework/pulls
+[1]: https://github.com/Hedystia/Hedystia/pulls

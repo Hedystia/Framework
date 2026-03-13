@@ -168,5 +168,5 @@ MIT License © 2026 Hedystia
 - [API Reference](https://docs.hedystia.com/framework/overview)
 
 ## 🗣️ Community
-- [GitHub Issues](https://github.com/Hedystia/Framework/issues)
+- [GitHub Issues](https://github.com/Hedystia/Hedystia/issues)
 - [Discord Server](https://hedystia.com/support)

@@ -38,4 +38,4 @@ Add any other context or screenshots about the feature request here.
 
 :question:
 
-[1]: https://github.com/Hedystia/Framework/issues
+[1]: https://github.com/Hedystia/Hedystia/issues

@@ -38,4 +38,4 @@ Only fill this in if you are filing a bug report.
 
 :question:
 
-[1]: https://github.com/Hedystia/Framework/issues
+[1]: https://github.com/Hedystia/Hedystia/issues
