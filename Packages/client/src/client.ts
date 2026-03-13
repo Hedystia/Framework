@@ -1,5 +1,6 @@
 import type { Hedystia, RouteDefinition } from "hedystia";
-import { SubscriptionManager } from "./managers";
+import type { WebSocketCallback } from "./managers";
+import { SubscriptionManager, WebSocketManager } from "./managers";
 import type {
   ClientTree,
   ExtractRoutesFromFramework,
@@ -30,6 +31,11 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
     clientOptions?.debugLevel,
     clientOptions?.headers,
   );
+  const wsManager = new WebSocketManager(
+    baseUrl,
+    clientOptions?.debugLevel,
+    clientOptions?.headers,
+  );
 
   const createProxy = (segments: string[] = []): any => {
     const proxyTarget = () => {};
@@ -45,6 +51,12 @@ export function createClient<T extends Hedystia<any> | RouteDefinition[]>(
           const fullPath = `/${segments.filter(Boolean).join("/")}`;
           return (callback: SubscriptionCallback, options?: SubscriptionOptions) => {
             return subscriptionManager.subscribe(fullPath, callback, options);
+          };
+        }
+        if (prop.toLowerCase() === "ws") {
+          const fullPath = `/${segments.filter(Boolean).join("/")}`;
+          return (callback: WebSocketCallback) => {
+            return wsManager.connect(fullPath, callback);
           };
         }
         if (HTTP_METHODS.includes(prop.toLowerCase())) {
