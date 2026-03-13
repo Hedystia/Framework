@@ -1,11 +1,25 @@
 {
   "name": "@hedystia/types",
-  "version": "1.10.0",
-  "description": "Type definition generator for multiple frameworks",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": "./dist/index.js"
+  "version": "1.10.1",
+  "description": "Next-gen TypeScript framework for building type-safe APIs at lightspeed",
+  "dependencies": {
+    "@hedystia/validations": "^1.10.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.3",
+    "tsup": "^8.3.5"
+  },
+  "peerDependencies": {
+    "@hedystia/validations": ">= 1.10.0",
+    "typescript": ">= 5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    },
+    "@hedystia/validations": {
+      "optional": false
+    }
   },
   "private": false,
   "keywords": [
@@ -24,23 +38,6 @@
     "build": "tsup",
     "dev": "bun --watch --no-clear-screen run src/index.ts"
   },
-  "dependencies": {
-    "@hedystia/validations": "^1.10.0"
-  },
-  "devDependencies": {
-    "@standard-schema/spec": "^1.0.0",
-    "@types/bun": "^1.3.3",
-    "tsup": "^8.3.5"
-  },
-  "peerDependencies": {
-    "@hedystia/validations": ">= 1.10.0",
-    "typescript": ">= 5.0.0"
-  },
-  "peerDependenciesMeta": {
-    "typescript": {
-      "optional": true
-    }
-  },
   "repository": {
     "type": "git",
     "url": "https://github.com/Hedystia/Framework"
@@ -50,5 +47,8 @@
     "email": "contact@zastinian.com",
     "url": "https://github.com/Zastinian"
   },
-  "type": "commonjs"
+  "type": "commonjs",
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js"
 }

@@ -1,9 +1,10 @@
 {
   "name": "hedystia",
-  "version": "1.10.0",
+  "version": "1.10.1",
+  "description": "Next-gen TypeScript framework for building type-safe APIs at lightspeed",
   "dependencies": {
-    "@hedystia/types": "^1.10.0",
-    "@hedystia/validations": "^1.10.0"
+    "@hedystia/types": "^1.10.1",
+    "@hedystia/validations": "^1.10.1"
   },
   "devDependencies": {
     "@standard-schema/spec": "^1.0.0",
