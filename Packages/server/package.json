@@ -27,6 +27,17 @@
     }
   },
   "private": false,
+  "keywords": [
+    "hedystia",
+    "framework",
+    "typescript",
+    "api",
+    "type-safe",
+    "bun",
+    "server",
+    "backend",
+    "web"
+  ],
   "license": "MIT",
   "scripts": {
     "build": "tsup",
