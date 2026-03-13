@@ -135,6 +135,21 @@ export type RouteToSubscription<RouteInfo> = RouteInfo extends [
     : never
   : never;
 
+export type RouteToWebSocket<RouteInfo> = RouteInfo extends [infer M, any, ...any[]]
+  ? M extends "WS"
+    ? (
+        callback: (ws: {
+          send(message: any): void;
+          disconnect(): void;
+          onConnect(callback: () => void): void;
+          onMessage(callback: (message: any) => void): void;
+          onError(callback: (error: Error) => void): void;
+          onDisconnect(callback: () => void): void;
+        }) => void,
+      ) => { disconnect: () => void }
+    : never
+  : never;
+
 export type RouteMetadata<R extends RouteDefinition> = {
   path: R["path"];
   params: R["params"];
@@ -149,6 +164,8 @@ export type RouteMetadata<R extends RouteDefinition> = {
       [M in R["method"] as M extends "SUB" ? "subscribe" : never]: RouteToSubscription<
         RouteTuple<R>
       >;
+    } & {
+      [M in R["method"] as M extends "WS" ? "ws" : never]: RouteToWebSocket<RouteTuple<R>>;
     }
   >;
 };
