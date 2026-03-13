@@ -1,10 +1,14 @@
 import { afterAll, describe, expect, it } from "bun:test";
+import { createClient } from "@hedystia/client";
 import Framework from "hedystia";
 
 const app = new Framework()
   .ws("/chat", {
     message: (ws, message) => {
-      const data = typeof message === "string" ? message : new TextDecoder().decode(message);
+      const data =
+        typeof message === "string"
+          ? message
+          : new TextDecoder().decode(message);
       ws.send(`You said: ${data}`);
     },
     open: (ws) => {
@@ -62,8 +66,51 @@ describe("WebSocket Tests", () => {
       setTimeout(() => reject(new Error("Echo timeout")), 1000);
     });
   });
+});
 
-  afterAll(() => {
-    app.close();
+describe("WebSocket Tests with Client", () => {
+  const client = createClient<typeof app>("http://localhost:3009", {
+    debugLevel: "debug",
   });
+
+  it("should connect using client", async () => {
+    await new Promise<void>((resolve, reject) => {
+      client.chat.ws((ws) => {
+        ws.onConnect(() => {
+          ws.disconnect();
+          resolve();
+        });
+        ws.onError((err) => reject(err));
+      });
+      setTimeout(() => reject(new Error("Connection timeout")), 1000);
+    });
+  });
+
+  it("should receive messages and send messages via client", async () => {
+    let welcomeReceived = false;
+
+    await new Promise<void>((resolve, reject) => {
+      client.chat.ws((ws) => {
+        ws.onMessage((msg) => {
+          if (msg === "Welcome to the chat server!") {
+            welcomeReceived = true;
+            ws.send("Hello from client!");
+            return;
+          }
+
+          if (welcomeReceived) {
+            expect(msg).toBe("You said: Hello from client!");
+            ws.disconnect();
+            resolve();
+          }
+        });
+        ws.onError((err) => reject(err));
+      });
+      setTimeout(() => reject(new Error("Echo timeout")), 1000);
+    });
+  });
+});
+
+afterAll(() => {
+  app.close();
 });

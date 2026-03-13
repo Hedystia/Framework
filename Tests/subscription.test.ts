@@ -33,13 +33,13 @@ const app = new Framework()
   })
   .post("/data/basic", async () => {
     app.pub.data.basic({ data: "New data" });
-    return new Response("Test");
+    return "Test";
   })
   .post(
     "/data/basic/body",
     async ({ body }) => {
       app.pub.data.basic({ data: body.message });
-      return new Response("Test");
+      return "Test";
     },
     {
       body: h.object({
@@ -65,7 +65,7 @@ const app = new Framework()
     app.publish(`/data/params/${ctx.params.id}`, {
       data: { id: ctx.params.id },
     });
-    return new Response("Test");
+    return "Test";
   })
   .subscription(
     "/data/headers",
@@ -82,7 +82,7 @@ const app = new Framework()
     "/data/headers",
     async (ctx) => {
       app.pub.data.headers({ data: ctx.headers["x-test"] });
-      return new Response("Test");
+      return "Test";
     },
     {
       headers: h.object({
@@ -94,9 +94,7 @@ const app = new Framework()
     "/data/query",
     async (ctx) => {
       const searchQuery = (ctx.query as { search: string }).search;
-      return new Response(searchQuery, {
-        headers: { "Content-Type": "text/plain" },
-      });
+      return searchQuery;
     },
     {
       response: h.string(),
@@ -329,7 +327,9 @@ describe("Test subscriptions", () => {
   it("should handle query parameters", async () => {
     const queryValue = "hello-hedystia";
 
-    const { data, status, ok } = await client.data.query.get({ query: { search: queryValue } });
+    const { data, status, ok } = await client.data.query.get({
+      query: { search: queryValue },
+    });
 
     expect(status).toBe(200);
     expect(ok).toBe(true);

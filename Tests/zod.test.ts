@@ -7,9 +7,9 @@ const app = new Framework()
   .get(
     "/users/get",
     () => {
-      return Response.json({
+      return {
         status: "ok",
-      });
+      };
     },
     {
       response: z.object({ status: z.literal("ok") }),
@@ -18,7 +18,7 @@ const app = new Framework()
   .get(
     "/slug/:name",
     (context) => {
-      return Response.json(context.params);
+      return context.params;
     },
     {
       params: z.object({
@@ -30,7 +30,7 @@ const app = new Framework()
   .get(
     "/test/test/new/random/:name/:id",
     (context) => {
-      return Response.json(context.params);
+      return context.params;
     },
     {
       params: z.object({
@@ -52,7 +52,10 @@ describe("Test zod wrapper", () => {
   });
 
   it("should return a response with params", async () => {
-    const { data: test, error } = await client.test.test.new.random.name("sally").id(123).get();
+    const { data: test, error } = await client.test.test.new.random
+      .name("sally")
+      .id(123)
+      .get();
 
     expect(error).toBeNull();
 

@@ -10,9 +10,9 @@ describe("Framework .on() Hooks Tests", () => {
         return req;
       })
       .get("/test-header", (ctx) => {
-        return Response.json({
+        return {
           headerValue: ctx.req.headers.get("X-Test-Header"),
-        });
+        };
       })
       .listen(3009);
 
@@ -32,7 +32,7 @@ describe("Framework .on() Hooks Tests", () => {
       .post(
         "/parse-test",
         (ctx) => {
-          return Response.json({ parsedBody: ctx.body });
+          return { parsedBody: ctx.body };
         },
         {
           body: h.any(),
@@ -57,7 +57,7 @@ describe("Framework .on() Hooks Tests", () => {
         transformed: true,
       }))
       .get("/transform-test", (ctx: any) => {
-        return Response.json({ wasTransformed: ctx.transformed });
+        return { wasTransformed: ctx.transformed };
       })
       .listen(3011);
 
@@ -80,7 +80,7 @@ describe("Framework .on() Hooks Tests", () => {
         return next();
       })
       .get("/before-handle", (ctx: any) => {
-        return Response.json({ chainResult: ctx.modified });
+        return { chainResult: ctx.modified };
       })
       .listen(3012);
 
@@ -94,18 +94,16 @@ describe("Framework .on() Hooks Tests", () => {
 
   it("should trigger onAfterHandle hook", async () => {
     const app = new Framework()
-      .onAfterHandle(async (res) => {
-        return new Response(JSON.stringify({ wrapped: await res.json() }), {
-          headers: { "X-Modified": "true" },
-        });
+      .onAfterHandle(async (_res, ctx) => {
+        ctx.set.headers.set("X-Modified", "true");
       })
-      .get("/after-handle", () => Response.json({ original: true }))
+      .get("/after-handle", () => ({ original: true }))
       .listen(3013);
 
     const response = await fetch("http://localhost:3013/after-handle");
 
     expect(response.headers.get("X-Modified")).toBe("true");
-    expect(await response.json()).toEqual({ wrapped: { original: true } });
+    expect(await response.json()).toEqual({ original: true });
 
     app.close();
   });
@@ -113,7 +111,7 @@ describe("Framework .on() Hooks Tests", () => {
   it("should handle errors with onError hook", async () => {
     const app = new Framework()
       .onError((err) => {
-        return Response.json({ customError: `${err.message} handled` });
+        return { customError: `${err.message} handled` };
       })
       .get("/error-test", () => {
         throw new Error("Test error");
@@ -133,7 +131,7 @@ describe("Framework .on() Hooks Tests", () => {
       .onAfterResponse((a) => {
         expect(a).toBeInstanceOf(Response);
       })
-      .get("/after-response", () => Response.json({ success: true }), {
+      .get("/after-response", () => ({ success: true }), {
         response: h.object({ success: h.boolean() }),
       })
       .listen(3015);

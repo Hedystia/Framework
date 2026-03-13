@@ -10,12 +10,12 @@ describe("Framework .group() Tests", () => {
           .get(
             "/",
             () => {
-              return Response.json({
+              return {
                 products: [
                   { id: 1, name: "Product 1" },
                   { id: 2, name: "Product 2" },
                 ],
-              });
+              };
             },
             {
               response: h.object({
@@ -32,7 +32,10 @@ describe("Framework .group() Tests", () => {
             "/:id",
             (ctx) => {
               const productId = ctx.params.id;
-              return Response.json({ id: productId, name: `Product ${productId}` });
+              return {
+                id: productId,
+                name: `Product ${productId}`,
+              };
             },
             {
               params: h.object({
@@ -48,7 +51,7 @@ describe("Framework .group() Tests", () => {
             return categories.get(
               "/test",
               () => {
-                return Response.json({ categories: ["Electronics", "Clothing", "Books"] });
+                return { categories: ["Electronics", "Clothing", "Books"] };
               },
               {
                 response: h.object({
@@ -92,10 +95,10 @@ describe("Framework .group() Tests", () => {
             return next();
           })
           .get("/resource1", (ctx: any) => {
-            return Response.json({ value: ctx.groupShared });
+            return { value: ctx.groupShared };
           })
           .get("/resource2", (ctx: any) => {
-            return Response.json({ value: ctx.groupShared });
+            return { value: ctx.groupShared };
           });
       })
       .listen(3017);

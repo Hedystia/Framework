@@ -101,7 +101,9 @@ describe("Framework .macro() Tests", () => {
         }),
         rateLimit: () => ({
           resolve: async (ctx) => {
-            const requestsCount = Number.parseInt(ctx.req.headers.get("X-Request-Count") || "0");
+            const requestsCount = Number.parseInt(
+              ctx.req.headers.get("X-Request-Count") || "0",
+            );
             if (requestsCount > 5) {
               ctx.error(429, "Too many requests");
             }
@@ -319,7 +321,9 @@ describe("Framework .macro() Tests", () => {
       .macro({
         auth: () => ({
           resolve: async (ctx) => {
-            const authHeader = ctx.headers?.authorization || ctx.req?.headers.get("Authorization");
+            const authHeader =
+              ctx.headers?.authorization ||
+              ctx.req?.headers.get("Authorization");
             if (!authHeader || !authHeader.startsWith("Bearer ")) {
               const error = new Error("Unauthorized");
               (error as any).isMacroError = true;

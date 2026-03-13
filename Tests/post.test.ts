@@ -6,7 +6,7 @@ const app = new Framework()
   .get(
     "/users/:id",
     (context) => {
-      return Response.json(context.params);
+      return context.params;
     },
     {
       params: h.object({
@@ -18,10 +18,10 @@ const app = new Framework()
   .post(
     "/users/:id",
     (context) => {
-      return Response.json({
+      return {
         params: context.params,
         body: context.body,
-      });
+      };
     },
     {
       params: h.object({
@@ -41,16 +41,14 @@ const app = new Framework()
     "/ok",
     (context) => {
       if (context.body.name === "John Doe") {
-        return Response.json({
+        return {
           body: context.body,
-        });
+        };
       }
-      return Response.json(
-        {
-          message: "Invalid name",
-        },
-        { status: 400 },
-      );
+      context.set.status(400);
+      return {
+        message: "Invalid name",
+      };
     },
     {
       body: h.object({
@@ -62,9 +60,9 @@ const app = new Framework()
   .post(
     "/users",
     (context) => {
-      return Response.json({
+      return {
         body: context.body,
-      });
+      };
     },
     {
       body: h.object({
@@ -76,10 +74,10 @@ const app = new Framework()
   .post(
     "/profile/:userId",
     (context) => {
-      return Response.json({
+      return {
         params: context.params,
         body: context.body,
-      });
+      };
     },
     {
       params: h.object({
@@ -94,9 +92,9 @@ const app = new Framework()
   .post(
     "/ping",
     (context) => {
-      return Response.json({
+      return {
         body: context.body || "pong",
-      });
+      };
     },
     {
       response: h.object({ body: h.optional(h.string()) }),
@@ -105,9 +103,9 @@ const app = new Framework()
   .post(
     "/post",
     (context) => {
-      return Response.json({
+      return {
         body: context.body,
-      });
+      };
     },
     {
       response: h.object({ body: h.optional(h.object()) }),
@@ -116,10 +114,10 @@ const app = new Framework()
   .post(
     "/headers",
     (context) => {
-      return Response.json({
+      return {
         body: context.body,
         headers: context.headers,
-      });
+      };
     },
     {
       response: h.object({

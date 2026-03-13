@@ -1,40 +1,31 @@
 import { afterAll, describe, expect, it } from "bun:test";
 import { createClient } from "@hedystia/client";
 import Framework, { h } from "hedystia";
+import staticHtml from "./static.html";
 
 const app = new Framework()
   .get(
     "/dynamic",
     () => {
-      return Response.json({
+      return {
         type: "dynamic",
-      });
+      };
     },
     {
       response: h.object({ type: h.literal("dynamic") }),
     },
   )
-  .static("/static-json", Response.json({ type: "static" }), {
-    response: h.object({ type: h.literal("static") }),
+  .static(
+    "/static-json",
+    { type: "static" },
+    {
+      response: h.object({ type: h.literal("static") }),
+    },
+  )
+  .static("/static-text", "Static text content", {
+    response: h.string(),
   })
-  .static(
-    "/static-text",
-    new Response("Static text content", {
-      headers: { "Content-Type": "text/plain" },
-    }),
-    {
-      response: h.string(),
-    },
-  )
-  .static(
-    "/static-html",
-    new Response("<h1>Static HTML</h1>", {
-      headers: { "Content-Type": "text/html" },
-    }),
-    {
-      response: h.string(),
-    },
-  )
+  .static("/static-html", staticHtml)
   .listen(3020);
 
 const client = createClient<typeof app>("http://localhost:3020");
@@ -62,7 +53,7 @@ describe("Test static routes", () => {
     const { error, data } = await client["static-html"].get();
 
     expect(error).toBeNull();
-    expect(data).toBe("<h1>Static HTML</h1>");
+    expect(data).toContain("<h1>Static HTML</h1>");
   });
 
   it("should return 404 for undefined routes", async () => {

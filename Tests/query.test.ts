@@ -6,9 +6,9 @@ const app = new Framework()
   .get(
     "/products",
     (context) => {
-      return Response.json({
+      return {
         query: context.query,
-      });
+      };
     },
     {
       query: h.object({
@@ -28,10 +28,10 @@ const app = new Framework()
   .get(
     "/products/:id",
     (context) => {
-      return Response.json({
+      return {
         params: context.params,
         query: context.query,
-      });
+      };
     },
     {
       params: h.object({

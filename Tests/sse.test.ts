@@ -9,20 +9,22 @@ const app = new Framework({ sse: true })
     lifecycleEvents.push(`open:${ctx.path}:${ctx.subscriptionId}`);
   })
   .onSubscriptionClose((ctx) => {
-    lifecycleEvents.push(`close:${ctx.path}:${ctx.subscriptionId}:${ctx.reason}`);
+    lifecycleEvents.push(
+      `close:${ctx.path}:${ctx.subscriptionId}:${ctx.reason}`,
+    );
   })
   .subscription("/data/basic", async () => {
     return "Test";
   })
   .post("/data/basic", async () => {
     app.publish("/data/basic", { data: "New data" });
-    return new Response("Test");
+    return "Test";
   })
   .post(
     "/data/basic/body",
     async ({ body }) => {
       app.publish("/data/basic", { data: body.message });
-      return new Response("Test");
+      return "Test";
     },
     {
       body: h.object({
@@ -35,7 +37,7 @@ const app = new Framework({ sse: true })
   })
   .post("/data/params/:id", async (ctx) => {
     app.publish(`/data/params/${ctx.params.id}`, ctx.params.id);
-    return new Response("Test");
+    return "Test";
   })
   .subscription(
     "/data/headers",
@@ -151,9 +153,13 @@ describe("Test SSE subscriptions", () => {
     sub.unsubscribe();
     await wait(100);
 
-    expect(lifecycleEvents.some((e) => e.startsWith("open:/data/isactive:"))).toBe(true);
     expect(
-      lifecycleEvents.some((e) => e.includes("close:/data/isactive:") && e.includes("disconnect")),
+      lifecycleEvents.some((e) => e.startsWith("open:/data/isactive:")),
+    ).toBe(true);
+    expect(
+      lifecycleEvents.some(
+        (e) => e.includes("close:/data/isactive:") && e.includes("disconnect"),
+      ),
     ).toBe(true);
   });
 

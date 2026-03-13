@@ -6,9 +6,7 @@ const apiV1 = new Framework()
   .get(
     "/",
     () => {
-      return new Response("Welcome to API Server", {
-        headers: { "Content-Type": "text/plain" },
-      });
+      return "Welcome to API Server";
     },
     {
       response: h.string(),
@@ -17,12 +15,12 @@ const apiV1 = new Framework()
   .get(
     "/users",
     () => {
-      return Response.json({
+      return {
         users: [
           { id: 1, name: "User 1", role: "admin" },
           { id: 2, name: "User 2", role: "user" },
         ],
-      });
+      };
     },
     {
       response: h.object({
@@ -40,11 +38,11 @@ const apiV1 = new Framework()
     "/users/:id",
     (context) => {
       const userId = context.params.id;
-      return Response.json({
+      return {
         userId,
         name: `User ${userId}`,
         role: userId === 1 ? "admin" : "user",
-      });
+      };
     },
     {
       params: h.object({
@@ -61,12 +59,22 @@ const apiV1 = new Framework()
 const apiV2 = new Framework().get(
   "/users",
   () => {
-    return Response.json({
+    return {
       users: [
-        { id: 1, name: "User 1", role: "admin", metadata: { lastLogin: "2025-04-10" } },
-        { id: 2, name: "User 2", role: "user", metadata: { lastLogin: "2025-04-12" } },
+        {
+          id: 1,
+          name: "User 1",
+          role: "admin",
+          metadata: { lastLogin: "2025-04-10" },
+        },
+        {
+          id: 2,
+          name: "User 2",
+          role: "user",
+          metadata: { lastLogin: "2025-04-12" },
+        },
       ],
-    });
+    };
   },
   {
     response: h.object({
@@ -88,9 +96,7 @@ const app = new Framework()
   .get(
     "/welcome",
     () => {
-      return new Response("Welcome to API Server", {
-        headers: { "Content-Type": "text/plain" },
-      });
+      return "Welcome to API Server";
     },
     {
       response: h.optional(h.string()),

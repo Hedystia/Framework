@@ -6,7 +6,7 @@ const app = new Framework()
   .get(
     "/headers",
     (context) => {
-      return Response.json(context.headers);
+      return context.headers;
     },
     {
       headers: h
@@ -20,7 +20,7 @@ const app = new Framework()
   .get(
     "/multi-headers",
     (context) => {
-      return Response.json(context.headers);
+      return context.headers;
     },
     {
       headers: h
@@ -36,10 +36,10 @@ const app = new Framework()
     },
   )
   .get("/raw-headers", (ctx) => {
-    return Response.json({
+    return {
       headers: ctx.headers,
       rawHeaders: ctx.rawHeaders,
-    });
+    };
   })
   .listen(3001);
 
@@ -65,7 +65,7 @@ describe("Headers and rawHeaders", () => {
         "x-global-auth": h.string(),
       }),
     })
-      .get("/test", (ctx) => Response.json(ctx.headers))
+      .get("/test", (ctx) => ctx.headers)
       .listen(3024);
 
     const client = createClient<typeof globalApp>("http://localhost:3024");
@@ -88,7 +88,7 @@ describe("Headers and rawHeaders", () => {
         "x-global": h.string(),
       }),
     })
-      .get("/merge", (ctx) => Response.json(ctx.headers), {
+      .get("/merge", (ctx) => ctx.headers, {
         headers: h.object({
           "x-route": h.string(),
         }),

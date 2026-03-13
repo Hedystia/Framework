@@ -1,30 +1,44 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { generateTypes } from "@hedystia/types";
 import { file } from "bun";
 import fs from "fs/promises";
-import Framework, { h } from "hedystia";
+import { h } from "hedystia";
 import path from "path";
 
-const typesFilePath = path.join(__dirname, "test-server.d.ts");
+const typesFilePath = path.join(__dirname, "test-express.d.ts");
 
-const app = new Framework()
-  .get("/", () => "", { response: h.string() })
-  .get("/users/get", () => ({ status: "ok" }), {
+const routes = [
+  {
+    method: "GET",
+    path: "/",
+    response: h.string(),
+  },
+  {
+    method: "GET",
+    path: "/users/get",
     response: h.object({ status: h.literal("ok") }),
-  })
-  .get("/slug/:name", (ctx) => ctx.params, {
+  },
+  {
+    method: "GET",
+    path: "/slug/:name",
     params: h.object({ name: h.string() }),
     response: h.object({ name: h.string() }),
-  })
-  .get("/test/test/new/random/:name/:id", (ctx) => ctx.params, {
+  },
+  {
+    method: "GET",
+    path: "/test/test/new/random/:name/:id",
     params: h.object({ id: h.number().coerce(), name: h.string() }),
     response: h.object({ id: h.number(), name: h.string() }),
-  })
-  .get("/headers", (ctx) => ctx.headers, {
+  },
+  {
+    method: "GET",
+    path: "/headers",
     headers: h.object({ "x-test-header": h.string() }),
     response: h.object({ "x-test-header": h.string() }),
-  });
+  },
+];
 
-describe("Build Process", () => {
+describe("Build Process (Standalone generateTypes)", () => {
   beforeAll(async () => {
     try {
       await fs.unlink(typesFilePath);
@@ -37,8 +51,8 @@ describe("Build Process", () => {
     } catch {}
   });
 
-  it("should generate a type definition file with the correct minified content", async () => {
-    await app.buildTypes(typesFilePath);
+  it("should generate a type definition file with the generic generator", async () => {
+    await generateTypes(routes, typesFilePath);
     const fileExists = await file(typesFilePath).exists();
     expect(fileExists).toBe(true);
 

@@ -9,7 +9,7 @@ const sub = 1;
 const app = new Framework();
 const plugin = new Framework();
 
-const responseHandler = () => new Response("hi");
+const responseHandler = () => "hi";
 const responseSchema = { response: h.string() };
 
 const paths = Array(total * sub);

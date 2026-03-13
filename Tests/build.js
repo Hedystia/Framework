@@ -7,9 +7,9 @@ const app = new Framework()
   .get(
     "/users/get",
     () => {
-      return Response.json({
+      return {
         status: "ok",
-      });
+      };
     },
     {
       response: h.object({ status: h.literal("ok") }),
@@ -18,7 +18,7 @@ const app = new Framework()
   .get(
     "/slug/:name",
     (context) => {
-      return Response.json(context.params);
+      return context.params;
     },
     {
       params: h.object({
@@ -30,7 +30,7 @@ const app = new Framework()
   .get(
     "/test/test/new/random/:name/:id",
     (context) => {
-      return Response.json(context.params);
+      return context.params;
     },
     {
       params: h.object({

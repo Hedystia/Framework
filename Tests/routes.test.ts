@@ -7,10 +7,10 @@ const commentsRouter = new Framework().group("/:postId/comments", (app) =>
     .get(
       "/",
       (ctx) => {
-        return Response.json({
+        return {
           postId: ctx.params.postId,
           comments: [{ id: 1, text: "Comment 1" }],
-        });
+        };
       },
       {
         params: h.object({
@@ -30,10 +30,10 @@ const commentsRouter = new Framework().group("/:postId/comments", (app) =>
     .post(
       "/",
       (ctx) => {
-        return Response.json({
+        return {
           postId: ctx.params.postId,
           created: true,
-        });
+        };
       },
       {
         params: h.object({
@@ -47,25 +47,27 @@ const commentsRouter = new Framework().group("/:postId/comments", (app) =>
     ),
 );
 
-const subscriptionsRouter = new Framework().group("/:postId/subscriptions", (app) =>
-  app.post(
-    "/",
-    (ctx) => {
-      return Response.json({
-        postId: ctx.params.postId,
-        subscribed: true,
-      });
-    },
-    {
-      params: h.object({
-        postId: h.string(),
-      }),
-      response: h.object({
-        postId: h.string(),
-        subscribed: h.boolean(),
-      }),
-    },
-  ),
+const subscriptionsRouter = new Framework().group(
+  "/:postId/subscriptions",
+  (app) =>
+    app.post(
+      "/",
+      (ctx) => {
+        return {
+          postId: ctx.params.postId,
+          subscribed: true,
+        };
+      },
+      {
+        params: h.object({
+          postId: h.string(),
+        }),
+        response: h.object({
+          postId: h.string(),
+          subscribed: h.boolean(),
+        }),
+      },
+    ),
 );
 
 const votesRouter = new Framework().group("/:postId/vote", (app) =>
@@ -73,10 +75,10 @@ const votesRouter = new Framework().group("/:postId/vote", (app) =>
     .post(
       "/",
       (ctx) => {
-        return Response.json({
+        return {
           postId: ctx.params.postId,
           voted: true,
-        });
+        };
       },
       {
         params: h.object({
@@ -91,10 +93,10 @@ const votesRouter = new Framework().group("/:postId/vote", (app) =>
     .delete(
       "/",
       (ctx) => {
-        return Response.json({
+        return {
           postId: ctx.params.postId,
           unvoted: true,
-        });
+        };
       },
       {
         params: h.object({
@@ -116,12 +118,12 @@ const postsRouter = new Framework().group("/posts", (app) =>
     .get(
       "/",
       () => {
-        return Response.json({
+        return {
           posts: [
             { id: "post-1", title: "Post 1" },
             { id: "post-2", title: "Post 2" },
           ],
-        });
+        };
       },
       {
         response: h.object({
@@ -137,10 +139,10 @@ const postsRouter = new Framework().group("/posts", (app) =>
     .post(
       "/",
       (ctx) => {
-        return Response.json({
+        return {
           id: "new-post-id",
           title: ctx.body.title,
-        });
+        };
       },
       {
         body: h.object({
@@ -155,10 +157,10 @@ const postsRouter = new Framework().group("/posts", (app) =>
     .get(
       "/:id",
       (ctx) => {
-        return Response.json({
+        return {
           id: ctx.params.id,
           title: `Post ${ctx.params.id}`,
-        });
+        };
       },
       {
         params: h.object({
@@ -173,10 +175,10 @@ const postsRouter = new Framework().group("/posts", (app) =>
     .delete(
       "/:id",
       (ctx) => {
-        return Response.json({
+        return {
           id: ctx.params.id,
           deleted: true,
-        });
+        };
       },
       {
         params: h.object({
@@ -190,7 +192,9 @@ const postsRouter = new Framework().group("/posts", (app) =>
     ),
 );
 
-const app = new Framework().group("/api", (app) => app.use(postsRouter)).listen(3034);
+const app = new Framework()
+  .group("/api", (app) => app.use(postsRouter))
+  .listen(3034);
 
 const client = createClient<typeof app>("http://localhost:3034");
 
@@ -202,7 +206,9 @@ describe("Framework Routes Mounting Order Tests", () => {
   });
 
   it("should create a post", async () => {
-    const { data, ok } = await client.api.posts.post({ body: { title: "New Post" } });
+    const { data, ok } = await client.api.posts.post({
+      body: { title: "New Post" },
+    });
     expect(ok).toBe(true);
     expect(data?.id).toBe("new-post-id");
   });
@@ -220,35 +226,45 @@ describe("Framework Routes Mounting Order Tests", () => {
   });
 
   it("should get comments for a post", async () => {
-    const { data, ok } = await client.api.posts.postId("test-post-id").comments.get();
+    const { data, ok } = await client.api.posts
+      .postId("test-post-id")
+      .comments.get();
     expect(ok).toBe(true);
     expect(data?.postId).toBe("test-post-id");
     expect(data?.comments).toBeDefined();
   });
 
   it("should create a comment for a post", async () => {
-    const { data, ok } = await client.api.posts.postId("test-post-id").comments.post();
+    const { data, ok } = await client.api.posts
+      .postId("test-post-id")
+      .comments.post();
     expect(ok).toBe(true);
     expect(data?.postId).toBe("test-post-id");
     expect(data?.created).toBe(true);
   });
 
   it("should subscribe to a post", async () => {
-    const { data, ok } = await client.api.posts.postId("test-post-id").subscriptions.post();
+    const { data, ok } = await client.api.posts
+      .postId("test-post-id")
+      .subscriptions.post();
     expect(ok).toBe(true);
     expect(data?.postId).toBe("test-post-id");
     expect(data?.subscribed).toBe(true);
   });
 
   it("should vote on a post", async () => {
-    const { data, ok } = await client.api.posts.postId("test-post-id").vote.post();
+    const { data, ok } = await client.api.posts
+      .postId("test-post-id")
+      .vote.post();
     expect(ok).toBe(true);
     expect(data?.postId).toBe("test-post-id");
     expect(data?.voted).toBe(true);
   });
 
   it("should remove vote from a post", async () => {
-    const { data, ok } = await client.api.posts.postId("test-post-id").vote.delete();
+    const { data, ok } = await client.api.posts
+      .postId("test-post-id")
+      .vote.delete();
     expect(ok).toBe(true);
     expect(data?.postId).toBe("test-post-id");
     expect(data?.unvoted).toBe(true);
@@ -264,9 +280,9 @@ const postsRouter2 = new Framework().group("/posts", (app) =>
     .get(
       "/",
       () => {
-        return Response.json({
+        return {
           posts: [{ id: "post-1", title: "Post 1" }],
-        });
+        };
       },
       {
         response: h.object({
@@ -277,10 +293,10 @@ const postsRouter2 = new Framework().group("/posts", (app) =>
     .get(
       "/:id",
       (ctx) => {
-        return Response.json({
+        return {
           id: ctx.params.id,
           title: `Post ${ctx.params.id}`,
-        });
+        };
       },
       {
         params: h.object({ id: h.string() }),
@@ -292,7 +308,9 @@ const postsRouter2 = new Framework().group("/posts", (app) =>
     .use(votesRouter),
 );
 
-const app2 = new Framework().group("/api", (app) => app.use(postsRouter2)).listen(3033);
+const app2 = new Framework()
+  .group("/api", (app) => app.use(postsRouter2))
+  .listen(3033);
 
 const client2 = createClient<typeof app2>("http://localhost:3033");
 
@@ -304,16 +322,20 @@ describe("Framework Routes - Routes Before Use", () => {
   });
 
   it("should get a specific post when routes defined before .use()", async () => {
-    const response = await fetch("http://localhost:3033/api/posts/test-post-123");
+    const response = await fetch(
+      "http://localhost:3033/api/posts/test-post-123",
+    );
     expect(response.ok).toBe(true);
-    const result = await response.json() as { id: string };
+    const result = (await response.json()) as { id: string };
     expect(result.id).toBe("test-post-123");
   });
 
   it("should get comments when routes defined before .use()", async () => {
-    const response = await fetch("http://localhost:3033/api/posts/test-post-id/comments");
+    const response = await fetch(
+      "http://localhost:3033/api/posts/test-post-id/comments",
+    );
     expect(response.ok).toBe(true);
-    const result = await response.json() as { comments: unknown[] };
+    const result = (await response.json()) as { comments: unknown[] };
     expect(result.comments).toBeDefined();
   });
 

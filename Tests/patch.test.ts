@@ -6,10 +6,10 @@ const app = new Framework()
   .patch(
     "/resources/:id",
     (context) => {
-      return Response.json({
+      return {
         params: context.params,
         body: context.body,
-      });
+      };
     },
     {
       params: h.object({
@@ -33,11 +33,11 @@ const app = new Framework()
   .patch(
     "/resources/status/:id",
     (context) => {
-      return Response.json({
+      return {
         params: context.params,
         body: context.body,
         query: context.query,
-      });
+      };
     },
     {
       params: h.object({
@@ -61,9 +61,9 @@ const app = new Framework()
   .patch(
     "/resources",
     (context) => {
-      return Response.json({
+      return {
         body: context.body,
-      });
+      };
     },
     {
       body: h.array(

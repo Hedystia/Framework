@@ -6,10 +6,10 @@ const app = new Framework()
   .post(
     "/date",
     (context) => {
-      return Response.json({
+      return {
         date: context.body.date,
         valid: true,
-      });
+      };
     },
     {
       body: h.object({
@@ -25,11 +25,11 @@ const app = new Framework()
   .get(
     "/json",
     () => {
-      return Response.json({
+      return {
         message: "This is a JSON response",
         success: true,
         data: [1, 2, 3],
-      });
+      };
     },
     {
       response: h.object({
@@ -42,10 +42,10 @@ const app = new Framework()
   .post(
     "/json",
     (context) => {
-      return Response.json({
+      return {
         message: "Received JSON data",
         receivedData: context.body,
-      });
+      };
     },
     {
       body: h.object({
@@ -65,9 +65,7 @@ const app = new Framework()
   .get(
     "/text",
     () => {
-      return new Response("This is a plain text response", {
-        headers: { "Content-Type": "text/plain" },
-      });
+      return "This is a plain text response";
     },
     {
       response: h.optional(h.string()),
@@ -76,9 +74,7 @@ const app = new Framework()
   .post(
     "/text",
     (context) => {
-      return new Response(`Received: ${context.body.message}`, {
-        headers: { "Content-Type": "text/plain" },
-      });
+      return `Received: ${context.body.message}`;
     },
     {
       body: h.object({
@@ -95,7 +91,7 @@ const app = new Framework()
       formData.append("field1", "value1");
       formData.append("field2", "value2");
       formData.append("field3", "value3");
-      return new Response(formData);
+      return formData;
     },
     {
       response: h.optional(h.instanceOf(FormData)),
@@ -107,7 +103,7 @@ const app = new Framework()
       const formData = new FormData();
       formData.append("received", "true");
       formData.append("originalValue", context.body.message);
-      return new Response(formData);
+      return formData;
     },
     {
       body: h.object({
@@ -122,7 +118,7 @@ const app = new Framework()
     () => {
       const encoder = new TextEncoder();
       const bytes = encoder.encode("This is binary data as Uint8Array");
-      return new Response(bytes);
+      return bytes;
     },
     {
       response: h.optional(h.instanceOf(Uint8Array)),
@@ -133,7 +129,7 @@ const app = new Framework()
     (context) => {
       const encoder = new TextEncoder();
       const bytes = encoder.encode(`Received message: ${context.body.message}`);
-      return new Response(bytes);
+      return bytes;
     },
     {
       body: h.object({
@@ -147,8 +143,10 @@ const app = new Framework()
     "/array-buffer",
     () => {
       const encoder = new TextEncoder();
-      const buffer = encoder.encode("This is binary data as ArrayBuffer").buffer;
-      return new Response(buffer);
+      const buffer = encoder.encode(
+        "This is binary data as ArrayBuffer",
+      ).buffer;
+      return buffer;
     },
     {
       response: h.optional(h.instanceOf(ArrayBuffer)),
@@ -158,8 +156,10 @@ const app = new Framework()
     "/array-buffer",
     (context) => {
       const encoder = new TextEncoder();
-      const buffer = encoder.encode(`Received message: ${context.body.message}`).buffer;
-      return new Response(buffer);
+      const buffer = encoder.encode(
+        `Received message: ${context.body.message}`,
+      ).buffer;
+      return buffer;
     },
     {
       body: h.object({
@@ -173,7 +173,7 @@ const app = new Framework()
     "/blob",
     () => {
       const blob = new Blob(["This is blob data"], { type: "text/plain" });
-      return new Response(blob);
+      return blob;
     },
     {
       response: h.optional(h.instanceOf(Blob)),
@@ -182,8 +182,10 @@ const app = new Framework()
   .post(
     "/blob",
     (context) => {
-      const blob = new Blob([`Received message: ${context.body.message}`], { type: "text/plain" });
-      return new Response(blob);
+      const blob = new Blob([`Received message: ${context.body.message}`], {
+        type: "text/plain",
+      });
+      return blob;
     },
     {
       body: h.object({
@@ -196,9 +198,7 @@ const app = new Framework()
   .delete(
     "/resource/:id",
     (context) => {
-      return new Response(`Deleted resource ${context.params.id}`, {
-        headers: { "Content-Type": "text/plain" },
-      });
+      return `Deleted resource ${context.params.id}`;
     },
     {
       params: h.object({
@@ -211,10 +211,10 @@ const app = new Framework()
   .patch(
     "/resource/:id",
     (context) => {
-      return Response.json({
+      return {
         message: `Updated resource ${context.params.id}`,
         updatedFields: context.body,
-      });
+      };
     },
     {
       params: h.object({
@@ -237,11 +237,11 @@ const app = new Framework()
   .put(
     "/resource/:id",
     (context) => {
-      return Response.json({
+      return {
         message: `Replaced resource ${context.params.id}`,
         notify: context.query.notify || "no",
         data: context.body,
-      });
+      };
     },
     {
       params: h.object({
@@ -379,7 +379,9 @@ describe("Response Format Tests", () => {
 
   describe("Bytes Format", () => {
     it("should get Uint8Array response", async () => {
-      const { data, error } = await client.bytes.get({ responseFormat: "bytes" });
+      const { data, error } = await client.bytes.get({
+        responseFormat: "bytes",
+      });
 
       expect(error).toBeNull();
       expect(data).toBeInstanceOf(Uint8Array);
@@ -460,7 +462,9 @@ describe("Response Format Tests", () => {
 
   describe("Other HTTP Methods", () => {
     it("should handle DELETE with text response", async () => {
-      const { data, error } = await client.resource.id(123).delete({ responseFormat: "text" });
+      const { data, error } = await client.resource
+        .id(123)
+        .delete({ responseFormat: "text" });
 
       expect(error).toBeNull();
       expect(data).toBe("Deleted resource 123");

@@ -6,9 +6,7 @@ const app = new Framework()
   .get(
     "/",
     () => {
-      return new Response("Welcome to API Server", {
-        headers: { "Content-Type": "text/plain" },
-      });
+      return "Welcome to API Server";
     },
     {
       response: h.string(),
@@ -17,9 +15,9 @@ const app = new Framework()
   .get(
     "/users/get",
     () => {
-      return Response.json({
+      return {
         status: "ok",
-      });
+      };
     },
     {
       response: h.object({ status: h.literal("ok") }),
@@ -28,7 +26,7 @@ const app = new Framework()
   .get(
     "/slug/:name",
     (context) => {
-      return Response.json(context.params);
+      return context.params;
     },
     {
       params: h.object({
@@ -40,7 +38,7 @@ const app = new Framework()
   .get(
     "/slug/:name/:id",
     (context) => {
-      return Response.json(context.params);
+      return context.params;
     },
     {
       params: h.object({
@@ -53,7 +51,7 @@ const app = new Framework()
   .get(
     "/test/test/new/random/:name/:id",
     (context) => {
-      return Response.json(context.params);
+      return context.params;
     },
     {
       params: h.object({
@@ -66,7 +64,7 @@ const app = new Framework()
   .get(
     "/headers",
     (context) => {
-      return Response.json(context.headers);
+      return context.headers;
     },
     {
       headers: h.object({
@@ -84,7 +82,7 @@ const app = new Framework()
         context.error(400, "Invalid header value");
       }
 
-      return Response.json({ "x-test-header": testHeader });
+      return { "x-test-header": testHeader };
     },
     {
       headers: h.object({
@@ -117,7 +115,10 @@ describe("Test get route", () => {
   });
 
   it("should return a response with params", async () => {
-    const { data: test, error } = await client.test.test.new.random.name("sally").id(123).get();
+    const { data: test, error } = await client.test.test.new.random
+      .name("sally")
+      .id(123)
+      .get();
 
     expect(error).toBeNull();
 

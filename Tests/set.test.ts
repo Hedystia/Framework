@@ -7,7 +7,7 @@ const app = new Framework()
     "/test-status",
     (context) => {
       context.set.status(201);
-      return Response.json({ message: "Created successfully" });
+      return { message: "Created successfully" };
     },
     {
       response: h.object({ message: h.string() }),
@@ -19,7 +19,7 @@ const app = new Framework()
       context.set.headers.set("X-Custom-Header", "custom-value");
       context.set.headers.add("X-Multi-Header", "value1");
       context.set.headers.add("X-Multi-Header", "value2");
-      return Response.json({ message: "Headers set" });
+      return { message: "Headers set" };
     },
     {
       response: h.object({ message: h.string() }),
@@ -34,7 +34,7 @@ const app = new Framework()
         path: "/",
       });
       context.set.cookies.set("theme", "dark");
-      return Response.json({ message: "Cookies set" });
+      return { message: "Cookies set" };
     },
     {
       response: h.object({ message: h.string() }),
@@ -46,10 +46,10 @@ const app = new Framework()
       context.set.status(202);
       context.set.headers.set("X-Request-ID", "12345");
       context.set.cookies.set("user_id", "user123");
-      return Response.json({
+      return {
         message: "All context features used",
         timestamp: Date.now(),
-      });
+      };
     },
     {
       response: h.object({
@@ -66,10 +66,10 @@ const app = new Framework()
       context.set.cookies.set("new_cookie", "test_value");
       context.set.cookies.delete("old_cookie");
 
-      return Response.json({
+      return {
         existingCookie: existingCookie || "not_found",
         message: "Cookie operations completed",
-      });
+      };
     },
     {
       response: h.object({

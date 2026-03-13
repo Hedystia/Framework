@@ -6,11 +6,11 @@ const app = new Framework()
   .delete(
     "/resources/:id",
     (context) => {
-      return Response.json({
+      return {
         params: context.params,
         body: context.body,
         query: context.query,
-      });
+      };
     },
     {
       params: h.object({
@@ -24,7 +24,9 @@ const app = new Framework()
       }),
       response: h.object({
         params: h.object({ id: h.number() }),
-        query: h.object({ reason: h.optional(h.enum(["obsolete", "duplicate", "other"])) }),
+        query: h.object({
+          reason: h.optional(h.enum(["obsolete", "duplicate", "other"])),
+        }),
         body: h.object({ confirm: h.boolean() }),
       }),
     },
@@ -32,9 +34,9 @@ const app = new Framework()
   .delete(
     "/resources/bulk",
     (context) => {
-      return Response.json({
+      return {
         query: context.query,
-      });
+      };
     },
     {
       query: h.object({
