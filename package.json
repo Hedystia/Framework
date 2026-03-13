@@ -28,6 +28,7 @@
   },
   "workspaces": [
     "./Packages/adapter",
+    "./Packages/types",
     "./Packages/server",
     "./Packages/client",
     "./Packages/swagger",
