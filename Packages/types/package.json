@@ -2,6 +2,7 @@
   "name": "@hedystia/types",
   "version": "1.10.1",
   "description": "Next-gen TypeScript framework for building type-safe APIs at lightspeed",
+  "homepage": "https://docs.hedystia.com/plugins/types",
   "dependencies": {
     "@hedystia/validations": "^1.10.1"
   },

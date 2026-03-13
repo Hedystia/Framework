@@ -2,6 +2,7 @@
   "name": "@hedystia/swagger",
   "version": "1.10.1",
   "description": "Next-gen TypeScript framework for building type-safe APIs at lightspeed",
+  "homepage": "https://docs.hedystia.com/plugins/swagger",
   "devDependencies": {
     "@types/bun": "^1.3.3"
   },
