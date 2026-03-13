@@ -8,6 +8,7 @@
   </p>
 
   <p>
+    <a href="https://docs.hedystia.com"><img src="https://img.shields.io/badge/Docs-blue?style=flat-square" alt="Documentation"></a>
     <a href="https://www.npmjs.com/package/hedystia"><img src="https://img.shields.io/npm/v/hedystia.svg?style=flat-square" alt="npm version"></a>
     <a href="https://www.npmjs.com/package/hedystia"><img src="https://img.shields.io/npm/dm/hedystia.svg?style=flat-square" alt="npm downloads"></a>
     <a href="LICENSE"><img src="https://img.shields.io/github/license/Hedystia/Framework.svg?style=flat-square" alt="license"></a>
@@ -141,10 +142,11 @@ app.listen(3000);
 ## 💼 Production Ready
 ```typescript
 // Error handling
-.onError((err) => {
-  return Response.json({ 
+.onError((err, ctx) => {
+  ctx.set.status(500);
+  return { 
     error: err.message 
-  }, { status: 500 })
+  };
 })
 
 // Rate limiting macro
@@ -160,6 +162,11 @@ app.listen(3000);
 ## 📜 License
 MIT License © 2025 Hedystia
 
-## 🗣️ Community
+## � Documentation
+- [Full Documentation](https://docs.hedystia.com)
+- [Getting Started Guide](https://docs.hedystia.com/framework/getting-started)
+- [API Reference](https://docs.hedystia.com/framework/overview)
+
+## �🗣️ Community
 - [GitHub Issues](https://github.com/Hedystia/Framework/issues)
 - [Discord Server](https://hedystia.com/support)
