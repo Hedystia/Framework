@@ -9,9 +9,9 @@ const app = new Hedystia()
   .get(
     "/test-header",
     (context) => {
-      return Response.json({
+      return {
         headerValue: context.req.headers.get("X-Test-Header"),
-      });
+      };
     },
     {
       response: h.object({

@@ -8,7 +8,7 @@ const app = new Hedystia()
       const formData = new FormData();
       formData.append("received", "true");
       formData.append("originalValue", context.body.message);
-      return new Response(formData);
+      return formData;
     },
     {
       body: h.object({

@@ -16,7 +16,11 @@ export const loginUsingServer = new Hedystia().group("/api", (api) =>
                 if (tokenHeader) {
                   const token = parseSetCookieString(tokenHeader);
                   if (token) {
-                    ctx.set.cookies.set(token.name, token.value, token.attributes);
+                    ctx.set.cookies.set(
+                      token.name,
+                      token.value,
+                      token.attributes,
+                    );
                   }
                 }
               },
@@ -24,30 +28,30 @@ export const loginUsingServer = new Hedystia().group("/api", (api) =>
           });
 
           if (result.error) {
-            return Response.json({
+            return {
               token: null,
               error: result.error.message,
-            });
+            };
           }
 
           if (result.data.token) {
-            return Response.json({
+            return {
               token: result.data.token,
               error: null,
-            });
+            };
           }
 
-          return Response.json({
+          return {
             token: null,
             error: {
               message: "Invalid credentials",
             },
-          });
+          };
         } catch (err: any) {
-          return Response.json({
+          return {
             token: null,
             error: err.message,
-          });
+          };
         }
       },
       {
@@ -75,7 +79,11 @@ export const loginUsingServer = new Hedystia().group("/api", (api) =>
                 if (tokenHeader) {
                   const token = parseSetCookieString(tokenHeader);
                   if (token) {
-                    ctx.set.cookies.set(token.name, token.value, token.attributes);
+                    ctx.set.cookies.set(
+                      token.name,
+                      token.value,
+                      token.attributes,
+                    );
                   }
                 }
               },
@@ -83,30 +91,30 @@ export const loginUsingServer = new Hedystia().group("/api", (api) =>
           });
 
           if (result.error) {
-            return Response.json({
+            return {
               token: null,
               error: result.error.message,
-            });
+            };
           }
 
           if (result.data.token) {
-            return Response.json({
+            return {
               token: result.data.token,
               error: null,
-            });
+            };
           }
 
-          return Response.json({
+          return {
             token: null,
             error: {
               message: "Invalid credentials",
             },
-          });
+          };
         } catch (err: any) {
-          return Response.json({
+          return {
             token: null,
             error: err.message,
-          });
+          };
         }
       },
       {

@@ -5,9 +5,9 @@ const app = new Hedystia()
   .get(
     "/",
     (context) => {
-      return Response.json({
+      return {
         query: context.query,
-      });
+      };
     },
     {
       query: h.object({

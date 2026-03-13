@@ -1,7 +1,8 @@
+import { createClient } from "@hedystia/client";
 import Hedystia from "hedystia";
 
 const app = new Hedystia()
-  .ws("/client", {
+  .ws("/chat", {
     message: (ws, message) => {
       const data = typeof message === "string" ? message : new TextDecoder().decode(message);
       ws.send(`You said: ${data}`);
@@ -16,19 +17,32 @@ const app = new Hedystia()
   })
   .listen(3000);
 
-const ws = new WebSocket("ws://localhost:3000/client");
+// Create type-safe client
+const client = createClient<typeof app>("http://localhost:3000");
 
-ws.onopen = () => {
-  console.log("WebSocket connection opened");
-  ws.send("Hello WebSocket!");
-};
+// Connect to WebSocket using the client
+client.chat.ws((ws) => {
+  ws.onConnect(() => {
+    console.log("✓ WebSocket connection opened");
+    ws.send("Hello from client!");
+  });
 
-ws.onmessage = (event) => {
-  console.log(`Received message: ${event.data}`);
-  ws.close();
-  app.close();
-};
+  ws.onMessage((message) => {
+    console.log(`✓ Received message: ${message}`);
 
-ws.onclose = (event) => {
-  console.log(`WebSocket closed with code ${event.code}`, event.reason);
-};
+    if (message.includes("You said")) {
+      // Close the connection after receiving echo
+      ws.disconnect();
+      app.close();
+    }
+  });
+
+  ws.onError((error) => {
+    console.error("✗ WebSocket error:", error);
+    app.close();
+  });
+
+  ws.onDisconnect(() => {
+    console.log("✓ WebSocket disconnected");
+  });
+});

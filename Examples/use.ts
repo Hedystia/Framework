@@ -4,9 +4,9 @@ import Hedystia, { h } from "hedystia";
 const app = new Hedystia().get(
   "/",
   () => {
-    return Response.json({
+    return {
       message: "Hello, world!",
-    });
+    };
   },
   {
     response: h.object({

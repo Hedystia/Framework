@@ -5,9 +5,9 @@ const app = new Hedystia()
   .patch(
     "/:id",
     (context) => {
-      return Response.json({
+      return {
         body: context.body,
-      });
+      };
     },
     {
       body: h.object({

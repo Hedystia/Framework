@@ -5,9 +5,9 @@ const app = new Hedystia()
   .delete(
     "/:id",
     (context) => {
-      return Response.json({
+      return {
         params: context.params,
-      });
+      };
     },
     {
       params: h.object({

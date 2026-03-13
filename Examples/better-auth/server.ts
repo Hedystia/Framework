@@ -26,9 +26,9 @@ const macro_handler = new Hedystia()
   .get(
     "/protected",
     () => {
-      return Response.json({
+      return {
         message: "Protected endpoint",
-      });
+      };
     },
     {
       auth: true,
@@ -39,15 +39,15 @@ new Hedystia()
   .handle(auth.handler)
   .use(macro_handler)
   .get("/", () => {
-    return Response.json({
+    return {
       message: "Public endpoint",
-    });
+    };
   })
   .use(client)
   .get(
     "/me",
     (ctx) => {
-      return Response.json(ctx.auth);
+      return ctx.auth;
     },
     {
       auth: true,

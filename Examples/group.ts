@@ -6,9 +6,9 @@ const app = new Hedystia()
     return app.get(
       "/:id",
       (context) => {
-        return Response.json({
+        return {
           params: context.params,
-        });
+        };
       },
       {
         params: h.object({

@@ -2,8 +2,7 @@ import Hedystia from "hedystia";
 
 export const client = new Hedystia()
   .get("/login", () => {
-    return new Response(
-      `
+    return `
       <html>
         <body>
           <h1>Login</h1>
@@ -41,15 +40,10 @@ export const client = new Hedystia()
           });
         </script>
       </html>
-      `,
-      {
-        headers: { "Content-Type": "text/html" },
-      },
-    );
+      `;
   })
   .get("/signup", () => {
-    return new Response(
-      `
+    return `
       <html>
         <body>
           <h1>Signup</h1>
@@ -90,9 +84,5 @@ export const client = new Hedystia()
           });
         </script>
       </html>
-      `,
-      {
-        headers: { "Content-Type": "text/html" },
-      },
-    );
+      `;
   });
