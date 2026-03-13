@@ -1,6 +1,6 @@
+import { generateTypes } from "@hedystia/types";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type { HeadersInit } from "bun";
-import { writeFile } from "fs/promises";
 import Core from "./core";
 import generateCorsHeaders from "./handlers/cors";
 import processGenericHandlers from "./handlers/generic";
@@ -16,8 +16,8 @@ import type {
   SubscriptionHandler,
   ValidationSchema,
 } from "./types";
-import type { RouteDefinition } from "./types/routes";
-import { parseRequestBody, schemaToTypeString } from "./utils";
+import type { Assertion, RouteDefinition } from "./types/routes";
+import { determineContentType, isBunHTMLBundle, parseRequestBody } from "./utils";
 
 interface FrameworkOptions<H extends ValidationSchema | undefined = undefined> {
   reusePort?: boolean;
@@ -127,7 +127,7 @@ export class Hedystia<
 
     if (contentType === "text/plain" || typeof data === "string") {
       return new Response(data, {
-        headers: { "Content-Type": contentType || "text/plain" },
+        headers: { "Content-Type": contentType || determineContentType(data) },
       });
     }
     if (data instanceof Uint8Array || data instanceof ArrayBuffer) {
@@ -140,6 +140,13 @@ export class Hedystia<
       return new Response(data);
     }
 
+    if (isBunHTMLBundle(data)) {
+      const anyBun = (globalThis as any).Bun;
+      if (anyBun) {
+        return new Response(anyBun.file(data.index));
+      }
+    }
+
     return Response.json(data);
   }
 
@@ -149,8 +156,34 @@ export class Hedystia<
    * @returns {this} The current instance of the framework for chaining.
    */
   async buildTypes(filePath: string): Promise<this> {
-    const typesContent = this.generateTypesString();
-    await writeFile(filePath, typesContent, "utf8");
+    const routes = this.routes.map((route) => ({
+      method: route.method,
+      path: route.path,
+      params: route.schema.params,
+      query: route.schema.query,
+      body: route.schema.body,
+      response: route.schema.response,
+      headers: route.schema.headers,
+      data: route.schema.data,
+      error: route.schema.error,
+    }));
+
+    const subscriptionRoutes = Array.from(this.subscriptionHandlers.entries()).map(
+      ([path, { schema }]) => ({
+        method: "SUB" as const,
+        path,
+        params: schema.params,
+        query: schema.query,
+        body: schema.body,
+        response: schema.response,
+        headers: schema.headers,
+        data: schema.data,
+        error: schema.error,
+      }),
+    );
+
+    await generateTypes([...routes, ...subscriptionRoutes], filePath);
+
     return this;
   }
 
@@ -348,7 +381,7 @@ export class Hedystia<
             if (handler) {
               const res = handler(result, ctx);
               const r = res instanceof Promise ? await res : res;
-              if (r instanceof Response) {
+              if (r !== undefined) {
                 result = r;
                 break;
               }
@@ -368,12 +401,17 @@ export class Hedystia<
             if (handler) {
               const res = handler(result, ctx);
               const r = res instanceof Promise ? await res : res;
-              if (r instanceof Response) {
+              if (r !== undefined) {
                 result = r;
               }
             }
           }
         }
+
+        if (!(result instanceof Response)) {
+          result = Hedystia.createResponse(result);
+        }
+        result = this.applyResponseContext(result, ctx.set);
 
         if (hooks.onAfterResponse.length > 0) {
           setTimeout(() => {
@@ -395,8 +433,19 @@ export class Hedystia<
               if (handler) {
                 const res = handler(err, ctx);
                 const r = res instanceof Promise ? await res : res;
-                if (r instanceof Response) {
-                  return r;
+                if (r !== undefined) {
+                  let errResult = r;
+                  if (!(errResult instanceof Response)) {
+                    errResult = Hedystia.createResponse(errResult);
+                  }
+                  return this.applyResponseContext(
+                    errResult,
+                    ctx?.set || {
+                      status: () => {},
+                      headers: { set: () => {}, get: () => null, delete: () => {}, add: () => {} },
+                      cookies: { get: () => undefined, set: () => {}, delete: () => {} },
+                    },
+                  );
                 }
               }
             } catch {}
@@ -1387,38 +1436,6 @@ export class Hedystia<
     };
   }
 
-  private generateTypesString(): string {
-    const routeTypes = this.routes
-      .map((route) => {
-        const responseType = schemaToTypeString(route.schema.response);
-        const paramsType = schemaToTypeString(route.schema.params);
-        const queryType = schemaToTypeString(route.schema.query);
-        const bodyType = schemaToTypeString(route.schema.body);
-        const headersType = schemaToTypeString(route.schema.headers);
-        const dataType = schemaToTypeString(route.schema.data);
-        const errorType = schemaToTypeString(route.schema.error);
-        return `{method:"${route.method}";path:"${route.path}";params:${paramsType};query:${queryType};body:${bodyType};headers:${headersType};response:${responseType};data:${dataType};error:${errorType}}`;
-      })
-      .join(",");
-
-    const subscriptionTypes = Array.from(this.subscriptionHandlers.entries())
-      .map(([path, { schema }]) => {
-        const responseType = schemaToTypeString(schema.response);
-        const paramsType = schemaToTypeString(schema.params);
-        const queryType = schemaToTypeString(schema.query);
-        const bodyType = schemaToTypeString(schema.body);
-        const headersType = schemaToTypeString(schema.headers);
-        const dataType = schemaToTypeString(schema.data);
-        const errorType = schemaToTypeString(schema.error);
-        return `{method:"SUB";path:"${path}";params:${paramsType};query:${queryType};body:${bodyType};headers:${headersType};response:${responseType};data:${dataType};error:${errorType}}`;
-      })
-      .join(",");
-
-    const allTypes = [routeTypes, subscriptionTypes].filter(Boolean).join(",");
-
-    return `// Automatic Hedystia type generation\nexport type AppRoutes=[${allTypes}];`;
-  }
-
   private createResponseContext(): ResponseContext {
     const responseData = {
       statusCode: 200,
@@ -1555,11 +1572,387 @@ export class Hedystia<
       );
     }
 
+    responseData.modified = false;
+    responseData.responseHeaders.forEach((_: string, key: string) => {
+      responseData.responseHeaders.delete(key);
+    });
+    responseData.cookies.clear();
+
     return new Response(response.body, {
       status: responseData.statusCode !== 200 ? responseData.statusCode : response.status,
       statusText: response.statusText,
       headers: newHeaders,
     });
+  }
+
+  private createAssertion(value: any, negated = false): Assertion {
+    const self = this;
+    const check = (condition: boolean, message: string) => {
+      if (negated ? condition : !condition) {
+        throw new Error(message);
+      }
+    };
+
+    return {
+      toBe(expected: any) {
+        check(
+          value === expected,
+          `Expected ${JSON.stringify(value)} to${negated ? " not" : ""} be ${JSON.stringify(expected)}\n\n  Received: ${JSON.stringify(value)}\n  Expected: ${JSON.stringify(expected)}`,
+        );
+      },
+      toEqual(expected: any) {
+        const isEqual = JSON.stringify(value) === JSON.stringify(expected);
+        check(
+          isEqual,
+          `Expected ${JSON.stringify(value)} to${negated ? " not" : ""} equal ${JSON.stringify(expected)}\n\n  Received: ${JSON.stringify(value)}\n  Expected: ${JSON.stringify(expected)}`,
+        );
+      },
+      toStrictEqual(expected: any) {
+        const isEqual =
+          JSON.stringify(value) === JSON.stringify(expected) && typeof value === typeof expected;
+        check(
+          isEqual,
+          `Expected ${JSON.stringify(value)} to${negated ? " not" : ""} strictly equal ${JSON.stringify(expected)}`,
+        );
+      },
+      toBeTruthy() {
+        check(!!value, `Expected ${JSON.stringify(value)} to${negated ? " not" : ""} be truthy`);
+      },
+      toBeFalsy() {
+        check(!value, `Expected ${JSON.stringify(value)} to${negated ? " not" : ""} be falsy`);
+      },
+      toBeDefined() {
+        check(value !== undefined, `Expected value to${negated ? " not" : ""} be defined`);
+      },
+      toBeUndefined() {
+        check(value === undefined, `Expected value to${negated ? " not" : ""} be undefined`);
+      },
+      toBeNull() {
+        check(
+          value === null,
+          `Expected ${JSON.stringify(value)} to${negated ? " not" : ""} be null`,
+        );
+      },
+      toBeNaN() {
+        check(
+          Number.isNaN(value),
+          `Expected ${JSON.stringify(value)} to${negated ? " not" : ""} be NaN`,
+        );
+      },
+      toBeFinite() {
+        check(
+          Number.isFinite(value),
+          `Expected ${JSON.stringify(value)} to${negated ? " not" : ""} be finite`,
+        );
+      },
+      toBeInfinite() {
+        check(
+          value === Number.POSITIVE_INFINITY || value === Number.NEGATIVE_INFINITY,
+          `Expected ${JSON.stringify(value)} to${negated ? " not" : ""} be infinite`,
+        );
+      },
+      toContain(item: any) {
+        const contains = Array.isArray(value)
+          ? value.includes(item)
+          : typeof value === "string"
+            ? value.includes(item)
+            : false;
+        check(
+          contains,
+          `Expected ${JSON.stringify(value)} to${negated ? " not" : ""} contain ${JSON.stringify(item)}`,
+        );
+      },
+      toHaveLength(length: number) {
+        check(
+          value?.length === length,
+          `Expected length ${value?.length} to${negated ? " not" : ""} be ${length}`,
+        );
+      },
+      toHaveProperty(key: string) {
+        check(
+          value != null && key in value,
+          `Expected ${JSON.stringify(value)} to${negated ? " not" : ""} have property "${key}"`,
+        );
+      },
+      toMatch(pattern: RegExp | string) {
+        const matches =
+          pattern instanceof RegExp
+            ? pattern.test(value)
+            : typeof value === "string" && value.includes(pattern);
+        check(
+          matches,
+          `Expected ${JSON.stringify(value)} to${negated ? " not" : ""} match ${pattern}`,
+        );
+      },
+      toThrow() {
+        let threw = false;
+        try {
+          if (typeof value === "function") {
+            value();
+          }
+        } catch {
+          threw = true;
+        }
+        check(threw, `Expected function to${negated ? " not" : ""} throw`);
+      },
+      toBeGreaterThan(expected: number) {
+        check(
+          value > expected,
+          `Expected ${value} to${negated ? " not" : ""} be greater than ${expected}`,
+        );
+      },
+      toBeLessThan(expected: number) {
+        check(
+          value < expected,
+          `Expected ${value} to${negated ? " not" : ""} be less than ${expected}`,
+        );
+      },
+      toBeGreaterThanOrEqual(expected: number) {
+        check(
+          value >= expected,
+          `Expected ${value} to${negated ? " not" : ""} be greater than or equal to ${expected}`,
+        );
+      },
+      toBeLessThanOrEqual(expected: number) {
+        check(
+          value <= expected,
+          `Expected ${value} to${negated ? " not" : ""} be less than or equal to ${expected}`,
+        );
+      },
+      toBeCloseTo(expected: number, decimals = 2) {
+        const precision = 10 ** decimals;
+        const isClose = Math.round(value * precision) === Math.round(expected * precision);
+        check(
+          isClose,
+          `Expected ${value} to${negated ? " not" : ""} be close to ${expected} (within ${decimals} decimal places)`,
+        );
+      },
+      toBeInstanceOf(expected: any) {
+        const isInstance = value instanceof expected;
+        check(
+          isInstance,
+          `Expected ${value} to${negated ? " not" : ""} be instance of ${expected.name}`,
+        );
+      },
+      toHaveBeenCalled() {
+        const called = Array.isArray(value?.calls) && value.calls.length > 0;
+        check(called, `Expected function to${negated ? " not" : ""} have been called`);
+      },
+      toHaveBeenCalledWith(...args: any[]) {
+        const calls = Array.isArray(value?.calls) ? value.calls : [];
+        const wasCalled = calls.some(
+          (callArgs: any[]) => JSON.stringify(callArgs) === JSON.stringify(args),
+        );
+        check(
+          wasCalled,
+          `Expected function to${negated ? " not" : ""} have been called with ${JSON.stringify(args)}`,
+        );
+      },
+      toHaveBeenCalledTimes(expected: number) {
+        const callCount = Array.isArray(value?.calls) ? value.calls.length : 0;
+        check(
+          callCount === expected,
+          `Expected function to${negated ? " not" : ""} have been called ${expected} times, but was called ${callCount} times`,
+        );
+      },
+      toHaveReturnedWith(expected: any) {
+        const returns = Array.isArray(value?.returns) ? value.returns : [];
+        const hasReturned = returns.some(
+          (returnValue: any) => JSON.stringify(returnValue) === JSON.stringify(expected),
+        );
+        check(
+          hasReturned,
+          `Expected function to${negated ? " not" : ""} have returned ${JSON.stringify(expected)}`,
+        );
+      },
+      toHaveReturnedTimes(expected: number) {
+        const returnCount = Array.isArray(value?.returns) ? value.returns.length : 0;
+        check(
+          returnCount === expected,
+          `Expected function to${negated ? " not" : ""} have returned ${expected} times, but returned ${returnCount} times`,
+        );
+      },
+      get not(): Assertion {
+        return self.createAssertion(value, !negated);
+      },
+    };
+  }
+
+  /**
+   * Run all route tests and return results
+   * @returns {Promise<{ passed: number; failed: number; total: number; report: string; results: Array<{ path: string; method: string; passed: boolean; error?: string; duration: number; assertions: number }> }>}
+   */
+  async runTests(): Promise<{
+    passed: number;
+    failed: number;
+    total: number;
+    report: string;
+    results: Array<{
+      path: string;
+      method: string;
+      passed: boolean;
+      error?: string;
+      duration: number;
+      assertions: number;
+    }>;
+  }> {
+    const routesWithTests = this.routes.filter((r) => r.test);
+    const results: Array<{
+      path: string;
+      method: string;
+      passed: boolean;
+      error?: string;
+      duration: number;
+      assertions: number;
+    }> = [];
+
+    for (const route of routesWithTests) {
+      const start = performance.now();
+      let assertionCount = 0;
+
+      const createRequest = async (data: {
+        params?: Record<string, any>;
+        query?: Record<string, any>;
+        body?: any;
+        headers?: Record<string, string>;
+      }) => {
+        let path = route.path;
+        if (data.params) {
+          for (const [key, val] of Object.entries(data.params)) {
+            path = path.replace(`:${key}`, String(val));
+          }
+        }
+
+        let url = `http://localhost${path}`;
+        if (data.query) {
+          const queryParams: Record<string, string> = {};
+          for (const [k, v] of Object.entries(data.query)) {
+            queryParams[k] = String(v);
+          }
+          url += `?${new URLSearchParams(queryParams).toString()}`;
+        }
+
+        const init: RequestInit = {
+          method: route.method,
+          headers: {
+            ...(data.body ? { "Content-Type": "application/json" } : {}),
+            ...data.headers,
+          },
+        };
+
+        if (data.body !== undefined && route.method !== "GET") {
+          init.body = JSON.stringify(data.body);
+        }
+
+        const req = new Request(url, init);
+        const res = await this.fetch(req);
+        const statusCode = res.status;
+        const ok = res.ok;
+
+        let response: any;
+        const contentType = res.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          response = await res.json();
+        } else {
+          response = await res.text();
+        }
+
+        return { response, statusCode, ok };
+      };
+
+      const expect = (value: any) => {
+        assertionCount++;
+        return this.createAssertion(value);
+      };
+
+      const assert = (condition: boolean, message?: string) => {
+        assertionCount++;
+        if (!condition) {
+          throw new Error(message || "Assertion failed");
+        }
+      };
+
+      const assertEqual = (actual: any, expected: any, message?: string) => {
+        assertionCount++;
+        if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+          throw new Error(
+            message || `Expected ${JSON.stringify(actual)} to equal ${JSON.stringify(expected)}`,
+          );
+        }
+      };
+
+      const assertThrows = async (fn: () => Promise<void>) => {
+        assertionCount++;
+        let threw = false;
+        try {
+          await fn();
+        } catch {
+          threw = true;
+        }
+        if (!threw) {
+          throw new Error("Expected function to throw");
+        }
+      };
+
+      try {
+        await route.test!({
+          createRequest,
+          expect,
+          assert,
+          assertEqual,
+          assertThrows,
+          path: route.path,
+          method: route.method,
+        });
+        results.push({
+          path: route.path,
+          method: route.method,
+          passed: true,
+          duration: performance.now() - start,
+          assertions: assertionCount,
+        });
+      } catch (err: any) {
+        results.push({
+          path: route.path,
+          method: route.method,
+          passed: false,
+          error: err.message || String(err),
+          duration: performance.now() - start,
+          assertions: assertionCount,
+        });
+      }
+    }
+
+    const passed = results.filter((r) => r.passed).length;
+    const failed = results.filter((r) => !r.passed).length;
+    const total = results.length;
+    const totalAssertions = results.reduce((sum, r) => sum + r.assertions, 0);
+    const passedAssertions = results
+      .filter((r) => r.passed)
+      .reduce((sum, r) => sum + r.assertions, 0);
+    const totalDuration = results.reduce((sum, r) => sum + r.duration, 0);
+
+    let report = "\n🧪 Route Tests Report\n";
+    report += `${"═".repeat(65)}\n\n`;
+
+    for (const result of results) {
+      if (result.passed) {
+        report += `✅ ${result.method} ${result.path}\n`;
+        report += `   └─ ${result.assertions} assertion${result.assertions !== 1 ? "s" : ""} passed in ${Math.round(result.duration)}ms\n\n`;
+      } else {
+        report += `❌ ${result.method} ${result.path}\n`;
+        report += `   └─ Test failed in ${Math.round(result.duration)}ms\n`;
+        report += `      ${result.error}\n\n`;
+      }
+    }
+
+    report += `${"═".repeat(65)}\n\n`;
+    report += `Tests: ${passed} passed, ${failed} failed, ${total} total\n`;
+    report += `Assertions: ${passedAssertions} passed, ${totalAssertions - passedAssertions} failed, ${totalAssertions} total\n`;
+    report += `Duration: ${Math.round(totalDuration)}ms\n`;
+    report += `Status: ${failed === 0 ? "PASSED ✓" : "FAILED ✗"}\n`;
+
+    return { passed, failed, total, report, results };
   }
 
   /**
