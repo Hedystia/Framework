@@ -11,7 +11,7 @@
     <a href="https://docs.hedystia.com"><img src="https://img.shields.io/badge/Docs-blue?style=flat-square" alt="Documentation"></a>
     <a href="https://www.npmjs.com/package/hedystia"><img src="https://img.shields.io/npm/v/hedystia.svg?style=flat-square" alt="npm version"></a>
     <a href="https://www.npmjs.com/package/hedystia"><img src="https://img.shields.io/npm/dm/hedystia.svg?style=flat-square" alt="npm downloads"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/Hedystia/Framework.svg?style=flat-square" alt="license"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/Hedystia/Hedystia.svg?style=flat-square" alt="license"></a>
     <img src="https://img.shields.io/badge/Bun-powered-FFD43B?style=flat-square&logo=bun" alt="Bun powered">
   </p>
 </div>
