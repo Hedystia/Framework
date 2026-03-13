@@ -18,5 +18,5 @@ export default defineConfig(({ watch = false }) => ({
   minifyWhitespace: true,
   keepNames: false,
   sourcemap: false,
-  external: ["@hedystia/validations", "bun"],
+  external: ["@hedystia/types", "@hedystia/validations", "bun"],
 }));
