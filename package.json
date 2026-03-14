@@ -18,7 +18,7 @@
     "test": "bun run build && bun run --cwd Tests test",
     "test:build": "bun run build && bun run --cwd Tests build.js",
     "test:stress": "bun run build && bun run --cwd Tests stress.ts",
-    "bump": "bumpp && bun install && changelogithub",
+    "bump": "bumpp && rm bun.lock && bun install && changelogithub",
     "release": "turbo run build && turbo run publish"
   },
   "repository": {
