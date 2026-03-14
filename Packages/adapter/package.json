@@ -7,7 +7,7 @@
     "@types/bun": "^1.3.3"
   },
   "dependencies": {
-    "hedystia": "workspace:*"
+    "hedystia": "workspace:^"
   },
   "peerDependencies": {
     "typescript": ">= 5.0.0"
@@ -32,7 +32,7 @@
   "license": "MIT",
   "scripts": {
     "build": "tsdown --config-loader unrun",
-    "publish": "npm publish --access public",
+    "publish": "bun publish --access public",
     "dev": "tsdown --watch"
   },
   "repository": {
