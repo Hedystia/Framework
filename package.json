@@ -18,8 +18,8 @@
     "test": "bun run --cwd Tests test",
     "test:build": "turbo run build && bun run --cwd Tests build.js",
     "test:stress": "bun run --cwd Tests stress.ts",
-    "release": "bumpp && changelogithub && bun i",
-    "publish": "turbo run build && turbo run publish"
+    "version": "bumpp && changelogithub && bun i",
+    "release": "turbo run build && turbo run publish"
   },
   "repository": {
     "type": "git",
