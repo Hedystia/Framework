@@ -1,6 +1,6 @@
 {
   "name": "@hedystia/client",
-  "version": "1.10.3",
+  "version": "1.10.4",
   "description": "Next-gen TypeScript framework for building type-safe APIs at lightspeed",
   "homepage": "https://docs.hedystia.com",
   "devDependencies": {
