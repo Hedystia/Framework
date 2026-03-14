@@ -8,13 +8,12 @@
   },
   "dependencies": {
     "@apidevtools/swagger-parser": "^10.1.1",
-    "hedystia": "^1.10.1",
+    "hedystia": "workspace:*",
     "openapi-types": "^12.1.3"
   },
   "peerDependencies": {
     "@apidevtools/swagger-parser": "^10.1.1",
     "typescript": ">= 5.0.0",
-    "hedystia": ">= 1.10.0",
     "openapi-types": ">= 12.0.0"
   },
   "peerDependenciesMeta": {
@@ -23,9 +22,6 @@
     },
     "typescript": {
       "optional": true
-    },
-    "hedystia": {
-      "optional": false
     },
     "openapi-types": {
       "optional": true
@@ -46,7 +42,8 @@
   "license": "MIT",
   "scripts": {
     "build": "tsdown --config-loader unrun",
-    "dev": "bun --watch --no-clear-screen run src/index.ts"
+    "publish": "npm publish --access public",
+    "dev": "tsdown --watch"
   },
   "repository": {
     "type": "git",

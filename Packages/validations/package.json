@@ -30,7 +30,8 @@
   "license": "MIT",
   "scripts": {
     "build": "tsdown --config-loader unrun",
-    "dev": "bun --watch --no-clear-screen run src/index.ts"
+    "publish": "npm publish --access public",
+    "dev": "tsdown --watch"
   },
   "repository": {
     "type": "git",

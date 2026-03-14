@@ -7,18 +7,14 @@
     "@types/bun": "^1.3.3"
   },
   "dependencies": {
-    "hedystia": "^1.10.1"
+    "hedystia": "workspace:*"
   },
   "peerDependencies": {
-    "typescript": ">= 5.0.0",
-    "hedystia": ">= 1.10.0"
+    "typescript": ">= 5.0.0"
   },
   "peerDependenciesMeta": {
     "typescript": {
       "optional": true
-    },
-    "hedystia": {
-      "optional": false
     }
   },
   "private": false,
@@ -36,7 +32,8 @@
   "license": "MIT",
   "scripts": {
     "build": "tsdown --config-loader unrun",
-    "dev": "bun --watch --no-clear-screen run src/index.ts"
+    "publish": "npm publish --access public",
+    "dev": "tsdown --watch"
   },
   "repository": {
     "type": "git",

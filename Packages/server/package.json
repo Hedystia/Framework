@@ -4,27 +4,19 @@
   "description": "Next-gen TypeScript framework for building type-safe APIs at lightspeed",
   "homepage": "https://docs.hedystia.com",
   "dependencies": {
-    "@hedystia/types": "^1.10.1",
-    "@hedystia/validations": "^1.10.1"
+    "@hedystia/types": "workspace:*",
+    "@hedystia/validations": "workspace:*"
   },
   "devDependencies": {
     "@standard-schema/spec": "^1.0.0",
     "@types/bun": "^1.3.3"
   },
   "peerDependencies": {
-    "@hedystia/types": ">= 1.10.0",
-    "@hedystia/validations": ">= 1.10.0",
     "typescript": ">= 5.0.0"
   },
   "peerDependenciesMeta": {
     "typescript": {
       "optional": true
-    },
-    "@hedystia/validations": {
-      "optional": false
-    },
-    "@hedystia/types": {
-      "optional": false
     }
   },
   "private": false,
@@ -42,7 +34,8 @@
   "license": "MIT",
   "scripts": {
     "build": "tsdown --config-loader unrun",
-    "dev": "bun --watch --no-clear-screen run src/index.ts"
+    "publish": "npm publish --access public",
+    "dev": "tsdown --watch"
   },
   "repository": {
     "type": "git",
