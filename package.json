@@ -38,6 +38,7 @@
     "./Packages/client",
     "./Packages/swagger",
     "./Packages/validations",
+    "./Packages/database",
     "./Tests"
   ]
 }
