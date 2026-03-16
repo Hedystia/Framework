@@ -17,14 +17,18 @@ export { SQLiteDriver } from "./sqlite";
  * @returns {DatabaseDriver} The created driver
  */
 export function createDriver(type: DatabaseType, config: ConnectionConfig): DatabaseDriver {
-  switch (type) {
+  const name = typeof type === "string" ? type : type.name;
+  const provider = typeof type === "string" ? undefined : type.provider;
+
+  switch (name) {
     case "sqlite":
-      return new SQLiteDriver(config as any);
+      return new SQLiteDriver(config as any, provider as any);
     case "mysql":
-      return new MySQLDriver(config as any);
+    case "mariadb":
+      return new MySQLDriver(config as any, provider as any);
     case "file":
       return new FileDriver(config as any);
     default:
-      throw new DriverError(`Unsupported database type: ${type}`);
+      throw new DriverError(`Unsupported database type: ${name}`);
   }
 }
