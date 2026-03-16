@@ -16,14 +16,15 @@ import type {
   ValidationSchema,
 } from "./types";
 import type { Assertion, RouteDefinition } from "./types/routes";
-import { determineContentType, isBunHTMLBundle, parseRequestBody } from "./utils";
+import type { DebugLevel } from "./utils";
+import { createLogger, determineContentType, isBunHTMLBundle, parseRequestBody } from "./utils";
 
 interface FrameworkOptions<H extends ValidationSchema | undefined = undefined> {
   reusePort?: boolean;
   cors?: CorsOptions | boolean;
   idleTimeout?: number;
   sse?: boolean;
-  debugLevel?: "none" | "debug" | "warn" | "log" | "error";
+  debugLevel?: DebugLevel;
   headers?: H;
 }
 
@@ -43,7 +44,7 @@ export class Hedystia<
   private router = new Router();
   private staticRoutesFast: Map<string, (req: Request) => any> = new Map();
   private isCompiled = false;
-  private debugLevel: "none" | "debug" | "warn" | "log" | "error";
+  private log: ReturnType<typeof createLogger>;
   private defaultHeaders: ValidationSchema | undefined;
 
   private activeConnections: Map<
@@ -89,34 +90,8 @@ export class Hedystia<
       options?.cors === false ? undefined : options?.cors === true ? {} : (options?.cors ?? {});
     this.idleTimeout = options?.idleTimeout ?? 10;
     this.sseMode = options?.sse ?? false;
-    this.debugLevel = options?.debugLevel ?? "none";
+    this.log = createLogger(options?.debugLevel ?? "none");
     this.defaultHeaders = options?.headers;
-  }
-
-  private log(level: "debug" | "warn" | "log" | "error", message: string, data?: any) {
-    if (this.debugLevel === "none") {
-      return;
-    }
-
-    const levels: Record<"debug" | "warn" | "log" | "error", number> = {
-      debug: 0,
-      log: 1,
-      warn: 2,
-      error: 3,
-    };
-    const currentLevel = levels[this.debugLevel];
-    const messageLevel = levels[level];
-
-    if (messageLevel < currentLevel) {
-      return;
-    }
-
-    const prefix = `[${level.toUpperCase()}]`;
-    if (data !== undefined) {
-      console[level === "debug" ? "log" : level](prefix, message, data);
-    } else {
-      console[level === "debug" ? "log" : level](prefix, message);
-    }
   }
 
   static createResponse(data: any, contentType?: string): Response {
@@ -497,6 +472,10 @@ export class Hedystia<
       this.router.add(route.method, route.path, compiledHandler);
     }
 
+    for (const [routePath, handlerData] of this.subscriptionHandlers.entries()) {
+      this.router.add("SUB", routePath, handlerData);
+    }
+
     this.isCompiled = true;
   }
 
@@ -791,6 +770,8 @@ export class Hedystia<
       );
     }
 
+    this.compile();
+
     if (this.sseMode) {
       this.registerSSERoutes();
       this.server = serve({
@@ -1022,41 +1003,16 @@ export class Hedystia<
           return;
         }
 
-        let matchedSub: { handler: SubscriptionHandler; schema: RouteSchema } | undefined;
-        let rawParams: Record<string, string> = {};
-
-        const pathParts = path.split("/").filter(Boolean);
-        for (const [routePath, handlerData] of this.subscriptionHandlers.entries()) {
-          const routeParts = routePath.split("/").filter(Boolean);
-          if (pathParts.length === routeParts.length) {
-            let match = true;
-            const tempParams: any = {};
-            for (let i = 0; i < routeParts.length; i++) {
-              const rp = routeParts[i];
-              const pp = pathParts[i];
-              if (!rp || !pp) {
-                match = false;
-                break;
-              }
-
-              if (rp.startsWith(":")) {
-                tempParams[rp.slice(1)] = pp;
-              } else if (rp !== pp) {
-                match = false;
-                break;
-              }
-            }
-            if (match) {
-              matchedSub = handlerData;
-              rawParams = tempParams;
-              break;
-            }
-          }
-        }
-
-        if (!matchedSub) {
+        const subMatch = this.router.find("SUB", path);
+        if (!subMatch) {
           return;
         }
+
+        const matchedSub = subMatch.handler as {
+          handler: SubscriptionHandler;
+          schema: RouteSchema;
+        };
+        const rawParams: Record<string, string> = subMatch.params;
 
         const topic = path;
 

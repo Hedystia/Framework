@@ -541,20 +541,24 @@ export default class Core<
   };
 
   protected matchPath(pattern: string, path: string): boolean {
-    const patternParts = pattern.split("/").filter(Boolean);
-    const pathParts = path.split("/").filter(Boolean);
-    if (patternParts.length !== pathParts.length) {
-      return false;
-    }
-    for (let i = 0; i < patternParts.length; i++) {
-      if (patternParts[i]?.startsWith(":")) {
-        continue;
-      }
-      if (patternParts[i] !== pathParts[i]) {
+    let pi = pattern.charCodeAt(0) === 47 ? 1 : 0;
+    let qi = path.charCodeAt(0) === 47 ? 1 : 0;
+
+    while (pi < pattern.length && qi < path.length) {
+      const pEnd = pattern.indexOf("/", pi);
+      const qEnd = path.indexOf("/", qi);
+      const pSeg = pattern.slice(pi, pEnd === -1 ? pattern.length : pEnd);
+      const qSeg = path.slice(qi, qEnd === -1 ? path.length : qEnd);
+
+      if (pSeg.charCodeAt(0) !== 58 && pSeg !== qSeg) {
         return false;
       }
+
+      pi = pEnd === -1 ? pattern.length : pEnd + 1;
+      qi = qEnd === -1 ? path.length : qEnd + 1;
     }
-    return true;
+
+    return pi >= pattern.length && qi >= path.length;
   }
 
   /**

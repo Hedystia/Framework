@@ -1,11 +1,35 @@
+type MethodEntry = {
+  handler: any;
+  paramNames: string[];
+};
+
+function splitPathSegments(path: string): string[] {
+  if (path.length > 1 && path.charCodeAt(path.length - 1) === 47) {
+    path = path.slice(0, -1);
+  }
+  if (path === "/") {
+    return [];
+  }
+
+  const parts: string[] = [];
+  let start = path.charCodeAt(0) === 47 ? 1 : 0;
+  for (let i = start; i <= path.length; i++) {
+    if (i === path.length || path.charCodeAt(i) === 47) {
+      if (i > start) {
+        parts.push(path.slice(start, i));
+      }
+      start = i + 1;
+    }
+  }
+  return parts;
+}
+
 class Node {
   part: string;
-  children: Record<string, Node> = {};
+  children: Record<string, Node> = Object.create(null);
   wildcard: Node | null = null;
   parametric: Node | null = null;
-  store: any = null;
-  paramName = "";
-  paramPaths: Map<string, string[]> = new Map();
+  methods: Record<string, MethodEntry> | null = null;
 
   constructor(part: string) {
     this.part = part;
@@ -16,25 +40,19 @@ export class Router {
   root: Node = new Node("/");
 
   add(method: string, path: string, store: any) {
-    if (path.length > 1 && path.endsWith("/")) {
-      path = path.slice(0, -1);
-    }
-    const parts = path.split("/").filter(Boolean);
+    const parts = splitPathSegments(path);
     let current = this.root;
     const paramNames: string[] = [];
 
     for (let i = 0; i < parts.length; i++) {
-      const part = parts[i];
-      if (!part) {
-        continue;
-      }
+      const part = parts[i]!;
 
-      if (part.startsWith(":")) {
+      if (part.charCodeAt(0) === 58) {
         const paramName = part.slice(1);
         paramNames.push(paramName);
         if (!current.parametric) {
           current.parametric = new Node(":");
-          current.parametric.paramName = paramName;
+          current.parametric.parametric = null;
         }
         current = current.parametric;
       } else if (part === "*") {
@@ -49,26 +67,19 @@ export class Router {
         current = current.children[part];
       }
     }
-    if (!current.store) {
-      current.store = {};
+    if (!current.methods) {
+      current.methods = Object.create(null);
     }
-    current.store[method] = store;
-    current.paramPaths.set(method, paramNames);
+    current.methods![method] = { handler: store, paramNames };
   }
 
   find(method: string, path: string): { handler: any; params: Record<string, string> } | null {
-    if (path.length > 1 && path.endsWith("/")) {
-      path = path.slice(0, -1);
-    }
-    const parts = path.split("/").filter(Boolean);
+    const parts = splitPathSegments(path);
     let current = this.root;
     const paramValues: string[] = [];
 
     for (let i = 0; i < parts.length; i++) {
-      const part = parts[i];
-      if (!part) {
-        continue;
-      }
+      const part = parts[i]!;
 
       if (current.children[part]) {
         current = current.children[part];
@@ -83,19 +94,14 @@ export class Router {
       }
     }
 
-    const handler = current.store?.[method];
-    if (!handler) {
+    const entry = current.methods?.[method];
+    if (!entry) {
       return null;
     }
-    const paramNames = current.paramPaths.get(method) || [];
     const params: Record<string, string> = {};
-    for (let i = 0; i < paramNames.length && i < paramValues.length; i++) {
-      const name = paramNames[i];
-      const value = paramValues[i];
-      if (name !== undefined && value !== undefined) {
-        params[name] = value;
-      }
+    for (let i = 0; i < entry.paramNames.length && i < paramValues.length; i++) {
+      params[entry.paramNames[i]!] = paramValues[i]!;
     }
-    return { handler, params };
+    return { handler: entry.handler, params };
   }
 }
