@@ -3,51 +3,163 @@ import type { ColumnMetadata, MySQLConnectionConfig, TableMetadata } from "../ty
 import { BaseDriver } from "./driver";
 import { compileColumnDef, compileCreateTable } from "./sql-compiler";
 
+interface MySQLPool {
+  query(sql: string, params?: any[]): Promise<[any, any]>;
+  execute(sql: string, params?: any[]): Promise<[any, any]>;
+  getConnection(): Promise<MySQLConnection>;
+  end(): Promise<void>;
+}
+
+interface MySQLConnection {
+  beginTransaction(): Promise<void>;
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
+  release(): void;
+  query(sql: string, params?: any[]): Promise<[any, any]>;
+  execute(sql: string, params?: any[]): Promise<[any, any]>;
+}
+
 /**
- * MySQL database driver using mysql2
+ * MySQL database driver supporting mysql2 and mysql
  */
 export class MySQLDriver extends BaseDriver {
-  private pool: any = null;
+  private pool: MySQLPool | null = null;
   private config: MySQLConnectionConfig;
+  private provider?: "mysql" | "mysql2";
 
-  constructor(config: MySQLConnectionConfig) {
+  constructor(config: MySQLConnectionConfig, provider?: "mysql" | "mysql2") {
     super();
     this.config = config;
+    this.provider = provider;
   }
 
   /**
-   * Connect to the MySQL database
+   * Connect to the MySQL/MariaDB database
    */
   async connect(): Promise<void> {
     if (this.connected) {
       return;
     }
+
+    const provider = this.provider;
+
     try {
-      const mysql = await import("mysql2/promise");
-      this.pool = mysql.createPool({
-        host: this.config.host,
-        port: this.config.port ?? 3306,
-        user: this.config.user,
-        password: this.config.password,
-        database: this.config.database,
-        waitForConnections: true,
-        connectionLimit: 10,
-      });
-      this.connected = true;
-    } catch {
-      throw new DriverError("Failed to connect to MySQL database");
+      if (!provider || provider === "mysql2") {
+        try {
+          const mysql2 = await import("mysql2/promise");
+          this.pool = mysql2.createPool({
+            host: this.config.host,
+            port: this.config.port ?? 3306,
+            user: this.config.user,
+            password: this.config.password,
+            database: this.config.database,
+            waitForConnections: true,
+            connectionLimit: 10,
+            enableKeepAlive: true,
+            keepAliveInitialDelay: 10000,
+          });
+          this.connected = true;
+          return;
+        } catch (err) {
+          if (provider === "mysql2") {
+            throw err;
+          }
+        }
+      }
+
+      if (!provider || provider === "mysql") {
+        try {
+          const mysql = await import("mysql");
+          const pool = mysql.createPool({
+            host: this.config.host,
+            port: this.config.port ?? 3306,
+            user: this.config.user,
+            password: this.config.password,
+            database: this.config.database,
+            connectionLimit: 10,
+            waitForConnections: true,
+            acquireTimeout: 10000,
+          });
+
+          this.pool = {
+            execute: (sql: string, params: any[]) =>
+              new Promise((resolve, reject) => {
+                pool.query(sql, params, (err, results, fields) => {
+                  if (err) {
+                    return reject(err);
+                  }
+                  resolve([results, fields]);
+                });
+              }),
+            query: (sql: string, params: any[]) =>
+              new Promise((resolve, reject) => {
+                pool.query(sql, params, (err, results, fields) => {
+                  if (err) {
+                    return reject(err);
+                  }
+                  resolve([results, fields]);
+                });
+              }),
+            getConnection: () =>
+              new Promise((resolve, reject) => {
+                pool.getConnection((err, conn) => {
+                  if (err) {
+                    return reject(err);
+                  }
+                  const wrappedConn: MySQLConnection = {
+                    beginTransaction: () =>
+                      new Promise<void>((res, rej) =>
+                        conn.beginTransaction((e) => (e ? rej(e) : res())),
+                      ),
+                    commit: () =>
+                      new Promise<void>((res, rej) => conn.commit((e) => (e ? rej(e) : res()))),
+                    rollback: () =>
+                      new Promise<void>((res, rej) => conn.rollback((e) => (e ? rej(e) : res()))),
+                    release: () => conn.release(),
+                    query: (sql: string, params: any[]) =>
+                      new Promise((res, rej) => {
+                        conn.query(sql, params, (e, results, fields) =>
+                          e ? rej(e) : res([results, fields]),
+                        );
+                      }),
+                    execute: (sql: string, params: any[]) =>
+                      new Promise((res, rej) => {
+                        conn.query(sql, params, (e, results, fields) =>
+                          e ? rej(e) : res([results, fields]),
+                        );
+                      }),
+                  };
+                  resolve(wrappedConn);
+                });
+              }),
+            end: () => new Promise<void>((res, rej) => pool.end((e) => (e ? rej(e) : res()))),
+          };
+          this.connected = true;
+        } catch (err) {
+          if (provider === "mysql") {
+            throw err;
+          }
+          throw new Error("No MySQL driver found. Please install mysql2 or mysql.");
+        }
+      }
+    } catch (err: any) {
+      throw new DriverError(`Failed to connect to MySQL database: ${err.message}`);
     }
   }
 
-  /**
-   * Disconnect from the MySQL database
-   */
   async disconnect(): Promise<void> {
     if (this.pool) {
       await this.pool.end();
       this.pool = null;
       this.connected = false;
     }
+  }
+
+  private getPool(): MySQLPool {
+    if (!this.pool) {
+      throw new DriverError("Database not connected");
+    }
+    return this.pool;
   }
 
   /**
@@ -58,7 +170,7 @@ export class MySQLDriver extends BaseDriver {
    */
   async execute(sql: string, params: unknown[] = []): Promise<any> {
     try {
-      const [result] = await this.pool.execute(sql, this.formatParams(params));
+      const [result] = await this.getPool().query(sql, this.formatParams(params));
       return {
         insertId: result.insertId,
         affectedRows: result.affectedRows,
@@ -76,8 +188,8 @@ export class MySQLDriver extends BaseDriver {
    */
   async query(sql: string, params: unknown[] = []): Promise<any[]> {
     try {
-      const [rows] = await this.pool.execute(sql, this.formatParams(params));
-      return rows;
+      const [rows] = await this.getPool().query(sql, this.formatParams(params));
+      return rows as any[];
     } catch (err: any) {
       throw new DriverError(`MySQL query error: ${err.message}`);
     }
@@ -178,7 +290,7 @@ export class MySQLDriver extends BaseDriver {
    * @returns {Promise<T>} Result
    */
   async transaction<T>(fn: () => Promise<T>): Promise<T> {
-    const conn = await this.pool.getConnection();
+    const conn = await this.getPool().getConnection();
     try {
       await conn.beginTransaction();
       const result = await fn();
@@ -189,6 +301,43 @@ export class MySQLDriver extends BaseDriver {
       throw err;
     } finally {
       conn.release();
+    }
+  }
+
+  /**
+   * Fetch all column metadata for all tables in the database in a single query
+   * @returns {Promise<Record<string, ColumnMetadata[]>>} Columns grouped by table name
+   */
+  async getAllTableColumns(): Promise<Record<string, ColumnMetadata[]>> {
+    try {
+      const rows = await this.query(
+        "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_KEY, EXTRA, COLUMN_DEFAULT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME, ORDINAL_POSITION",
+        [this.config.database],
+      );
+
+      const result: Record<string, ColumnMetadata[]> = {};
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i] as any;
+        if (!row || !row.TABLE_NAME) {
+          continue;
+        }
+        const tableName = row.TABLE_NAME;
+        if (!result[tableName]) {
+          result[tableName] = [];
+        }
+        result[tableName].push({
+          name: row.COLUMN_NAME,
+          type: this.mapMySQLType(row.DATA_TYPE),
+          primaryKey: row.COLUMN_KEY === "PRI",
+          autoIncrement: row.EXTRA?.includes("auto_increment") ?? false,
+          notNull: row.IS_NULLABLE === "NO",
+          unique: row.COLUMN_KEY === "UNI",
+          defaultValue: row.COLUMN_DEFAULT,
+        });
+      }
+      return result;
+    } catch (err: any) {
+      throw new DriverError(`Failed to fetch all table columns: ${err.message}`);
     }
   }
 
