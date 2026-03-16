@@ -10,16 +10,37 @@ bun add @hedystia/db
 
 ### Database Drivers
 
-Install the driver for your database:
+Install the driver for your database. The ORM will automatically detect and use the most appropriate library available.
+
+#### SQLite Driver
+Supports multiple libraries in the following priority:
+1. `better-sqlite3`
+2. `sqlite3`
+3. `sql.js`
+4. `bun:sqlite`
 
 ```bash
-# SQLite (uses bun:sqlite, no extra install needed)
+# You can install any of these
 
-# MySQL
-bun add mysql2
+bun add better-sqlite3
+bun add sqlite3
+bun add sql.js
+
+# Or use bun:sqlite if you are using Bun
+```
+
+#### MySQL & MariaDB Driver
+Supports both `mysql2` and `mysql` libraries.
+- **Naming**: Use `database: "mysql"` or `database: "mariadb"`.
+- **MariaDB**: Fully supported through the same drivers.
+
+```bash
+bun add mysql2 # Preferred
+# or
+bun add mysql
+```
 
 # File-based (no extra install needed)
-```
 
 ## Quick Start
 
