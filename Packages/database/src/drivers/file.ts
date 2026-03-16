@@ -200,6 +200,17 @@ export class FileDriver extends BaseDriver {
   }
 
   /**
+   * Batch fetch all table columns (already in memory for file driver)
+   */
+  async getAllTableColumns(): Promise<Record<string, ColumnMetadata[]>> {
+    const result: Record<string, ColumnMetadata[]> = {};
+    for (const [name, tableData] of this.data) {
+      result[name] = [...tableData.meta.columns];
+    }
+    return result;
+  }
+
+  /**
    * Direct access for the repository to perform typed operations
    * @param {string} tableName - Table name
    * @returns {FileTableData | undefined} Table data
