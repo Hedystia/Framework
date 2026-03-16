@@ -1,3 +1,5 @@
+import { calculateReconnectDelay, createLogger } from "../utils";
+
 type DebugLevel = "none" | "debug" | "warn" | "log" | "error";
 
 type WebSocketEventHandlers = {
@@ -20,41 +22,15 @@ export interface WebSocketConnection {
 
 export class WebSocketManager {
   private baseUrl: string;
-  private debugLevel: DebugLevel;
+  private log: ReturnType<typeof createLogger>;
   private headers?: Record<string, string>;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
 
   constructor(baseUrl: string, debugLevel: DebugLevel = "none", headers?: Record<string, string>) {
     this.baseUrl = baseUrl;
-    this.debugLevel = debugLevel;
+    this.log = createLogger(debugLevel);
     this.headers = headers;
-  }
-
-  private log(level: Exclude<DebugLevel, "none">, message: string, data?: any) {
-    if (this.debugLevel === "none") {
-      return;
-    }
-
-    const levels: Record<Exclude<DebugLevel, "none">, number> = {
-      debug: 0,
-      log: 1,
-      warn: 2,
-      error: 3,
-    };
-    const currentLevel = levels[this.debugLevel];
-    const messageLevel = levels[level];
-
-    if (messageLevel < currentLevel) {
-      return;
-    }
-
-    const prefix = `[${level.toUpperCase()}]`;
-    if (data !== undefined) {
-      console[level === "debug" ? "log" : level](prefix, message, data);
-    } else {
-      console[level === "debug" ? "log" : level](prefix, message);
-    }
   }
 
   connect(path: string, callback: WebSocketCallback): { disconnect: () => void } {
@@ -142,7 +118,9 @@ export class WebSocketManager {
 
         if (!manuallyClosed && reconnectAttempts < this.maxReconnectAttempts) {
           reconnectAttempts++;
-          const delay = Math.min(this.reconnectDelay * 2 ** (reconnectAttempts - 1), 30000);
+          const delay = calculateReconnectDelay(reconnectAttempts, {
+            baseDelay: this.reconnectDelay,
+          });
           this.log("debug", "WebSocket reconnecting", { path, attempt: reconnectAttempts, delay });
           reconnectTimeout = setTimeout(attemptConnect, delay);
         }

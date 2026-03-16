@@ -1,5 +1,5 @@
 import type { Subscription, SubscriptionCallback, SubscriptionOptions } from "../types";
-import { generateUUID } from "../utils";
+import { calculateReconnectDelay, createLogger, generateUUID, replaceTimeout } from "../utils";
 
 type DebugLevel = "none" | "debug" | "warn" | "log" | "error";
 
@@ -10,6 +10,18 @@ type HandlerEntry = {
   send: (data: any) => void;
 };
 
+type ConnectionState = {
+  abortController?: AbortController;
+  socket?: WebSocket;
+  handlers: Array<HandlerEntry>;
+  serverSubscriptionId?: string;
+  manuallyClosed?: boolean;
+  reconnectAttempts?: number;
+  reconnectTimeout?: ReturnType<typeof setTimeout>;
+  heartbeatInterval?: ReturnType<typeof setInterval>;
+  clientSubscriptionId: string;
+};
+
 /**
  * SubscriptionManager handles both Server-Sent Events (SSE) and WebSocket connections
  * for real-time data subscriptions
@@ -17,26 +29,13 @@ type HandlerEntry = {
 export class SubscriptionManager {
   private static readonly pathSubscriptionIds = new Map<string, string>();
 
-  private connections = new Map<
-    string,
-    {
-      abortController?: AbortController;
-      socket?: WebSocket;
-      handlers: Array<HandlerEntry>;
-      serverSubscriptionId?: string;
-      manuallyClosed?: boolean;
-      reconnectAttempts?: number;
-      reconnectTimeout?: ReturnType<typeof setTimeout>;
-      heartbeatInterval?: ReturnType<typeof setInterval>;
-      clientSubscriptionId: string;
-    }
-  >();
+  private connections = new Map<string, ConnectionState>();
   private baseUrl: string;
   private credentials?: "omit" | "same-origin" | "include";
   private sse: boolean;
   private readonly MIN_RECONNECT_DELAY = 100;
   private readonly HEARTBEAT_INTERVAL = 25000;
-  private debugLevel: DebugLevel;
+  private log: ReturnType<typeof createLogger>;
   private headers?: Record<string, string>;
 
   constructor(
@@ -49,34 +48,8 @@ export class SubscriptionManager {
     this.baseUrl = baseUrl;
     this.credentials = credentials;
     this.sse = sse;
-    this.debugLevel = debugLevel;
+    this.log = createLogger(debugLevel);
     this.headers = headers;
-  }
-
-  private log(level: Exclude<DebugLevel, "none">, message: string, data?: any) {
-    if (this.debugLevel === "none") {
-      return;
-    }
-
-    const levels: Record<Exclude<DebugLevel, "none">, number> = {
-      debug: 0,
-      log: 1,
-      warn: 2,
-      error: 3,
-    };
-    const currentLevel = levels[this.debugLevel];
-    const messageLevel = levels[level];
-
-    if (messageLevel < currentLevel) {
-      return;
-    }
-
-    const prefix = `[${level.toUpperCase()}]`;
-    if (data !== undefined) {
-      console[level === "debug" ? "log" : level](prefix, message, data);
-    } else {
-      console[level === "debug" ? "log" : level](prefix, message);
-    }
   }
 
   private static getOrCreatePathSubscriptionId(path: string): string {
@@ -84,6 +57,59 @@ export class SubscriptionManager {
       SubscriptionManager.pathSubscriptionIds.set(path, generateUUID());
     }
     return SubscriptionManager.pathSubscriptionIds.get(path)!;
+  }
+
+  private dispatchMessage(path: string, message: any, options?: SubscriptionOptions) {
+    const { data, error } = message;
+    const conn = this.connections.get(path);
+    if (conn) {
+      if (message.subscriptionId && !conn.serverSubscriptionId) {
+        this.log("debug", "Received subscription ID from server", {
+          path,
+          subscriptionId: message.subscriptionId,
+        });
+        conn.serverSubscriptionId = message.subscriptionId;
+      }
+      for (const h of conn.handlers) {
+        if (options?.onMessage) {
+          options.onMessage(message);
+        }
+        h.callback({ data, error, unsubscribe: h.unsubscribe, send: h.send });
+      }
+    }
+  }
+
+  private handleActivityCheck(path: string, checkId: string, sendResponse: (payload: any) => void) {
+    const conn = this.connections.get(path);
+    const subscriptionId = conn?.serverSubscriptionId || conn?.clientSubscriptionId;
+    this.log("debug", "Activity check received, sending response", {
+      path,
+      subscriptionId,
+      checkId,
+    });
+    sendResponse({
+      type: "activity_check_response",
+      checkId,
+      path,
+      subscriptionId,
+    });
+  }
+
+  private cleanupConnection(conn: ConnectionState) {
+    if (conn.heartbeatInterval) {
+      clearInterval(conn.heartbeatInterval);
+    }
+    if (conn.reconnectTimeout) {
+      clearTimeout(conn.reconnectTimeout);
+    }
+  }
+
+  private scheduleReconnect(conn: ConnectionState, fn: () => void): ReturnType<typeof setTimeout> {
+    conn.reconnectAttempts = (conn.reconnectAttempts || 0) + 1;
+    const delay = calculateReconnectDelay(conn.reconnectAttempts, {
+      minDelay: this.MIN_RECONNECT_DELAY,
+    });
+    return replaceTimeout(conn.reconnectTimeout, fn, delay);
   }
 
   public subscribe(
@@ -154,36 +180,13 @@ export class SubscriptionManager {
           const message = JSON.parse(event.data);
 
           if (message.type === "activity_check" && message.checkId) {
-            const subscriptionId = connRef.serverSubscriptionId || connRef.clientSubscriptionId;
-            this.log("debug", "Activity check received, sending response", {
-              path,
-              subscriptionId,
-              checkId: message.checkId,
+            this.handleActivityCheck(path, message.checkId, (payload) => {
+              socket.send(JSON.stringify(payload));
             });
-            const response = {
-              type: "activity_check_response",
-              checkId: message.checkId,
-              path,
-              subscriptionId,
-            };
-            socket.send(JSON.stringify(response));
             return;
           }
 
-          const { data, error, subscriptionId } = message;
-          const conn = this.connections.get(path);
-          if (conn) {
-            if (subscriptionId && !conn.serverSubscriptionId) {
-              this.log("debug", "Received subscription ID from server", { path, subscriptionId });
-              conn.serverSubscriptionId = subscriptionId;
-            }
-            for (const h of conn.handlers) {
-              if (options?.onMessage) {
-                options.onMessage(message);
-              }
-              h.callback({ data, error, unsubscribe: h.unsubscribe, send: h.send });
-            }
-          }
+          this.dispatchMessage(path, message, options);
         } catch (e) {
           this.log("error", "Error parsing WS message", e);
         }
@@ -191,27 +194,16 @@ export class SubscriptionManager {
 
       socket.onclose = () => {
         this.log("warn", "WebSocket closed", { path, attempts: connRef.reconnectAttempts });
-        if (connRef.heartbeatInterval) {
-          clearInterval(connRef.heartbeatInterval);
-        }
-        if (connRef.reconnectTimeout) {
-          clearTimeout(connRef.reconnectTimeout);
-        }
+        this.cleanupConnection(connRef);
         if (connRef && !connRef.manuallyClosed) {
-          connRef.reconnectAttempts = (connRef.reconnectAttempts || 0) + 1;
-          const delay = Math.max(
-            this.MIN_RECONNECT_DELAY,
-            Math.min(1000 * 2 ** (connRef.reconnectAttempts - 1), 30000),
-          );
           this.log("debug", "WebSocket reconnecting", {
             path,
-            attempt: connRef.reconnectAttempts,
-            delay,
+            attempt: (connRef.reconnectAttempts || 0) + 1,
           });
-          connRef.reconnectTimeout = setTimeout(() => {
+          connRef.reconnectTimeout = this.scheduleReconnect(connRef, () => {
             this.connections.delete(path);
             this.subscribeWithWebSocket(path, callback, options);
-          }, delay);
+          });
         }
       };
 
@@ -245,12 +237,7 @@ export class SubscriptionManager {
 
       conn.handlers = conn.handlers.filter((h) => h.id !== id);
       if (conn.handlers.length === 0) {
-        if (conn.heartbeatInterval) {
-          clearInterval(conn.heartbeatInterval);
-        }
-        if (conn.reconnectTimeout) {
-          clearTimeout(conn.reconnectTimeout);
-        }
+        this.cleanupConnection(conn);
         if (conn.socket && conn.socket.readyState === WebSocket.OPEN) {
           const subscriptionId = conn.serverSubscriptionId || conn.clientSubscriptionId;
           this.log("debug", "Sending unsubscribe message", { path, subscriptionId });
@@ -333,20 +320,11 @@ export class SubscriptionManager {
             });
 
             if (!response.ok || !response.body) {
-              connRef.reconnectAttempts = (connRef.reconnectAttempts || 0) + 1;
-              const delay = Math.max(
-                this.MIN_RECONNECT_DELAY,
-                Math.min(1000 * 2 ** (connRef.reconnectAttempts - 1), 30000),
-              );
               this.log("warn", "SSE connection failed, reconnecting", {
                 path,
                 status: response.status,
-                delay,
               });
-              if (connRef.reconnectTimeout) {
-                clearTimeout(connRef.reconnectTimeout);
-              }
-              connRef.reconnectTimeout = setTimeout(attemptConnect, delay);
+              connRef.reconnectTimeout = this.scheduleReconnect(connRef, attemptConnect);
               return;
             }
 
@@ -377,57 +355,31 @@ export class SubscriptionManager {
 
                     if (message.type === "activity_check" && message.checkId) {
                       const conn = this.connections.get(path);
-                      const subscriptionId =
-                        conn?.serverSubscriptionId || conn?.clientSubscriptionId;
-                      this.log("debug", "Activity check received via SSE, sending response", {
-                        path,
-                        subscriptionId,
-                        checkId: message.checkId,
-                      });
                       if (conn?.serverSubscriptionId) {
                         let sendUrl = `${this.baseUrl}${path}`;
                         if (options?.query) {
                           sendUrl += `?${new URLSearchParams(options.query as Record<string, string>).toString()}`;
                         }
-                        fetch(sendUrl, {
-                          method: "POST",
-                          headers: {
-                            "Content-Type": "application/json",
-                            "x-hedystia-subscription-id": conn.serverSubscriptionId,
-                            ...this.headers,
-                            ...options?.headers,
-                          },
-                          body: JSON.stringify({
-                            type: "activity_check_response",
-                            checkId: message.checkId,
-                            path,
-                            subscriptionId,
-                          }),
-                          credentials: this.credentials,
-                        }).catch((e) =>
-                          this.log("error", "SSE Failed to send activity check response", e),
-                        );
+                        this.handleActivityCheck(path, message.checkId, (payload) => {
+                          fetch(sendUrl, {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              "x-hedystia-subscription-id": conn.serverSubscriptionId!,
+                              ...this.headers,
+                              ...options?.headers,
+                            },
+                            body: JSON.stringify(payload),
+                            credentials: this.credentials,
+                          }).catch((e) =>
+                            this.log("error", "SSE Failed to send activity check response", e),
+                          );
+                        });
                       }
                       return;
                     }
 
-                    const { data, error, subscriptionId } = message;
-                    const conn = this.connections.get(path);
-                    if (conn) {
-                      if (subscriptionId && !conn.serverSubscriptionId) {
-                        this.log("debug", "Received subscription ID from SSE server", {
-                          path,
-                          subscriptionId,
-                        });
-                        conn.serverSubscriptionId = subscriptionId;
-                      }
-                      for (const h of conn.handlers) {
-                        if (options?.onMessage) {
-                          options.onMessage(message);
-                        }
-                        h.callback({ data, error, unsubscribe: h.unsubscribe, send: h.send });
-                      }
-                    }
+                    this.dispatchMessage(path, message, options);
                   } catch (e) {
                     this.log("error", "SSE Error processing message", e);
                   }
@@ -439,28 +391,19 @@ export class SubscriptionManager {
               connRef.reconnectAttempts = 0;
               const delay = this.MIN_RECONNECT_DELAY;
               this.log("debug", "SSE stream ended, reconnecting", { path, delay });
-              if (connRef.reconnectTimeout) {
-                clearTimeout(connRef.reconnectTimeout);
-              }
-              connRef.reconnectTimeout = setTimeout(attemptConnect, delay);
+              connRef.reconnectTimeout = replaceTimeout(
+                connRef.reconnectTimeout,
+                attemptConnect,
+                delay,
+              );
             }
           } catch (e: any) {
             if (e.name !== "AbortError" && !connRef.manuallyClosed) {
-              connRef.reconnectAttempts = (connRef.reconnectAttempts || 0) + 1;
-              const delay = Math.max(
-                this.MIN_RECONNECT_DELAY,
-                Math.min(1000 * 2 ** (connRef.reconnectAttempts - 1), 30000),
-              );
               this.log("error", "SSE error", {
                 path,
                 error: e.message,
-                attempt: connRef.reconnectAttempts,
-                delay,
               });
-              if (connRef.reconnectTimeout) {
-                clearTimeout(connRef.reconnectTimeout);
-              }
-              connRef.reconnectTimeout = setTimeout(attemptConnect, delay);
+              connRef.reconnectTimeout = this.scheduleReconnect(connRef, attemptConnect);
             }
           }
         })();
@@ -478,12 +421,7 @@ export class SubscriptionManager {
       conn.handlers = conn.handlers.filter((h) => h.id !== id);
 
       if (conn.handlers.length === 0) {
-        if (conn.heartbeatInterval) {
-          clearInterval(conn.heartbeatInterval);
-        }
-        if (conn.reconnectTimeout) {
-          clearTimeout(conn.reconnectTimeout);
-        }
+        this.cleanupConnection(conn);
         if (conn.abortController) {
           conn.manuallyClosed = true;
           conn.abortController.abort();
@@ -499,12 +437,7 @@ export class SubscriptionManager {
 
   public close() {
     for (const [, conn] of this.connections) {
-      if (conn.heartbeatInterval) {
-        clearInterval(conn.heartbeatInterval);
-      }
-      if (conn.reconnectTimeout) {
-        clearTimeout(conn.reconnectTimeout);
-      }
+      this.cleanupConnection(conn);
       if (conn.abortController) {
         conn.abortController.abort();
       }
