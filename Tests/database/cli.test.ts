@@ -1,0 +1,102 @@
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { generateMigrationTemplate, generateSchemaTemplate } from "@hedystia/db";
+import { spawn } from "bun";
+import { existsSync, readdirSync, rmSync } from "fs";
+
+const TEST_CLI_DIR = "/tmp/hedystia_test_cli";
+
+describe("CLI Templates", () => {
+  beforeAll(() => {
+    if (existsSync(TEST_CLI_DIR)) {
+      rmSync(TEST_CLI_DIR, { recursive: true });
+    }
+  });
+
+  afterAll(() => {
+    if (existsSync(TEST_CLI_DIR)) {
+      rmSync(TEST_CLI_DIR, { recursive: true });
+    }
+  });
+
+  it("should generate migration template", () => {
+    const content = generateMigrationTemplate("create_users");
+    expect(content).toContain('migration("create_users"');
+    expect(content).toContain("async up(");
+    expect(content).toContain("async down(");
+    expect(content).toContain("@hedystia/db");
+  });
+
+  it("should generate schema template", () => {
+    const content = generateSchemaTemplate("users");
+    expect(content).toContain('table("users"');
+    expect(content).toContain("d.integer()");
+    expect(content).toContain("primaryKey()");
+    expect(content).toContain("@hedystia/db");
+  });
+});
+
+describe("CLI Commands", () => {
+  const migrationDir = `${TEST_CLI_DIR}/migrations`;
+  const schemaDir = `${TEST_CLI_DIR}/schemas`;
+
+  it("should create migration file via CLI", async () => {
+    const proc = spawn(
+      [
+        "bun",
+        "run",
+        "./Packages/database/src/cli.ts",
+        "migration",
+        "create",
+        "test_migration",
+        "--path",
+        migrationDir,
+      ],
+      { cwd: "/home/zastinian/Documents/codes/Framework" },
+    );
+    await proc.exited;
+    expect(existsSync(migrationDir)).toBe(true);
+    const files = readdirSync(migrationDir);
+    expect(files.length).toBe(1);
+    expect(files[0]).toContain("test_migration");
+  });
+
+  it("should create schema file via CLI", async () => {
+    const proc = spawn(
+      [
+        "bun",
+        "run",
+        "./Packages/database/src/cli.ts",
+        "schema",
+        "create",
+        "products",
+        "--path",
+        schemaDir,
+      ],
+      { cwd: "/home/zastinian/Documents/codes/Framework" },
+    );
+    await proc.exited;
+    expect(existsSync(schemaDir)).toBe(true);
+    const files = readdirSync(schemaDir);
+    expect(files.some((f) => f.includes("products"))).toBe(true);
+  });
+
+  it("should create migration with shorthand syntax", async () => {
+    const dir = `${TEST_CLI_DIR}/migrations2`;
+    const proc = spawn(
+      [
+        "bun",
+        "run",
+        "./Packages/database/src/cli.ts",
+        "migration",
+        "short_migration",
+        "--path",
+        dir,
+      ],
+      { cwd: "/home/zastinian/Documents/codes/Framework" },
+    );
+    await proc.exited;
+    expect(existsSync(dir)).toBe(true);
+    const files = readdirSync(dir);
+    expect(files.length).toBe(1);
+  });
+});
