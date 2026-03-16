@@ -12,7 +12,15 @@ export type ColumnDataType =
   | "bigint"
   | "blob";
 
-export type DatabaseType = "mysql" | "sqlite" | "file";
+export type DatabaseType =
+  | "mysql"
+  | "mariadb"
+  | "sqlite"
+  | "file"
+  | { name: "mysql"; provider: "mysql" | "mysql2" }
+  | { name: "mariadb"; provider: "mysql" | "mysql2" }
+  | { name: "sqlite"; provider: "better-sqlite3" | "sqlite3" | "sql.js" | "bun:sqlite" }
+  | { name: "file"; provider: string };
 
 export interface ColumnMetadata {
   name: string;
@@ -202,6 +210,7 @@ export interface DatabaseDriver {
   dropColumn(table: string, name: string): Promise<void>;
   renameColumn(table: string, oldName: string, newName: string): Promise<void>;
   transaction<T>(fn: () => Promise<T>): Promise<T>;
+  getAllTableColumns?(): Promise<Record<string, ColumnMetadata[]>>;
 }
 
 export interface Repository<T extends Record<string, any>> {
