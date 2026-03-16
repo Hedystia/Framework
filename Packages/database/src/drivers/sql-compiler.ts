@@ -14,26 +14,39 @@ import type {
  * @returns {string} SQL column type string
  */
 export function compileColumnType(col: ColumnMetadata, dialect: DatabaseType): string {
-  const typeMap: Record<ColumnDataType, Record<DatabaseType, string>> = {
-    integer: { mysql: "INT", sqlite: "INTEGER", file: "INTEGER" },
-    bigint: { mysql: "BIGINT", sqlite: "INTEGER", file: "BIGINT" },
-    varchar: { mysql: `VARCHAR(${col.length ?? 255})`, sqlite: "TEXT", file: "VARCHAR" },
-    char: { mysql: `CHAR(${col.length ?? 1})`, sqlite: "TEXT", file: "CHAR" },
-    text: { mysql: "TEXT", sqlite: "TEXT", file: "TEXT" },
-    boolean: { mysql: "TINYINT(1)", sqlite: "INTEGER", file: "BOOLEAN" },
-    json: { mysql: "JSON", sqlite: "TEXT", file: "JSON" },
-    datetime: { mysql: "DATETIME", sqlite: "TEXT", file: "DATETIME" },
-    timestamp: { mysql: "TIMESTAMP", sqlite: "TEXT", file: "TIMESTAMP" },
+  const name = typeof dialect === "string" ? dialect : dialect.name;
+
+  const typeMap: Record<ColumnDataType, Record<string, string>> = {
+    integer: { mysql: "INT", mariadb: "INT", sqlite: "INTEGER", file: "INTEGER" },
+    bigint: { mysql: "BIGINT", mariadb: "BIGINT", sqlite: "INTEGER", file: "BIGINT" },
+    varchar: {
+      mysql: `VARCHAR(${col.length ?? 255})`,
+      mariadb: `VARCHAR(${col.length ?? 255})`,
+      sqlite: "TEXT",
+      file: "VARCHAR",
+    },
+    char: {
+      mysql: `CHAR(${col.length ?? 1})`,
+      mariadb: `CHAR(${col.length ?? 1})`,
+      sqlite: "TEXT",
+      file: "CHAR",
+    },
+    text: { mysql: "TEXT", mariadb: "TEXT", sqlite: "TEXT", file: "TEXT" },
+    boolean: { mysql: "TINYINT(1)", mariadb: "TINYINT(1)", sqlite: "INTEGER", file: "BOOLEAN" },
+    json: { mysql: "JSON", mariadb: "JSON", sqlite: "TEXT", file: "JSON" },
+    datetime: { mysql: "DATETIME", mariadb: "DATETIME", sqlite: "TEXT", file: "DATETIME" },
+    timestamp: { mysql: "TIMESTAMP", mariadb: "TIMESTAMP", sqlite: "TEXT", file: "TIMESTAMP" },
     decimal: {
       mysql: `DECIMAL(${col.precision ?? 10},${col.scale ?? 2})`,
+      mariadb: `DECIMAL(${col.precision ?? 10},${col.scale ?? 2})`,
       sqlite: "REAL",
       file: "DECIMAL",
     },
-    float: { mysql: "FLOAT", sqlite: "REAL", file: "FLOAT" },
-    blob: { mysql: "BLOB", sqlite: "BLOB", file: "BLOB" },
+    float: { mysql: "FLOAT", mariadb: "FLOAT", sqlite: "REAL", file: "FLOAT" },
+    blob: { mysql: "BLOB", mariadb: "BLOB", sqlite: "BLOB", file: "BLOB" },
   };
 
-  return typeMap[col.type]?.[dialect] ?? "TEXT";
+  return typeMap[col.type]?.[name] ?? "TEXT";
 }
 
 /**
@@ -243,6 +256,34 @@ export function compileInsert(
   const placeholders = keys.map(() => "?").join(", ");
   params.push(...keys.map((k) => data[k]));
   return `INSERT INTO \`${tableName}\` (${cols}) VALUES (${placeholders})`;
+}
+
+/**
+ * Compile a bulk INSERT statement for multiple rows
+ * @param {string} tableName - Table name
+ * @param {Record<string, unknown>[]} data - Array of data to insert
+ * @param {unknown[]} params - Parameter array
+ * @returns {string} SQL bulk INSERT statement
+ */
+export function compileBulkInsert(
+  tableName: string,
+  data: Record<string, unknown>[],
+  params: unknown[],
+): string {
+  if (data.length === 0) {
+    return "";
+  }
+  const keys = Object.keys(data[0]!);
+  const cols = keys.map((k) => `\`${k}\``).join(", ");
+  const valuePlaceholders = data.map(() => `(${keys.map(() => "?").join(", ")})`).join(", ");
+
+  for (const row of data) {
+    for (const key of keys) {
+      params.push(row[key]);
+    }
+  }
+
+  return `INSERT INTO \`${tableName}\` (${cols}) VALUES ${valuePlaceholders}`;
 }
 
 /**
