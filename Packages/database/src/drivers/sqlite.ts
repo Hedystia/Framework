@@ -4,15 +4,34 @@ import { BaseDriver } from "./driver";
 import { compileColumnDef, compileCreateTable } from "./sql-compiler";
 
 /**
- * SQLite database driver using bun:sqlite
+ * Interface for SQLite database adapters
+ */
+interface SQLiteAdapter {
+  close(): void | Promise<void>;
+  prepare(sql: string): SQLiteStatement;
+  exec(sql: string): void | Promise<void>;
+}
+
+interface SQLiteStatement {
+  run(...params: any[]): any | Promise<any>;
+  all(...params: any[]): any[] | Promise<any[]>;
+}
+
+/**
+ * SQLite database driver supporting multiple libraries (better-sqlite3, sqlite3, sql.js, bun:sqlite)
  */
 export class SQLiteDriver extends BaseDriver {
-  private db: any = null;
+  private db: SQLiteAdapter | null = null;
   private config: SQLiteConnectionConfig;
+  private provider?: "better-sqlite3" | "sqlite3" | "sql.js" | "bun:sqlite";
 
-  constructor(config: SQLiteConnectionConfig) {
+  constructor(
+    config: SQLiteConnectionConfig,
+    provider?: "better-sqlite3" | "sqlite3" | "sql.js" | "bun:sqlite",
+  ) {
     super();
     this.config = config;
+    this.provider = provider;
   }
 
   /**
@@ -22,15 +41,127 @@ export class SQLiteDriver extends BaseDriver {
     if (this.connected) {
       return;
     }
+
     try {
-      const { Database } = await import("bun:sqlite");
-      this.db = new Database(this.config.filename);
-      this.db.exec("PRAGMA journal_mode=WAL");
-      this.db.exec("PRAGMA foreign_keys=ON");
+      const adapter = await this.getAdapter();
+      this.db = adapter;
+      await this.db.exec("PRAGMA journal_mode=WAL");
+      await this.db.exec("PRAGMA foreign_keys=ON");
       this.connected = true;
-    } catch {
-      throw new DriverError("Failed to connect to SQLite database");
+    } catch (err: any) {
+      throw new DriverError(`Failed to connect to SQLite database: ${err.message}`);
     }
+  }
+
+  private async getAdapter(): Promise<SQLiteAdapter> {
+    const provider = this.provider;
+
+    if (!provider || provider === "better-sqlite3") {
+      try {
+        const BetterSqlite3 = await import("better-sqlite3");
+        const Database = BetterSqlite3.default || BetterSqlite3;
+        return new Database(this.config.filename) as any;
+      } catch (err) {
+        if (provider === "better-sqlite3") {
+          throw err;
+        }
+      }
+    }
+
+    if (!provider || provider === "sqlite3") {
+      try {
+        const sqlite3 = await import("sqlite3");
+        const db = new sqlite3.Database(this.config.filename);
+
+        return {
+          close: () => new Promise<void>((res, rej) => db.close((err) => (err ? rej(err) : res()))),
+          exec: (sql: string) =>
+            new Promise<void>((res, rej) => db.exec(sql, (err) => (err ? rej(err) : res()))),
+          prepare: (sql: string) => ({
+            run: (...params: any[]) =>
+              new Promise<{ lastInsertRowid: number; changes: number }>((res, rej) => {
+                db.run(sql, params, function (this: any, err: Error | null) {
+                  if (err) {
+                    return rej(err);
+                  }
+                  res({ lastInsertRowid: this.lastID, changes: this.changes });
+                });
+              }),
+            all: (...params: any[]) =>
+              new Promise<any[]>((res, rej) => {
+                db.all(sql, params, (err, rows) => (err ? rej(err) : res(rows)));
+              }),
+          }),
+        } as any;
+      } catch (err) {
+        if (provider === "sqlite3") {
+          throw err;
+        }
+      }
+    }
+
+    if (!provider || provider === "sql.js") {
+      try {
+        const initSqlJs = await import("sql.js");
+        const SQL = await initSqlJs.default();
+        const fs = await import("fs");
+        let data: Buffer | undefined;
+        if (fs.existsSync(this.config.filename)) {
+          data = fs.readFileSync(this.config.filename);
+        }
+        const db = new SQL.Database(data);
+        return {
+          close: () => {
+            const binaryArray = db.export();
+            fs.writeFileSync(this.config.filename, Buffer.from(binaryArray));
+            db.close();
+          },
+          exec: (sql: string) => db.run(sql),
+          prepare: (sql: string) => {
+            const stmt = db.prepare(sql);
+            return {
+              run: (...params: any[]) => {
+                stmt.run(params);
+                const result = db.exec("SELECT last_insert_rowid()");
+                const lastInsertRowid = result[0]?.values[0]
+                  ? (result[0].values[0][0] as number)
+                  : 0;
+                return { lastInsertRowid, changes: db.getRowsModified() };
+              },
+              all: (...params: any[]) => {
+                const rows: any[] = [];
+                stmt.bind(params);
+                while (stmt.step()) {
+                  rows.push(stmt.getAsObject());
+                }
+                return rows;
+              },
+            };
+          },
+        } as any;
+      } catch (err) {
+        if (provider === "sql.js") {
+          throw err;
+        }
+      }
+    }
+
+    if (!provider || provider === "bun:sqlite") {
+      try {
+        const { Database } = await import("bun:sqlite");
+        return new Database(this.config.filename) as any;
+      } catch (err) {
+        if (provider === "bun:sqlite") {
+          throw err;
+        }
+      }
+    }
+
+    throw new Error(
+      provider
+        ? `SQLite provider "${provider}" not found.`
+        : "No SQLite driver found. Please install better-sqlite3, sqlite3, sql.js or run with Bun.",
+    );
   }
 
   /**
@@ -38,7 +169,7 @@ export class SQLiteDriver extends BaseDriver {
    */
   async disconnect(): Promise<void> {
     if (this.db) {
-      this.db.close();
+      await this.db.close();
       this.db = null;
       this.connected = false;
     }
@@ -52,8 +183,8 @@ export class SQLiteDriver extends BaseDriver {
    */
   async execute(sql: string, params: unknown[] = []): Promise<any> {
     try {
-      const stmt = this.db.prepare(sql);
-      const result = stmt.run(...this.formatParams(params));
+      const stmt = this.db!.prepare(sql);
+      const result = await stmt.run(...this.formatParams(params));
       return {
         insertId: Number(result.lastInsertRowid),
         affectedRows: result.changes,
@@ -71,8 +202,8 @@ export class SQLiteDriver extends BaseDriver {
    */
   async query(sql: string, params: unknown[] = []): Promise<any[]> {
     try {
-      const stmt = this.db.prepare(sql);
-      return stmt.all(...this.formatParams(params));
+      const stmt = this.db!.prepare(sql);
+      return await stmt.all(...this.formatParams(params));
     } catch (err: any) {
       throw new DriverError(`SQLite query error: ${err.message}`);
     }
@@ -105,7 +236,7 @@ export class SQLiteDriver extends BaseDriver {
    * @returns {Promise<ColumnMetadata[]>} Column metadata
    */
   async getTableColumns(name: string): Promise<ColumnMetadata[]> {
-    const rows = await this.query(`PRAGMA table_info(\`${name}\`)`);
+    const rows = (await this.query(`PRAGMA table_info(\`${name}\`)`)) as any[];
     return rows.map((row: any) => ({
       name: row.name,
       type: this.mapSQLiteType(row.type),
@@ -177,6 +308,27 @@ export class SQLiteDriver extends BaseDriver {
     } catch (err) {
       await this.execute("ROLLBACK");
       throw err;
+    }
+  }
+
+  /**
+   * Fetch all column metadata for all tables in the database
+   * @returns {Promise<Record<string, ColumnMetadata[]>>} Columns grouped by table name
+   */
+  async getAllTableColumns(): Promise<Record<string, ColumnMetadata[]>> {
+    try {
+      const tables = await this.query(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+      );
+      const result: Record<string, ColumnMetadata[]> = {};
+
+      for (const table of tables) {
+        const tableName = table.name;
+        result[tableName] = await this.getTableColumns(tableName);
+      }
+      return result;
+    } catch (err: any) {
+      throw new DriverError(`Failed to fetch all table columns: ${err.message}`);
     }
   }
 
