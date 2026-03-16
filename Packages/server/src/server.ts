@@ -1,6 +1,5 @@
 import { generateTypes } from "@hedystia/types";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import type { HeadersInit } from "bun";
 import Core from "./core";
 import generateCorsHeaders from "./handlers/cors";
 import processGenericHandlers from "./handlers/generic";
@@ -170,7 +169,7 @@ export class Hedystia<
 
     const subscriptionRoutes = Array.from(this.subscriptionHandlers.entries()).map(
       ([path, { schema }]) => ({
-        method: "SUB" as const,
+        method: "SUB",
         path,
         params: schema.params,
         query: schema.query,
@@ -481,7 +480,7 @@ export class Hedystia<
       const handler = async (req: Request): Promise<Response> => {
         if (this.cors && req.method === "OPTIONS") {
           const headers = await generateCorsHeaders(this.cors, req);
-          return new Response(null, { status: 204, headers: headers as HeadersInit });
+          return new Response(null, { status: 204, headers: headers as any });
         }
         let res = (staticRoute.response as Response).clone() as Response;
         if (this.cors) {
@@ -513,7 +512,7 @@ export class Hedystia<
       const corsHeaders = await generateCorsHeaders(this.cors, req);
       return new Response(null, {
         status: 204,
-        headers: corsHeaders as HeadersInit,
+        headers: corsHeaders as any,
       });
     }
 
