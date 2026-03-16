@@ -1,6 +1,7 @@
 import type { CacheManager } from "../cache";
 import { FileDriver } from "../drivers/file";
 import {
+  compileBulkInsert,
   compileDelete,
   compileInsert,
   compileSelect,
@@ -148,11 +149,38 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
    * @returns {Promise<T[]>} The inserted rows
    */
   async insertMany(data: Partial<T>[]): Promise<T[]> {
-    const results: T[] = [];
-    for (const item of data) {
-      results.push(await this.insert(item));
+    if (data.length === 0) {
+      return [];
     }
-    return results;
+
+    this.cache.invalidateTable(this.tableName);
+
+    if (this.driver instanceof FileDriver) {
+      const results: T[] = [];
+      for (const item of data) {
+        results.push(await this.insert(item));
+      }
+      return results;
+    }
+
+    const cleanedData = data.map((item) => this.cleanData(item));
+    const params: unknown[] = [];
+    const sql = compileBulkInsert(this.tableName, cleanedData, params);
+    const result = await this.driver.execute(sql, params);
+
+    const pk = this.registry.getPrimaryKey(this.tableName);
+    if (pk && result.insertId) {
+      for (let i = 0; i < cleanedData.length; i++) {
+        const row = cleanedData[i];
+        if (row) {
+          row[pk] = result.insertId + i;
+        }
+      }
+    }
+
+    const finalRows = cleanedData as T[];
+    this.cacheEntities(finalRows);
+    return finalRows;
   }
 
   /**
