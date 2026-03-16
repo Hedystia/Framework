@@ -133,20 +133,24 @@ export function database<S extends readonly AnyTableDef[]>(
     await driver.connect();
 
     if (config.syncSchemas) {
-      for (const [, tableMeta] of registry.getAllTables()) {
-        const exists = await driver.tableExists(tableMeta.name);
+      const allMetadata = driver.getAllTableColumns ? await driver.getAllTableColumns() : null;
+
+      const syncPromises = Array.from(registry.getAllTables()).map(async ([, tableMeta]) => {
+        const existingCols = allMetadata ? allMetadata[tableMeta.name] : null;
+        const exists = allMetadata ? !!existingCols : await driver.tableExists(tableMeta.name);
+
         if (!exists) {
           await driver.createTable(tableMeta);
         } else {
-          const existingCols = await driver.getTableColumns(tableMeta.name);
-          const existingNames = new Set(existingCols.map((c) => c.name));
-          for (const colMeta of tableMeta.columns) {
-            if (!existingNames.has(colMeta.name)) {
-              await driver.addColumn(tableMeta.name, colMeta);
-            }
-          }
+          const cols = existingCols || (await driver.getTableColumns(tableMeta.name));
+          const existingNames = new Set(cols.map((c) => c.name));
+          const addColumnPromises = tableMeta.columns
+            .filter((colMeta) => !existingNames.has(colMeta.name))
+            .map((colMeta) => driver.addColumn(tableMeta.name, colMeta));
+          await Promise.all(addColumnPromises);
         }
-      }
+      });
+      await Promise.all(syncPromises);
     }
 
     if (config.runMigrations && config.migrations && config.migrations.length > 0) {
