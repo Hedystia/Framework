@@ -1,0 +1,65 @@
+{
+  "name": "@hedystia/db",
+  "version": "1.10.5",
+  "description": "Next-gen TypeScript ORM for building type-safe database layers at lightspeed",
+  "homepage": "https://docs.hedystia.com",
+  "devDependencies": {
+    "@types/bun": "^1.3.3"
+  },
+  "peerDependencies": {
+    "typescript": ">= 5.0.0",
+    "mysql2": ">= 3.0.0",
+    "better-sqlite3": ">= 9.0.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    },
+    "mysql2": {
+      "optional": true
+    },
+    "better-sqlite3": {
+      "optional": true
+    }
+  },
+  "bin": {
+    "@hedystia/db": "./dist/cli.mjs"
+  },
+  "private": false,
+  "keywords": [
+    "hedystia",
+    "database",
+    "orm",
+    "typescript",
+    "type-safe",
+    "bun",
+    "mysql",
+    "sqlite"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "build": "tsdown --config-loader unrun",
+    "publish": "bun publish --access public",
+    "dev": "tsdown --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Hedystia/Hedystia"
+  },
+  "author": {
+    "name": "Zastinian",
+    "email": "contact@zastinian.com",
+    "url": "https://github.com/Zastinian"
+  },
+  "type": "commonjs",
+  "types": "./dist/index.d.cts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.cts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  }
+}
