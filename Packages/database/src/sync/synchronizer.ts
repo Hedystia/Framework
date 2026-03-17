@@ -36,10 +36,10 @@ export class Synchronizer {
 
     const existingCols = await this.driver.getTableColumns(meta.name);
     const existingNames = new Set(existingCols.map((c) => c.name));
-    const schemaNames = new Set(meta.columns.keys());
+    const schemaNames = new Set(meta.columns.map((c) => c.name));
 
-    for (const [colName, colMeta] of meta.columns) {
-      if (!existingNames.has(colName)) {
+    for (const colMeta of meta.columns) {
+      if (!existingNames.has(colMeta.name)) {
         await this.driver.addColumn(meta.name, colMeta);
       }
     }
