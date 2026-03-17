@@ -33,6 +33,7 @@ export interface ColumnMetadata {
   length?: number;
   precision?: number;
   scale?: number;
+  columnAlias?: string;
   references?: {
     table: string;
     column: string;
@@ -74,6 +75,7 @@ export type TableDefinition<
   __row: T;
   __refs: Refs;
   __columns: ColumnMetadata[];
+  __columnMap: Record<string, string>;
   __deferredRefs: Array<{
     columnName: string;
     resolve: () => { table: string; column: string };
