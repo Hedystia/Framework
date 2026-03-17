@@ -65,6 +65,8 @@ type SchemaDefinition = SchemaLike;
 
 interface Schema<I, O> extends StandardSchemaV1<I, O> {
   optional(): OptionalSchema<I, O | undefined>;
+  null(): UnionSchema<I, O | null>;
+  nullable(): UnionSchema<I, O | null>;
   enum<V extends O & (string | number | boolean), Values extends readonly [V, ...V[]]>(
     values: Values,
   ): UnionSchema<I, Values[number]>;
@@ -97,6 +99,14 @@ export abstract class BaseSchema<I, O> implements Schema<I, O> {
 
   null(): UnionSchema<I, O | null> {
     return new UnionSchema<I, O | null>(this, new NullSchemaType() as any);
+  }
+
+  /**
+   * Allows the value to be `null` (alias for {@link null})
+   * @returns {UnionSchema<I, O | null>} Schema that also accepts null
+   */
+  nullable(): UnionSchema<I, O | null> {
+    return this.null();
   }
 
   enum<V extends O & (string | number | boolean), Values extends readonly [V, ...V[]]>(
@@ -814,6 +824,11 @@ export const h = {
    * @returns {NullSchemaType} Null schema type
    */
   null: (): NullSchemaType => new NullSchemaType(),
+  /**
+   * Create null schema type (alias for {@link h.null})
+   * @returns {NullSchemaType} Null schema type
+   */
+  nullable: (): NullSchemaType => new NullSchemaType(),
 
   /**
    * Create any schema type
