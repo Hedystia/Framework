@@ -1,9 +1,4 @@
-import type {
-  ColumnDataType,
-  ColumnMetadata,
-  DeferredRefMeta,
-  ReferenceAction,
-} from "../types";
+import type { ColumnDataType, ColumnMetadata, DeferredRefMeta, ReferenceAction } from "../types";
 
 /**
  * Base column builder with chainable methods for defining column properties
@@ -31,6 +26,7 @@ export class ColumnBuilder<
   private _length?: number;
   private _precision?: number;
   private _scale?: number;
+  private _columnAlias?: string;
   private _references?: {
     resolve: () => { table: string; column: string };
     onDelete?: ReferenceAction;
@@ -43,6 +39,31 @@ export class ColumnBuilder<
     this._length = length;
     this._precision = precision;
     this._scale = scale;
+  }
+
+  /**
+   * Set a custom database column name different from the property key
+   * @param {string} alias - The column name to use in the database
+   * @returns {ColumnBuilder<T, TN, CN, Ref>} The column builder for chaining
+   * @example
+   * // In code: guildId, In database: guild_id
+   * guildId: varchar(255).name("guild_id")
+   */
+  name(alias: string): ColumnBuilder<T, TN, CN, Ref> {
+    this._columnAlias = alias;
+    return this;
+  }
+
+  /**
+   * Override the TypeScript type for this column with a custom type literal
+   * @template U - The custom type to use
+   * @returns {ColumnBuilder<U, TN, CN, Ref>} The column builder with the new type
+   * @example
+   * // Limits autocomplete to specific values
+   * locale: varchar(25).type<"en_US" | "es_ES">()
+   */
+  type<U>(): ColumnBuilder<U, TN, CN, Ref> {
+    return this as unknown as ColumnBuilder<U, TN, CN, Ref>;
   }
 
   /**
@@ -79,6 +100,14 @@ export class ColumnBuilder<
   nullable(): ColumnBuilder<T | null, TN, CN, Ref> {
     this._notNull = false;
     return this as unknown as ColumnBuilder<T | null, TN, CN, Ref>;
+  }
+
+  /**
+   * Mark this column as nullable (alias for {@link nullable})
+   * @returns {ColumnBuilder<T | null, TN, CN, Ref>} The column builder for chaining
+   */
+  null(): ColumnBuilder<T | null, TN, CN, Ref> {
+    return this.nullable();
   }
 
   /**
@@ -152,7 +181,7 @@ export class ColumnBuilder<
    */
   __build(name: string): ColumnMetadata {
     return {
-      name,
+      name: this._columnAlias ?? name,
       type: this._type,
       primaryKey: this._primaryKey,
       autoIncrement: this._autoIncrement,
@@ -162,6 +191,7 @@ export class ColumnBuilder<
       length: this._length,
       precision: this._precision,
       scale: this._scale,
+      columnAlias: this._columnAlias,
     };
   }
 
