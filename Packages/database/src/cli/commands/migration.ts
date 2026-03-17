@@ -16,7 +16,8 @@ export function createMigration(name: string, path?: string): void {
   const timestamp = generateTimestamp();
   const fileName = `${timestamp}_${name}.ts`;
   const filePath = join(dir, fileName);
-  const content = generateMigrationTemplate(name);
+  const migrationId = `${timestamp}_${name}`;
+  const content = generateMigrationTemplate(migrationId);
 
   writeFileSafe(filePath, content);
   console.log(`Created migration: ${filePath}`);
