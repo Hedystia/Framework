@@ -15,7 +15,6 @@ import { migration } from "./migrations/definition";
 import { generateMigrationTemplate, generateSchemaTemplate } from "./migrations/templates";
 import { ColumnBuilder } from "./schema/column";
 import * as columns from "./schema/columns";
-import { d } from "./schema/columns";
 import { SchemaRegistry } from "./schema/registry";
 import { table } from "./schema/table";
 import { Synchronizer } from "./sync/synchronizer";
@@ -29,7 +28,7 @@ export {
   SchemaError,
   SyncError,
 } from "./errors";
-
+export * from "./schema/columns";
 export type {
   CacheConfig,
   ColumnDataType,
@@ -72,7 +71,6 @@ export {
   compileUpdate,
   compileWhere,
   createDriver,
-  d,
   database,
   generateMigrationTemplate,
   generateSchemaTemplate,
