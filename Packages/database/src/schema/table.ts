@@ -41,10 +41,12 @@ export function table<
 > {
   const columnsArray: ColumnMetadata[] = [];
   const deferredRefs: TableDefinition["__deferredRefs"] = [];
+  const columnMap: Record<string, string> = {};
 
   for (const [key, builder] of Object.entries(columns)) {
     const meta = builder.__build(key);
     columnsArray.push(meta);
+    columnMap[key] = meta.name;
 
     const ref = builder.__getDeferredRef();
     if (ref) {
@@ -65,6 +67,7 @@ export function table<
     __table: true,
     __name: name,
     __columns: columnsArray,
+    __columnMap: columnMap,
     __deferredRefs: deferredRefs,
     ...columns,
   };
