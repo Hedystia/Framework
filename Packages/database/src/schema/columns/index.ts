@@ -80,6 +80,96 @@ export const float = (): ColumnBuilder<number> => new ColumnBuilder<number>("flo
 export const blob = (): ColumnBuilder<Buffer> => new ColumnBuilder<Buffer>("blob");
 
 /**
+ * Starter class for creating columns with a pre-set database column name
+ * @example
+ * // Start with name, then pick column type
+ * guildId: name("guild_id").varchar(255)
+ */
+export class NamedColumnStarter {
+  private _alias: string;
+
+  constructor(alias: string) {
+    this._alias = alias;
+  }
+
+  /** Create an INTEGER column with this database column name */
+  integer(): ColumnBuilder<number> {
+    return new ColumnBuilder<number>("integer").name(this._alias);
+  }
+
+  /** Create a BIGINT column with this database column name */
+  bigint(): ColumnBuilder<number> {
+    return new ColumnBuilder<number>("bigint").name(this._alias);
+  }
+
+  /** Create a VARCHAR column with this database column name
+   * @param {number} [length=255] - Maximum character length
+   */
+  varchar(length = 255): ColumnBuilder<string> {
+    return new ColumnBuilder<string>("varchar", length).name(this._alias);
+  }
+
+  /** Create a CHAR column with this database column name
+   * @param {number} [length=1] - Fixed character length
+   */
+  char(length = 1): ColumnBuilder<string> {
+    return new ColumnBuilder<string>("char", length).name(this._alias);
+  }
+
+  /** Create a TEXT column with this database column name */
+  text(): ColumnBuilder<string> {
+    return new ColumnBuilder<string>("text").name(this._alias);
+  }
+
+  /** Create a BOOLEAN column with this database column name */
+  boolean(): ColumnBuilder<boolean> {
+    return new ColumnBuilder<boolean>("boolean").name(this._alias);
+  }
+
+  /** Create a JSON column with this database column name */
+  json(): ColumnBuilder<unknown> {
+    return new ColumnBuilder<unknown>("json").name(this._alias);
+  }
+
+  /** Create a DATETIME column with this database column name */
+  datetime(): ColumnBuilder<Date> {
+    return new ColumnBuilder<Date>("datetime").name(this._alias);
+  }
+
+  /** Create a TIMESTAMP column with this database column name */
+  timestamp(): ColumnBuilder<Date> {
+    return new ColumnBuilder<Date>("timestamp").name(this._alias);
+  }
+
+  /** Create a DECIMAL column with this database column name
+   * @param {number} [precision=10] - Total number of digits
+   * @param {number} [scale=2] - Number of decimal digits
+   */
+  decimal(precision = 10, scale = 2): ColumnBuilder<number> {
+    return new ColumnBuilder<number>("decimal", undefined, precision, scale).name(this._alias);
+  }
+
+  /** Create a FLOAT column with this database column name */
+  float(): ColumnBuilder<number> {
+    return new ColumnBuilder<number>("float").name(this._alias);
+  }
+
+  /** Create a BLOB column with this database column name */
+  blob(): ColumnBuilder<Buffer> {
+    return new ColumnBuilder<Buffer>("blob").name(this._alias);
+  }
+}
+
+/**
+ * Create a column with a custom database column name, then pick the column type
+ * @param {string} alias - The column name to use in the database
+ * @returns {NamedColumnStarter} A starter object to pick the column type
+ * @example
+ * guildId: name("guild_id").varchar(255).notNull()
+ */
+export const name = (alias: string): NamedColumnStarter => new NamedColumnStarter(alias);
+
+/**
  * Column type helpers object for schema definitions
  * @returns {typeof d} Column type helpers
  */
@@ -96,4 +186,5 @@ export const d = {
   decimal,
   float,
   blob,
+  name,
 };
