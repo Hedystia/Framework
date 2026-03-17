@@ -1,14 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { CacheManager, d, database, table } from "@hedystia/db";
+import { CacheManager, database, integer, table, varchar } from "@hedystia/db";
 import { existsSync, rmSync } from "fs";
 
 const TEST_DB = "/tmp/hedystia_test_cache.db";
 
 const users = table("users", {
-  id: d.integer().primaryKey().autoIncrement(),
-  name: d.varchar(255).notNull(),
-  email: d.varchar(255),
-  age: d.integer().default(0),
+  id: integer().primaryKey().autoIncrement(),
+  name: varchar(255).notNull(),
+  email: varchar(255),
+  age: integer().default(0),
 });
 
 const db = database({

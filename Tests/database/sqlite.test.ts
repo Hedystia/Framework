@@ -1,22 +1,24 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { d, database, table } from "@hedystia/db";
+import { boolean, database, integer, table, text, varchar } from "@hedystia/db";
 import { existsSync, rmSync } from "fs";
 
 const TEST_DB = "/tmp/hedystia_test_sqlite.db";
 
 const users = table("users", {
-  id: d.integer().primaryKey().autoIncrement(),
-  name: d.varchar(255).notNull(),
-  email: d.varchar(255).unique(),
-  age: d.integer().default(0),
-  active: d.boolean().default(true),
+  id: integer().primaryKey().autoIncrement(),
+  name: varchar(255).notNull(),
+  email: varchar(255).unique(),
+  age: integer().default(0),
+  active: boolean().default(true),
 });
 
 const posts = table("posts", {
-  id: d.integer().primaryKey().autoIncrement(),
-  userId: d.integer().references(() => users.id, { onDelete: "CASCADE" }),
-  title: d.varchar(255).notNull(),
-  content: d.text(),
+  id: integer().primaryKey().autoIncrement(),
+  userId: integer()
+    .name("user_id")
+    .references(() => users.id, { onDelete: "CASCADE" }),
+  title: varchar(255).notNull(),
+  content: text(),
 });
 
 const providers = ["better-sqlite3", "sqlite3", "sql.js", "bun:sqlite"] as const;

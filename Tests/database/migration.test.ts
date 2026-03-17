@@ -1,13 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { d, database, migration, table } from "@hedystia/db";
+import { database, integer, migration, table, varchar } from "@hedystia/db";
 import { existsSync, rmSync } from "fs";
 
 const TEST_DB = "/tmp/hedystia_test_migration.db";
 
 const users = table("users", {
-  id: d.integer().primaryKey().autoIncrement(),
-  name: d.varchar(255).notNull(),
-  email: d.varchar(255),
+  id: integer().primaryKey().autoIncrement(),
+  name: varchar(255).notNull(),
+  email: varchar(255),
 });
 
 const addAgeColumn = migration("add_age_column", {

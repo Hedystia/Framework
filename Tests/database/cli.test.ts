@@ -29,7 +29,7 @@ describe("CLI Templates", () => {
   it("should generate schema template", () => {
     const content = generateSchemaTemplate("users");
     expect(content).toContain('table("users"');
-    expect(content).toContain("d.integer()");
+    expect(content).toContain("integer()");
     expect(content).toContain("primaryKey()");
     expect(content).toContain("@hedystia/db");
   });

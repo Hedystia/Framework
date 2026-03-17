@@ -1,20 +1,20 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { d, database, table } from "@hedystia/db";
+import { database, integer, table, varchar } from "@hedystia/db";
 import { existsSync, rmSync } from "fs";
 
 const TEST_DIR = "/tmp/hedystia_test_filedb";
 
 const users = table("users", {
-  id: d.integer().primaryKey().autoIncrement(),
-  name: d.varchar(255).notNull(),
-  email: d.varchar(255).unique(),
-  age: d.integer().default(0),
+  id: integer().primaryKey().autoIncrement(),
+  name: varchar(255).notNull(),
+  email: varchar(255).unique(),
+  age: integer().default(0),
 });
 
 const posts = table("posts", {
-  id: d.integer().primaryKey().autoIncrement(),
-  userId: d.integer().references(() => users.id),
-  title: d.varchar(255).notNull(),
+  id: integer().primaryKey().autoIncrement(),
+  userId: integer().references(() => users.id),
+  title: varchar(255).notNull(),
 });
 
 const db = database({

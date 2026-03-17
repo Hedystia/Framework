@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { d, database, table } from "@hedystia/db";
+import { database, integer, table, varchar } from "@hedystia/db";
 import { existsSync, rmSync } from "fs";
 
 const TEST_DB = "/tmp/hedystia_test_sync.db";
@@ -17,8 +17,8 @@ describe("Schema Sync", () => {
     }
 
     const users = table("sync_users", {
-      id: d.integer().primaryKey().autoIncrement(),
-      name: d.varchar(255).notNull(),
+      id: integer().primaryKey().autoIncrement(),
+      name: varchar(255).notNull(),
     });
 
     const db = database({
@@ -39,9 +39,9 @@ describe("Schema Sync", () => {
 
   it("should add new columns during sync", async () => {
     const users = table("sync_users", {
-      id: d.integer().primaryKey().autoIncrement(),
-      name: d.varchar(255).notNull(),
-      newCol: d.integer().default(42),
+      id: integer().primaryKey().autoIncrement(),
+      name: varchar(255).notNull(),
+      newCol: integer().default(42),
     });
 
     const db = database({
@@ -62,8 +62,8 @@ describe("Schema Sync", () => {
 
   it("should not fail when table already exists", async () => {
     const users = table("sync_users", {
-      id: d.integer().primaryKey().autoIncrement(),
-      name: d.varchar(255).notNull(),
+      id: integer().primaryKey().autoIncrement(),
+      name: varchar(255).notNull(),
     });
 
     const db = database({

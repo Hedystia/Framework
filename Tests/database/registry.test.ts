@@ -1,17 +1,19 @@
 import { describe, expect, it } from "bun:test";
-import { d, SchemaRegistry, table } from "@hedystia/db";
+import { integer, SchemaRegistry, table, text, varchar } from "@hedystia/db";
 
 const users = table("users", {
-  id: d.integer().primaryKey().autoIncrement(),
-  name: d.varchar(255).notNull(),
-  email: d.varchar(255).unique(),
+  id: integer().primaryKey().autoIncrement(),
+  name: varchar(255).notNull(),
+  email: varchar(255).unique(),
 });
 
 const posts = table("posts", {
-  id: d.integer().primaryKey().autoIncrement(),
-  userId: d.integer().references(() => users.id, { onDelete: "CASCADE" }),
-  title: d.varchar(255).notNull(),
-  content: d.text(),
+  id: integer().primaryKey().autoIncrement(),
+  userId: integer()
+    .name("user_id")
+    .references(() => users.id, { onDelete: "CASCADE" }),
+  title: varchar(255).notNull(),
+  content: text(),
 });
 
 describe("Schema Registry", () => {
@@ -29,7 +31,7 @@ describe("Schema Registry", () => {
     registry.register([users, posts]);
 
     const postsTable = registry.getTable("posts")!;
-    const userIdCol = postsTable.columns.find((c) => c.name === "userId")!;
+    const userIdCol = postsTable.columns.find((c) => c.name === "user_id")!;
     expect(userIdCol.references).toBeDefined();
     expect(userIdCol.references!.table).toBe("users");
     expect(userIdCol.references!.column).toBe("id");
