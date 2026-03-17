@@ -47,22 +47,24 @@ bun add mysql
 ### Define your schema
 
 ```ts
-import { table, d } from "@hedystia/db";
+import { table, integer, varchar, text } from "@hedystia/db";
 
 export const users = table("users", {
-  id: d.integer().primaryKey().autoIncrement(),
-  name: d.varchar(255).notNull(),
-  email: d.varchar(255).unique(),
-  age: d.integer().default(0),
+  id: integer().primaryKey().autoIncrement(),
+  name: varchar(255).notNull(),
+  email: varchar(255).unique(),
+  age: integer().default(0),
 });
 
 export const posts = table("posts", {
-  id: d.integer().primaryKey().autoIncrement(),
-  userId: d.integer().references(() => users.id, { onDelete: "CASCADE" }),
-  title: d.varchar(255).notNull(),
-  content: d.text(),
+  id: integer().primaryKey().autoIncrement(),
+  userId: integer().references(() => users.id, { onDelete: "CASCADE" }),
+  title: varchar(255).notNull(),
+  content: text(),
 });
 ```
+
+> **Note:** The `d.xxx()` prefix style (e.g., `d.integer()`) is still supported for backward compatibility.
 
 ### Create the database
 
