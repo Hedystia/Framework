@@ -23,12 +23,12 @@ export default migration("${name}", {
  * @returns {string} Schema file content
  */
 export function generateSchemaTemplate(name: string): string {
-  return `import { table, d } from "@hedystia/db";
+  return `import { table, integer, datetime } from "@hedystia/db";
 
 export const ${name} = table("${name}", {
-  id: d.integer().primaryKey().autoIncrement(),
-  createdAt: d.datetime().default(new Date()),
-  updatedAt: d.datetime().default(new Date()),
+  id: integer().primaryKey().autoIncrement(),
+  createdAt: datetime().default(new Date()),
+  updatedAt: datetime().default(new Date()),
 });
 `;
 }
