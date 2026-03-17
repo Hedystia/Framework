@@ -124,8 +124,8 @@ export type WhereClause<T = Record<string, any>> = {
 
 export interface QueryOptions<T = Record<string, any>, Rel extends Record<string, any> = {}> {
   where?: WhereClause<T>;
-  select?: (keyof T)[];
-  orderBy?: Partial<Record<keyof T, "asc" | "desc">>;
+  select?: Extract<keyof T, string>[];
+  orderBy?: Partial<Record<Extract<keyof T, string>, "asc" | "desc">>;
   take?: number;
   skip?: number;
   with?: {
