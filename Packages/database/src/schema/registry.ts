@@ -7,6 +7,8 @@ import type { TableDefinition, TableMetadata } from "../types";
 export class SchemaRegistry {
   private tables = new Map<string, TableMetadata>();
   private definitions = new Map<string, TableDefinition>();
+  private columnMaps = new Map<string, Record<string, string>>();
+  private reverseColumnMaps = new Map<string, Record<string, string>>();
   private relations = new Map<
     string,
     Array<{
@@ -31,6 +33,14 @@ export class SchemaRegistry {
         name: schema.__name,
         columns: [...schema.__columns],
       });
+
+      const colMap: Record<string, string> = schema.__columnMap ?? {};
+      this.columnMaps.set(schema.__name, colMap);
+      const reverseMap: Record<string, string> = {};
+      for (const [codeKey, dbName] of Object.entries(colMap)) {
+        reverseMap[dbName] = codeKey;
+      }
+      this.reverseColumnMaps.set(schema.__name, reverseMap);
     }
 
     for (const schema of schemas) {
@@ -48,7 +58,9 @@ export class SchemaRegistry {
           );
         }
 
-        const column = schema.__columns.find((c) => c.name === ref.columnName);
+        const colMap = this.columnMaps.get(schema.__name) ?? {};
+        const dbColumnName = colMap[ref.columnName] ?? ref.columnName;
+        const column = schema.__columns.find((c: any) => c.name === dbColumnName);
         if (column) {
           column.references = {
             table: resolved.table,
@@ -66,7 +78,7 @@ export class SchemaRegistry {
           this.relations.set(schema.__name, []);
         }
         this.relations.get(schema.__name)!.push({
-          from: { table: schema.__name, column: ref.columnName },
+          from: { table: schema.__name, column: dbColumnName },
           to: { table: resolved.table, column: resolved.column },
           relationName,
         });
@@ -77,7 +89,7 @@ export class SchemaRegistry {
         const reverseRelationName = schema.__name;
         this.relations.get(resolved.table)!.push({
           from: { table: resolved.table, column: resolved.column },
-          to: { table: schema.__name, column: ref.columnName },
+          to: { table: schema.__name, column: dbColumnName },
           relationName: reverseRelationName,
         });
       }
@@ -115,7 +127,7 @@ export class SchemaRegistry {
   }
 
   /**
-   * Get the primary key column name for a table
+   * Get the primary key column name for a table (returns DB column name)
    * @param {string} tableName - Table name
    * @returns {string | null} The primary key column name or null
    */
@@ -130,5 +142,23 @@ export class SchemaRegistry {
       }
     }
     return null;
+  }
+
+  /**
+   * Get the column name map (code key -> DB column name) for a table
+   * @param {string} tableName - Table name
+   * @returns {Record<string, string>} Column name map
+   */
+  getColumnMap(tableName: string): Record<string, string> {
+    return this.columnMaps.get(tableName) ?? {};
+  }
+
+  /**
+   * Get the reverse column name map (DB column name -> code key) for a table
+   * @param {string} tableName - Table name
+   * @returns {Record<string, string>} Reverse column name map
+   */
+  getReverseColumnMap(tableName: string): Record<string, string> {
+    return this.reverseColumnMaps.get(tableName) ?? {};
   }
 }
