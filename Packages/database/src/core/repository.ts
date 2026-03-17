@@ -30,6 +30,9 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
   private cache: CacheManager;
   private registry: SchemaRegistry;
   private meta: TableMetadata;
+  private columnMap: Record<string, string>;
+  private reverseColumnMap: Record<string, string>;
+  private hasAliases: boolean;
 
   constructor(
     tableName: string,
@@ -46,6 +49,11 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
       throw new QueryError(`Table "${tableName}" is not registered`);
     }
     this.meta = meta;
+    this.columnMap = registry.getColumnMap(tableName);
+    this.reverseColumnMap = registry.getReverseColumnMap(tableName);
+    this.hasAliases = Object.entries(this.columnMap).some(
+      ([codeKey, dbName]) => codeKey !== dbName,
+    );
   }
 
   /**
@@ -55,11 +63,12 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
    */
   async find(options?: QueryOptions<T>): Promise<T[]> {
     return this.cache.getOrSet(this.tableName, "find", options, async () => {
+      const dbOptions = this.mapOptionsToDb(options);
       let rows: T[];
       if (this.driver instanceof FileDriver) {
-        rows = this.findFile(options);
+        rows = this.mapRows(this.findFile(dbOptions as QueryOptions<T>));
       } else {
-        rows = await this.findSQL(options);
+        rows = this.mapRows(await this.findSQL(dbOptions as QueryOptions<T>));
       }
       if (options?.with) {
         rows = await this.loadRelations(rows, options.with);
@@ -85,12 +94,13 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
    */
   async findFirst(options?: QueryOptions<T>): Promise<T | null> {
     return this.cache.getOrSet(this.tableName, "findFirst", options, async () => {
-      const opts = { ...options, take: 1 };
+      const dbOptions = this.mapOptionsToDb(options);
+      const opts = { ...dbOptions, take: 1 };
       let rows: T[];
       if (this.driver instanceof FileDriver) {
-        rows = this.findFile(opts);
+        rows = this.mapRows(this.findFile(opts as QueryOptions<T>));
       } else {
-        rows = await this.findSQL(opts);
+        rows = this.mapRows(await this.findSQL(opts as QueryOptions<T>));
       }
       if (rows.length === 0) {
         return null;
@@ -118,7 +128,7 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
     }
 
     this.cache.invalidateTable(this.tableName);
-    const cleaned = this.cleanData(single);
+    const cleaned = this.toDbKeys(this.cleanData(single));
 
     if (this.driver instanceof FileDriver) {
       const id = (this.driver as FileDriver).insertRow(this.tableName, cleaned);
@@ -126,8 +136,9 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
       if (pk) {
         cleaned[pk] = id;
       }
-      this.cacheEntity(cleaned as T);
-      return cleaned as T;
+      const result = this.toCodeKeys(cleaned) as T;
+      this.cacheEntity(result);
+      return result;
     }
 
     const params: unknown[] = [];
@@ -139,8 +150,9 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
       cleaned[pk] = result.insertId;
     }
 
-    this.cacheEntity(cleaned as T);
-    return cleaned as T;
+    const mapped = this.toCodeKeys(cleaned) as T;
+    this.cacheEntity(mapped);
+    return mapped;
   }
 
   /**
@@ -163,7 +175,7 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
       return results;
     }
 
-    const cleanedData = data.map((item) => this.cleanData(item));
+    const cleanedData = data.map((item) => this.toDbKeys(this.cleanData(item)));
     const params: unknown[] = [];
     const sql = compileBulkInsert(this.tableName, cleanedData, params);
     const result = await this.driver.execute(sql, params);
@@ -178,7 +190,7 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
       }
     }
 
-    const finalRows = cleanedData as T[];
+    const finalRows = this.mapRows(cleanedData);
     this.cacheEntities(finalRows);
     return finalRows;
   }
@@ -194,16 +206,17 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
     }
 
     this.cache.invalidateTable(this.tableName);
-    const cleaned = this.cleanData(options.data);
+    const cleaned = this.toDbKeys(this.cleanData(options.data));
+    const dbWhere = this.mapWhereToDb(options.where as WhereClause);
 
     if (this.driver instanceof FileDriver) {
-      const filter = this.buildFileFilter(options.where as WhereClause);
+      const filter = this.buildFileFilter(dbWhere);
       (this.driver as FileDriver).updateRows(this.tableName, filter, cleaned);
       return this.find({ where: options.where } as QueryOptions<T>);
     }
 
     const params: unknown[] = [];
-    const sql = compileUpdate(this.tableName, cleaned, options.where as WhereClause, params);
+    const sql = compileUpdate(this.tableName, cleaned, dbWhere, params);
     await this.driver.execute(sql, params);
 
     return this.find({ where: options.where } as QueryOptions<T>);
@@ -220,14 +233,15 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
     }
 
     this.cache.invalidateTable(this.tableName);
+    const dbWhere = this.mapWhereToDb(options.where as WhereClause);
 
     if (this.driver instanceof FileDriver) {
-      const filter = this.buildFileFilter(options.where as WhereClause);
+      const filter = this.buildFileFilter(dbWhere);
       return (this.driver as FileDriver).deleteRows(this.tableName, filter);
     }
 
     const params: unknown[] = [];
-    const sql = compileDelete(this.tableName, options.where as WhereClause, params);
+    const sql = compileDelete(this.tableName, dbWhere, params);
     const result = await this.driver.execute(sql, params);
     return result.affectedRows;
   }
@@ -239,17 +253,17 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
    */
   async count(options?: Pick<QueryOptions<T>, "where">): Promise<number> {
     return this.cache.getOrSet(this.tableName, "count", options, async () => {
+      const dbWhere = options?.where ? this.mapWhereToDb(options.where as WhereClause) : undefined;
+
       if (this.driver instanceof FileDriver) {
-        const filter = options?.where
-          ? this.buildFileFilter(options.where as WhereClause)
-          : undefined;
+        const filter = dbWhere ? this.buildFileFilter(dbWhere) : undefined;
         return (this.driver as FileDriver).countRows(this.tableName, filter);
       }
 
       const params: unknown[] = [];
       let sql = `SELECT COUNT(*) as count FROM \`${this.tableName}\``;
-      if (options?.where && Object.keys(options.where).length > 0) {
-        sql += ` WHERE ${compileWhere(options.where as WhereClause, params)}`;
+      if (dbWhere && Object.keys(dbWhere).length > 0) {
+        sql += ` WHERE ${compileWhere(dbWhere, params)}`;
       }
       const rows = await this.driver.query(sql, params);
       return rows[0]?.count ?? 0;
@@ -552,9 +566,10 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
 
   private cleanData(data: Partial<T>): Record<string, unknown> {
     const cleaned: Record<string, unknown> = {};
-    const columnNames = new Set(this.meta.columns.map((c) => c.name));
+    const dbColumnNames = new Set(this.meta.columns.map((c) => c.name));
+    const codeKeys = new Set(Object.keys(this.columnMap));
     for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
-      if (columnNames.has(key)) {
+      if (codeKeys.has(key) || dbColumnNames.has(key)) {
         cleaned[key] = value;
       }
     }
@@ -579,5 +594,84 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
       return;
     }
     this.cache.setEntity(this.tableName, row[pk], row);
+  }
+
+  private toDbKeys(data: Record<string, unknown>): Record<string, unknown> {
+    if (!this.hasAliases) {
+      return data;
+    }
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data)) {
+      result[this.columnMap[key] ?? key] = value;
+    }
+    return result;
+  }
+
+  private toCodeKeys(row: Record<string, unknown>): Record<string, unknown> {
+    if (!this.hasAliases) {
+      return row;
+    }
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(row)) {
+      result[this.reverseColumnMap[key] ?? key] = value;
+    }
+    return result;
+  }
+
+  private mapWhereToDb(where: WhereClause): WhereClause {
+    if (!this.hasAliases) {
+      return where;
+    }
+    const result: WhereClause = {};
+    for (const [key, value] of Object.entries(where)) {
+      if (key === "OR" || key === "AND") {
+        (result as any)[key] = (value as WhereClause[]).map((sub) => this.mapWhereToDb(sub));
+      } else {
+        result[this.columnMap[key] ?? key] = value;
+      }
+    }
+    return result;
+  }
+
+  private mapSelectToDb(select: string[]): string[] {
+    if (!this.hasAliases) {
+      return select;
+    }
+    return select.map((key) => this.columnMap[key] ?? key);
+  }
+
+  private mapOrderByToDb(orderBy: Record<string, "asc" | "desc">): Record<string, "asc" | "desc"> {
+    if (!this.hasAliases) {
+      return orderBy;
+    }
+    const result: Record<string, "asc" | "desc"> = {};
+    for (const [key, value] of Object.entries(orderBy)) {
+      result[this.columnMap[key] ?? key] = value;
+    }
+    return result;
+  }
+
+  private mapOptionsToDb(options?: QueryOptions<T>): QueryOptions | undefined {
+    if (!options || !this.hasAliases) {
+      return options as QueryOptions | undefined;
+    }
+    const mapped: QueryOptions = { ...options } as any;
+    if (options.where) {
+      mapped.where = this.mapWhereToDb(options.where as WhereClause);
+    }
+    if (options.select) {
+      mapped.select = this.mapSelectToDb(options.select);
+    }
+    if (options.orderBy) {
+      mapped.orderBy = this.mapOrderByToDb(options.orderBy as Record<string, "asc" | "desc">);
+    }
+    return mapped;
+  }
+
+  private mapRows(rows: Record<string, unknown>[]): T[] {
+    if (!this.hasAliases) {
+      return rows as T[];
+    }
+    return rows.map((row) => this.toCodeKeys(row) as T);
   }
 }
