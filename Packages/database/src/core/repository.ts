@@ -33,17 +33,22 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
   private columnMap: Record<string, string>;
   private reverseColumnMap: Record<string, string>;
   private hasAliases: boolean;
+  private tableCacheConfig?: { enabled: boolean; ttl?: number; maxTtl?: number };
+  private jsonColumns: Set<string>;
+  private jsonCodeKeys: Set<string>;
 
   constructor(
     tableName: string,
     driver: DatabaseDriver,
     cache: CacheManager,
     registry: SchemaRegistry,
+    tableCacheConfig?: { enabled: boolean; ttl?: number; maxTtl?: number },
   ) {
     this.tableName = tableName;
     this.driver = driver;
     this.cache = cache;
     this.registry = registry;
+    this.tableCacheConfig = tableCacheConfig;
     const meta = registry.getTable(tableName);
     if (!meta) {
       throw new QueryError(`Table "${tableName}" is not registered`);
@@ -54,6 +59,16 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
     this.hasAliases = Object.entries(this.columnMap).some(
       ([codeKey, dbName]) => codeKey !== dbName,
     );
+    this.jsonColumns = new Set(
+      meta.columns.filter((c) => c.type === "json" || c.type === "array").map((c) => c.name),
+    );
+    this.jsonCodeKeys = new Set<string>();
+    for (const col of meta.columns) {
+      if (col.type === "json" || col.type === "array") {
+        const codeKey = this.reverseColumnMap[col.name] ?? col.name;
+        this.jsonCodeKeys.add(codeKey);
+      }
+    }
   }
 
   /**
@@ -62,20 +77,26 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
    * @returns {Promise<T[]>} Array of matching rows
    */
   async find(options?: QueryOptions<T>): Promise<T[]> {
-    return this.cache.getOrSet(this.tableName, "find", options, async () => {
-      const dbOptions = this.mapOptionsToDb(options);
-      let rows: T[];
-      if (this.driver instanceof FileDriver) {
-        rows = this.mapRows(this.findFile(dbOptions as QueryOptions<T>));
-      } else {
-        rows = this.mapRows(await this.findSQL(dbOptions as QueryOptions<T>));
-      }
-      if (options?.with) {
-        rows = await this.loadRelations(rows, options.with);
-      }
-      this.cacheEntities(rows);
-      return rows;
-    });
+    return this.cache.getOrSetWithTableConfig(
+      this.tableName,
+      "find",
+      options,
+      async () => {
+        const dbOptions = this.mapOptionsToDb(options);
+        let rows: T[];
+        if (this.driver instanceof FileDriver) {
+          rows = this.mapRows(this.findFile(dbOptions as QueryOptions<T>));
+        } else {
+          rows = this.mapRows(await this.findSQL(dbOptions as QueryOptions<T>));
+        }
+        if (options?.with) {
+          rows = await this.loadRelations(rows, options.with);
+        }
+        this.cacheEntities(rows);
+        return rows;
+      },
+      this.tableCacheConfig,
+    );
   }
 
   /**
@@ -93,27 +114,33 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
    * @returns {Promise<T | null>} The first matching row or null
    */
   async findFirst(options?: QueryOptions<T>): Promise<T | null> {
-    return this.cache.getOrSet(this.tableName, "findFirst", options, async () => {
-      const dbOptions = this.mapOptionsToDb(options);
-      const opts = { ...dbOptions, take: 1 };
-      let rows: T[];
-      if (this.driver instanceof FileDriver) {
-        rows = this.mapRows(this.findFile(opts as QueryOptions<T>));
-      } else {
-        rows = this.mapRows(await this.findSQL(opts as QueryOptions<T>));
-      }
-      if (rows.length === 0) {
-        return null;
-      }
-      if (options?.with) {
-        rows = await this.loadRelations(rows, options.with);
-      }
-      const row = rows[0] ?? null;
-      if (row) {
-        this.cacheEntity(row);
-      }
-      return row;
-    });
+    return this.cache.getOrSetWithTableConfig(
+      this.tableName,
+      "findFirst",
+      options,
+      async () => {
+        const dbOptions = this.mapOptionsToDb(options);
+        const opts = { ...dbOptions, take: 1 };
+        let rows: T[];
+        if (this.driver instanceof FileDriver) {
+          rows = this.mapRows(this.findFile(opts as QueryOptions<T>));
+        } else {
+          rows = this.mapRows(await this.findSQL(opts as QueryOptions<T>));
+        }
+        if (rows.length === 0) {
+          return null;
+        }
+        if (options?.with) {
+          rows = await this.loadRelations(rows, options.with);
+        }
+        const row = rows[0] ?? null;
+        if (row) {
+          this.cacheEntity(row);
+        }
+        return row;
+      },
+      this.tableCacheConfig,
+    );
   }
 
   /**
@@ -252,22 +279,30 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
    * @returns {Promise<number>} Row count
    */
   async count(options?: Pick<QueryOptions<T>, "where">): Promise<number> {
-    return this.cache.getOrSet(this.tableName, "count", options, async () => {
-      const dbWhere = options?.where ? this.mapWhereToDb(options.where as WhereClause) : undefined;
+    return this.cache.getOrSetWithTableConfig(
+      this.tableName,
+      "count",
+      options,
+      async () => {
+        const dbWhere = options?.where
+          ? this.mapWhereToDb(options.where as WhereClause)
+          : undefined;
 
-      if (this.driver instanceof FileDriver) {
-        const filter = dbWhere ? this.buildFileFilter(dbWhere) : undefined;
-        return (this.driver as FileDriver).countRows(this.tableName, filter);
-      }
+        if (this.driver instanceof FileDriver) {
+          const filter = dbWhere ? this.buildFileFilter(dbWhere) : undefined;
+          return (this.driver as FileDriver).countRows(this.tableName, filter);
+        }
 
-      const params: unknown[] = [];
-      let sql = `SELECT COUNT(*) as count FROM \`${this.tableName}\``;
-      if (dbWhere && Object.keys(dbWhere).length > 0) {
-        sql += ` WHERE ${compileWhere(dbWhere, params)}`;
-      }
-      const rows = await this.driver.query(sql, params);
-      return rows[0]?.count ?? 0;
-    });
+        const params: unknown[] = [];
+        let sql = `SELECT COUNT(*) as count FROM \`${this.tableName}\``;
+        if (dbWhere && Object.keys(dbWhere).length > 0) {
+          sql += ` WHERE ${compileWhere(dbWhere, params)}`;
+        }
+        const rows = await this.driver.query(sql, params);
+        return rows[0]?.count ?? 0;
+      },
+      this.tableCacheConfig,
+    );
   }
 
   /**
@@ -568,9 +603,19 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
     const cleaned: Record<string, unknown> = {};
     const dbColumnNames = new Set(this.meta.columns.map((c) => c.name));
     const codeKeys = new Set(Object.keys(this.columnMap));
+    const shouldSerialize = !(this.driver instanceof FileDriver);
     for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
       if (codeKeys.has(key) || dbColumnNames.has(key)) {
-        cleaned[key] = value;
+        if (
+          shouldSerialize &&
+          (this.jsonCodeKeys.has(key) || this.jsonColumns.has(key)) &&
+          value != null &&
+          typeof value === "object"
+        ) {
+          cleaned[key] = JSON.stringify(value);
+        } else {
+          cleaned[key] = value;
+        }
       }
     }
     return cleaned;
@@ -669,9 +714,23 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
   }
 
   private mapRows(rows: Record<string, unknown>[]): T[] {
-    if (!this.hasAliases) {
+    const shouldDeserialize = this.jsonCodeKeys.size > 0 && !(this.driver instanceof FileDriver);
+    if (!this.hasAliases && !shouldDeserialize) {
       return rows as T[];
     }
-    return rows.map((row) => this.toCodeKeys(row) as T);
+    return rows.map((row) => {
+      const mapped = this.hasAliases ? this.toCodeKeys(row) : { ...row };
+      if (shouldDeserialize) {
+        for (const key of this.jsonCodeKeys) {
+          const val = mapped[key];
+          if (typeof val === "string") {
+            try {
+              mapped[key] = JSON.parse(val);
+            } catch {}
+          }
+        }
+      }
+      return mapped as T;
+    });
   }
 }

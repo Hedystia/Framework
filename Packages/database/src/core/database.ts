@@ -10,6 +10,7 @@ import type {
   DatabaseDriver,
   DeleteOptions,
   InferRow,
+  InferSchemas,
   MigrationDefinition,
   QueryOptions,
   RelationQueryMap,
@@ -47,11 +48,18 @@ type TypedTableRepository<S extends readonly AnyTableDef[], T extends AnyTableDe
   truncate(): Promise<void>;
 };
 
-type ExtractRepos<S extends readonly AnyTableDef[]> = {
-  [T in S[number] as T["__name"]]: TypedTableRepository<S, T>;
-};
+type ExtractRepos<S> = S extends readonly AnyTableDef[]
+  ? { [T in S[number] as T["__name"]]: TypedTableRepository<S, T> }
+  : S extends Record<string, any>
+    ? {
+        [K in keyof S as S[K] extends AnyTableDef ? K : never]: TypedTableRepository<
+          InferSchemas<S>,
+          Extract<S[K], AnyTableDef>
+        >;
+      }
+    : never;
 
-type DatabaseInstance<S extends readonly AnyTableDef[]> = ExtractRepos<S> & {
+type DatabaseInstance<S> = ExtractRepos<S> & {
   /**
    * Initialize the database connection, create tables and run migrations
    * @returns {Promise<void>}
@@ -97,11 +105,21 @@ type DatabaseInstance<S extends readonly AnyTableDef[]> = ExtractRepos<S> & {
  * @param {DatabaseConfig} config - Database configuration
  * @returns {DatabaseInstance<S>} Database instance with table repositories
  */
-export function database<S extends readonly AnyTableDef[]>(
+function normalizeSchemas<S extends readonly AnyTableDef[]>(schemas: any): S {
+  if (Array.isArray(schemas)) {
+    return schemas as any as S;
+  }
+  return Object.values(schemas).filter(
+    (v): v is AnyTableDef => v != null && typeof v === "object" && (v as any).__table === true,
+  ) as any;
+}
+
+export function database<const S extends readonly AnyTableDef[] | Record<string, any>>(
   config: DatabaseConfig & { schemas: S },
 ): DatabaseInstance<S> {
+  const schemas = normalizeSchemas(config.schemas) as any;
   const registry = new SchemaRegistry();
-  registry.register(config.schemas);
+  registry.register(schemas);
 
   const connectionConfig = Array.isArray(config.connection)
     ? config.connection[0]
@@ -159,8 +177,8 @@ export function database<S extends readonly AnyTableDef[]>(
   };
 
   const repos = new Map<string, TableRepository<any>>();
-  for (const schema of config.schemas) {
-    const repo = new TableRepository(schema.__name, driver, cache, registry);
+  for (const schema of schemas) {
+    const repo = new TableRepository(schema.__name, driver, cache, registry, schema.__cache);
     repos.set(schema.__name, repo);
   }
 
@@ -187,7 +205,7 @@ export function database<S extends readonly AnyTableDef[]>(
     },
   };
 
-  for (const schema of config.schemas) {
+  for (const schema of schemas) {
     const repo = repos.get(schema.__name)!;
     const proxy = new Proxy(repo, {
       get(target, prop, receiver) {
@@ -204,7 +222,7 @@ export function database<S extends readonly AnyTableDef[]>(
     instance[schema.__name] = proxy;
   }
 
-  return instance as DatabaseInstance<S>;
+  return instance as any as DatabaseInstance<S>;
 }
 
 async function runMigrations(
