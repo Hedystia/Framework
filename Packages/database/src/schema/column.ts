@@ -131,7 +131,7 @@ export class ColumnBuilder<
 
   /**
    * Add a foreign key reference to another table's column
-   * @param {() => ColumnBuilder<any>} ref - A function returning the referenced column
+   * @param {(() => ColumnBuilder<any>) | ColumnBuilder<any>} ref - A column reference or a function returning one
    * @param {object} [options] - Reference options
    * @param {ReferenceAction} [options.onDelete] - Action on delete
    * @param {ReferenceAction} [options.onUpdate] - Action on update
@@ -146,7 +146,7 @@ export class ColumnBuilder<
       relationName?: string;
     } = never,
   >(
-    ref: () => R,
+    ref: (() => R) | R,
     options?: O,
   ): ColumnBuilder<
     T,
@@ -161,7 +161,7 @@ export class ColumnBuilder<
   > {
     this._references = {
       resolve: () => {
-        const col = ref();
+        const col = typeof ref === "function" ? ref() : ref;
         return {
           table: (col as any).__tableName ?? "",
           column: (col as any).__columnName ?? "",
