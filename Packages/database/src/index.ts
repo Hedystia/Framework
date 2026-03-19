@@ -53,6 +53,7 @@ export type {
   Repository,
   ResolveResult,
   SQLiteConnectionConfig,
+  TableCacheConfig,
   TableDefinition,
   TableMetadata,
   UpdateOptions,
