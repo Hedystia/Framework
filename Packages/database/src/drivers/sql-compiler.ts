@@ -34,6 +34,7 @@ export function compileColumnType(col: ColumnMetadata, dialect: DatabaseType): s
     text: { mysql: "TEXT", mariadb: "TEXT", sqlite: "TEXT", file: "TEXT" },
     boolean: { mysql: "TINYINT(1)", mariadb: "TINYINT(1)", sqlite: "INTEGER", file: "BOOLEAN" },
     json: { mysql: "JSON", mariadb: "JSON", sqlite: "TEXT", file: "JSON" },
+    array: { mysql: "JSON", mariadb: "JSON", sqlite: "TEXT", file: "JSON" },
     datetime: { mysql: "DATETIME", mariadb: "DATETIME", sqlite: "TEXT", file: "DATETIME" },
     timestamp: { mysql: "TIMESTAMP", mariadb: "TIMESTAMP", sqlite: "TEXT", file: "TIMESTAMP" },
     decimal: {

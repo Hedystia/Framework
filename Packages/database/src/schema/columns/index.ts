@@ -47,6 +47,12 @@ export const boolean = (): ColumnBuilder<boolean> => new ColumnBuilder<boolean>(
 export const json = (): ColumnBuilder<unknown> => new ColumnBuilder<unknown>("json");
 
 /**
+ * Create an ARRAY column (stored as JSON)
+ * @returns {ColumnBuilder<unknown[]>} Column builder for array type
+ */
+export const array = (): ColumnBuilder<unknown[]> => new ColumnBuilder<unknown[]>("array");
+
+/**
  * Create a DATETIME column
  * @returns {ColumnBuilder<Date>} Column builder for datetime type
  */
@@ -131,6 +137,11 @@ export class NamedColumnStarter {
     return new ColumnBuilder<unknown>("json").name(this._alias);
   }
 
+  /** Create an ARRAY column with this database column name */
+  array(): ColumnBuilder<unknown[]> {
+    return new ColumnBuilder<unknown[]>("array").name(this._alias);
+  }
+
   /** Create a DATETIME column with this database column name */
   datetime(): ColumnBuilder<Date> {
     return new ColumnBuilder<Date>("datetime").name(this._alias);
@@ -181,6 +192,7 @@ export const d = {
   text,
   boolean,
   json,
+  array,
   datetime,
   timestamp,
   decimal,
