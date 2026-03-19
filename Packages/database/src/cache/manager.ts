@@ -159,6 +159,41 @@ export class CacheManager {
     return this.enabled;
   }
 
+  /**
+   * Get a cached query result or execute the query with per-table cache config override
+   * @param {string} table - Table name
+   * @param {string} method - Method name (find, findFirst, etc.)
+   * @param {unknown} options - Query options
+   * @param {() => Promise<T>} executor - Function that executes the query
+   * @param {{ enabled: boolean; ttl?: number; maxTtl?: number }} [tableConfig] - Per-table cache config
+   * @returns {Promise<T>} The query result
+   */
+  async getOrSetWithTableConfig<T>(
+    table: string,
+    method: string,
+    options: unknown,
+    executor: () => Promise<T>,
+    tableConfig?: { enabled: boolean; ttl?: number; maxTtl?: number },
+  ): Promise<T> {
+    const effectiveEnabled = tableConfig ? tableConfig.enabled : this.enabled;
+    if (!effectiveEnabled) {
+      return executor();
+    }
+
+    const effectiveTtl = tableConfig?.ttl ?? this.baseTtl;
+    const effectiveMaxTtl = tableConfig?.maxTtl ?? this.maxTtl;
+    const key = this.buildKey(table, method, options);
+    const cached = this.store.get(key);
+    if (cached !== undefined) {
+      this.store.extendTtl(key, effectiveTtl, effectiveMaxTtl);
+      return cached as T;
+    }
+
+    const result = await executor();
+    this.store.set(key, result, effectiveTtl);
+    return result;
+  }
+
   private buildKey(table: string, method: string, options: unknown): string {
     return `query:${table}:${method}:${stableStringify(options)}`;
   }
