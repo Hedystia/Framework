@@ -1,4 +1,4 @@
-import type { ColumnMetadata, DeferredRefMeta, TableDefinition } from "../types";
+import type { ColumnMetadata, DeferredRefMeta, TableCacheConfig, TableDefinition } from "../types";
 import type { ColumnBuilder } from "./column";
 
 type BindColumn<C, TableName extends string, ColName extends string> =
@@ -33,6 +33,7 @@ export function table<
 >(
   name: N,
   columns: C,
+  options?: { cache?: TableCacheConfig },
 ): TableDefinition<
   { [K in keyof C]: C[K]["__type"] },
   BoundColumns<C, N>,
@@ -68,6 +69,7 @@ export function table<
     __name: name,
     __columns: columnsArray,
     __columnMap: columnMap,
+    __cache: options?.cache,
     __deferredRefs: deferredRefs,
     ...columns,
   };
