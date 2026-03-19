@@ -1,9 +1,11 @@
+/** Supported column data types for schema definitions */
 export type ColumnDataType =
   | "integer"
   | "varchar"
   | "text"
   | "boolean"
   | "json"
+  | "array"
   | "datetime"
   | "decimal"
   | "float"
@@ -12,6 +14,10 @@ export type ColumnDataType =
   | "bigint"
   | "blob";
 
+/**
+ * Database type identifier — can be a simple string shorthand or an object
+ * specifying both the database name and the driver provider to use
+ */
 export type DatabaseType =
   | "mysql"
   | "mariadb"
@@ -22,18 +28,31 @@ export type DatabaseType =
   | { name: "sqlite"; provider: "better-sqlite3" | "sqlite3" | "sql.js" | "bun:sqlite" }
   | { name: "file"; provider: string };
 
+/** Metadata describing a single database column */
 export interface ColumnMetadata {
+  /** Column name in the database */
   name: string;
+  /** Data type of the column */
   type: ColumnDataType;
+  /** Whether this column is a primary key */
   primaryKey: boolean;
+  /** Whether this column auto-increments */
   autoIncrement: boolean;
+  /** Whether this column disallows NULL values */
   notNull: boolean;
+  /** Whether this column has a UNIQUE constraint */
   unique: boolean;
+  /** Default value for the column, or `undefined` if none */
   defaultValue: unknown;
+  /** Maximum character length (for varchar/char types) */
   length?: number;
+  /** Total number of digits (for decimal types) */
   precision?: number;
+  /** Number of decimal digits (for decimal types) */
   scale?: number;
+  /** Custom database column name alias, if different from the property key */
   columnAlias?: string;
+  /** Foreign key reference metadata, resolved after registration */
   references?: {
     table: string;
     column: string;
@@ -43,13 +62,18 @@ export interface ColumnMetadata {
   };
 }
 
+/** Action to take when a referenced row is deleted or updated */
 export type ReferenceAction = "CASCADE" | "SET NULL" | "RESTRICT" | "NO ACTION";
 
+/** Metadata describing a database table and its columns */
 export interface TableMetadata {
+  /** Table name in the database */
   name: string;
+  /** Array of column metadata for this table */
   columns: ColumnMetadata[];
 }
 
+/** Deferred foreign key reference metadata, used internally for lazy resolution */
 export type DeferredRefMeta<
   ColumnName extends string = string,
   TargetTable extends string = string,
@@ -64,6 +88,10 @@ export type DeferredRefMeta<
   onUpdate?: ReferenceAction;
 };
 
+/**
+ * Internal representation of a table schema, including column metadata,
+ * deferred references, and optional per-table cache configuration
+ */
 export type TableDefinition<
   T extends Record<string, any> = Record<string, any>,
   C extends Record<string, any> = {},
@@ -76,6 +104,7 @@ export type TableDefinition<
   __refs: Refs;
   __columns: ColumnMetadata[];
   __columnMap: Record<string, string>;
+  __cache?: TableCacheConfig;
   __deferredRefs: Array<{
     columnName: string;
     resolve: () => { table: string; column: string };
@@ -85,8 +114,10 @@ export type TableDefinition<
   }>;
 } & C;
 
+/** Extract the row type from a table definition */
 export type InferRow<T> = T extends { __row: infer R } ? R : never;
 
+/** Extract the insertable type from a table definition (auto-increment keys become optional) */
 export type InferInsert<T> =
   T extends TableDefinition<infer R, any, any>
     ? {
@@ -98,8 +129,10 @@ export type InferInsert<T> =
 
 type AutoIncrementKeys<T> = T extends TableDefinition<infer R, any, any> ? keyof R : never;
 
+/** Extract the updatable type from a table definition (all fields become optional) */
 export type InferUpdate<T> = T extends TableDefinition<infer R, any, any> ? Partial<R> : never;
 
+/** Condition operators for a single column in a WHERE clause */
 export interface WhereCondition {
   eq?: unknown;
   neq?: unknown;
@@ -115,6 +148,7 @@ export interface WhereCondition {
   between?: [unknown, unknown];
 }
 
+/** Type-safe WHERE clause supporting equality, operators, and logical combinators (OR/AND) */
 export type WhereClause<T = Record<string, any>> = {
   [K in keyof T]?: T[K] | WhereCondition;
 } & {
@@ -122,23 +156,35 @@ export type WhereClause<T = Record<string, any>> = {
   AND?: WhereClause<T>[];
 };
 
+/** Options for querying rows — filtering, sorting, pagination, and relation loading */
 export interface QueryOptions<T = Record<string, any>, Rel extends Record<string, any> = {}> {
+  /** Filter conditions */
   where?: WhereClause<T>;
+  /** Columns to include in the result */
   select?: Extract<keyof T, string>[];
+  /** Sort order for results */
   orderBy?: Partial<Record<Extract<keyof T, string>, "asc" | "desc">>;
+  /** Maximum number of rows to return */
   take?: number;
+  /** Number of rows to skip (for pagination) */
   skip?: number;
+  /** Related tables to eagerly load */
   with?: {
     [K in keyof Rel]?: boolean | QueryOptions<Rel[K] extends { row: infer R } ? R : Rel[K]>;
   };
 }
 
+/** Options for an UPDATE operation */
 export interface UpdateOptions<T = Record<string, any>> {
+  /** Filter to select which rows to update */
   where: WhereClause<T>;
+  /** Partial data to apply to matching rows */
   data: Partial<T>;
 }
 
+/** Options for a DELETE operation */
 export interface DeleteOptions<T = Record<string, any>> {
+  /** Filter to select which rows to delete */
   where: WhereClause<T>;
 }
 
@@ -150,36 +196,83 @@ export interface MySQLConnectionConfig {
   database: string;
 }
 
+/** Connection configuration for SQLite databases */
 export interface SQLiteConnectionConfig {
+  /** Path to the SQLite database file */
   filename: string;
 }
 
+/** Connection configuration for file-based (JSON) storage */
 export interface FileConnectionConfig {
+  /** Directory where data files are stored */
   directory: string;
 }
 
+/** Union of all supported connection configurations */
 export type ConnectionConfig =
   | MySQLConnectionConfig
   | SQLiteConnectionConfig
   | FileConnectionConfig;
 
+/**
+ * Global cache configuration for the database instance.
+ * Controls query result caching and entity caching behavior.
+ */
 export interface CacheConfig {
+  /** Whether caching is enabled */
   enabled: boolean;
+  /** Base time-to-live in milliseconds (default: 60000) */
   ttl?: number;
+  /** Maximum TTL in milliseconds — limits adaptive TTL scaling (default: 300000) */
   maxTtl?: number;
+  /** Maximum number of cache entries before eviction (default: 10000) */
   maxEntries?: number;
 }
 
+/**
+ * Per-table cache configuration. Set on individual table definitions to override
+ * or enable caching for specific tables independently of the global setting.
+ * Useful for frequently accessed tables like user sessions or login data.
+ */
+export interface TableCacheConfig {
+  /** Whether caching is enabled for this table */
+  enabled: boolean;
+  /** Base time-to-live in milliseconds for this table's cache entries */
+  ttl?: number;
+  /** Maximum TTL in milliseconds for this table's cache entries */
+  maxTtl?: number;
+}
+
+/**
+ * Top-level configuration for creating a database instance.
+ * Defines schemas, database type, connection, and optional features like
+ * schema sync, migrations, and caching.
+ */
 export interface DatabaseConfig {
-  schemas: readonly TableDefinition<any, any, any>[];
+  /**
+   * Table definitions — either an array of tables or a module namespace object.
+   * @example
+   * // Array form
+   * schemas: [users, posts]
+   * // Module namespace form (import * as schemas from "./schemas")
+   * schemas: schemas
+   */
+  schemas: readonly AnyTableDef[] | Record<string, unknown>;
+  /** Migration definitions to run on initialization */
   migrations?: any[];
+  /** Database type and optional driver provider */
   database: DatabaseType;
+  /** Connection configuration (or array for future multi-connection support) */
   connection: ConnectionConfig | ConnectionConfig[];
+  /** Whether to run pending migrations on initialization */
   runMigrations?: boolean;
+  /** Whether to auto-create tables and add missing columns on initialization */
   syncSchemas?: boolean;
+  /** Enable caching — `true` for defaults, or a {@link CacheConfig} object for fine-tuning */
   cache?: boolean | CacheConfig;
 }
 
+/** Context object passed to migration up/down functions */
 export interface MigrationContext {
   schema: {
     createTable: (table: TableDefinition) => Promise<void>;
@@ -193,12 +286,17 @@ export interface MigrationContext {
   sql: (query: string, params?: unknown[]) => Promise<unknown>;
 }
 
+/** A named migration with up (apply) and down (rollback) functions */
 export interface MigrationDefinition {
+  /** Unique migration name (used for tracking executed migrations) */
   name: string;
+  /** Function to apply the migration */
   up: (ctx: MigrationContext) => Promise<void>;
+  /** Function to rollback the migration */
   down: (ctx: MigrationContext) => Promise<void>;
 }
 
+/** Low-level database driver interface — implemented per database backend */
 export interface DatabaseDriver {
   connect(): Promise<void>;
   disconnect(): Promise<void>;
@@ -215,6 +313,7 @@ export interface DatabaseDriver {
   getAllTableColumns?(): Promise<Record<string, ColumnMetadata[]>>;
 }
 
+/** Generic repository interface providing CRUD operations for a table */
 export interface Repository<T extends Record<string, any>> {
   find(options?: QueryOptions<T>): Promise<T[]>;
   findMany(options?: QueryOptions<T>): Promise<T[]>;
@@ -279,6 +378,12 @@ type ReverseRelationEntries<
 export type RelationsFor<S extends readonly AnyTableDef[], T extends AnyTableDef> = Simplify<
   UnionToIntersection<ForwardRelationEntries<S, T> | ReverseRelationEntries<S, T>>
 >;
+
+export type InferSchemas<T> = T extends readonly AnyTableDef[]
+  ? T
+  : T extends Record<string, any>
+    ? Array<{ [K in keyof T]: T[K] extends AnyTableDef ? T[K] : never }[keyof T]>
+    : readonly AnyTableDef[];
 
 type DepthPrev = [never, 0, 1, 2, 3];
 
