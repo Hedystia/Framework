@@ -112,6 +112,41 @@ describe("Cache System", () => {
       await cache.getOrSet("users", "find", {}, executor);
       expect(callCount).toBe(2);
     });
+
+    it("should respect table-level cache config via getOrSetWithTableConfig", async () => {
+      const cache = new CacheManager(false);
+      let callCount = 0;
+      const executor = async () => {
+        callCount++;
+        return [{ id: 1 }];
+      };
+
+      // Global cache is disabled, but table config enables it
+      const r1 = await cache.getOrSetWithTableConfig("users", "find", {}, executor, {
+        enabled: true,
+        ttl: 5000,
+      });
+      const r2 = await cache.getOrSetWithTableConfig("users", "find", {}, executor, {
+        enabled: true,
+        ttl: 5000,
+      });
+      expect(r1).toEqual(r2);
+      expect(callCount).toBe(1);
+    });
+
+    it("should skip cache when table config disables it", async () => {
+      const cache = new CacheManager(true);
+      let callCount = 0;
+      const executor = async () => {
+        callCount++;
+        return [{ id: 1 }];
+      };
+
+      // Global cache is enabled, but table config disables it
+      await cache.getOrSetWithTableConfig("nocache", "find", {}, executor, { enabled: false });
+      await cache.getOrSetWithTableConfig("nocache", "find", {}, executor, { enabled: false });
+      expect(callCount).toBe(2);
+    });
   });
 
   describe("Database with cache", () => {
@@ -145,6 +180,44 @@ describe("Cache System", () => {
       await db.users.delete({ where: { name: "CacheDelete" } });
       const after = await db.users.count();
       expect(after).toBe(before - 1);
+    });
+  });
+
+  describe("Per-table cache", () => {
+    it("should work with table-level cache configuration", async () => {
+      const TEST_DB_TC = "/tmp/hedystia_test_table_cache.db";
+      if (existsSync(TEST_DB_TC)) {
+        rmSync(TEST_DB_TC);
+      }
+
+      const cachedUsers = table(
+        "cached_users",
+        {
+          id: integer().primaryKey().autoIncrement(),
+          name: varchar(255).notNull(),
+        },
+        { cache: { enabled: true, ttl: 10000 } },
+      );
+
+      const dbTC = database({
+        schemas: [cachedUsers],
+        database: "sqlite",
+        connection: { filename: TEST_DB_TC },
+        syncSchemas: true,
+        cache: false,
+      });
+
+      await dbTC.initialize();
+      await dbTC.cached_users.insert({ name: "CachedUser" });
+
+      const r1 = await dbTC.cached_users.find({ where: { name: "CachedUser" } });
+      const r2 = await dbTC.cached_users.find({ where: { name: "CachedUser" } });
+      expect(r1).toEqual(r2);
+
+      await dbTC.close();
+      if (existsSync(TEST_DB_TC)) {
+        rmSync(TEST_DB_TC);
+      }
     });
   });
 });

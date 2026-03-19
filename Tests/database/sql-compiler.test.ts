@@ -58,6 +58,22 @@ describe("SQL Compiler", () => {
       expect(result).toContain("DEFAULT 0");
     });
 
+    it("should compile array column as JSON", () => {
+      const col: ColumnMetadata = {
+        name: "tags",
+        type: "array",
+        primaryKey: false,
+        autoIncrement: false,
+        notNull: false,
+        unique: false,
+        defaultValue: undefined,
+      };
+      const result = compileColumnDef(col, "mysql");
+      expect(result).toContain("JSON");
+      const sqliteResult = compileColumnDef(col, "sqlite");
+      expect(sqliteResult).toContain("TEXT");
+    });
+
     it("should compile unique column", () => {
       const col: ColumnMetadata = {
         name: "email",

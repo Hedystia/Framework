@@ -68,6 +68,29 @@ describe("Schema Registry", () => {
     expect(allTables.has("posts")).toBe(true);
   });
 
+  it("should resolve direct references (without arrow function)", () => {
+    const authors = table("authors", {
+      id: integer().primaryKey().autoIncrement(),
+      name: varchar(255).notNull(),
+    });
+
+    const articles = table("articles", {
+      id: integer().primaryKey().autoIncrement(),
+      authorId: integer().name("author_id").references(authors.id, { onDelete: "CASCADE" }),
+      title: varchar(255).notNull(),
+    });
+
+    const registry = new SchemaRegistry();
+    registry.register([authors, articles]);
+
+    const articlesTable = registry.getTable("articles")!;
+    const authorIdCol = articlesTable.columns.find((c) => c.name === "author_id")!;
+    expect(authorIdCol.references).toBeDefined();
+    expect(authorIdCol.references!.table).toBe("authors");
+    expect(authorIdCol.references!.column).toBe("id");
+    expect(authorIdCol.references!.onDelete).toBe("CASCADE");
+  });
+
   it("should throw on invalid schema", () => {
     const registry = new SchemaRegistry();
     expect(() => registry.register([{} as any])).toThrow();

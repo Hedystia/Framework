@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { database, integer, table, varchar } from "@hedystia/db";
+import { array, database, integer, table, varchar } from "@hedystia/db";
 import { existsSync, rmSync } from "fs";
 
 const TEST_DIR = "/tmp/hedystia_test_filedb";
@@ -9,11 +9,12 @@ const users = table("users", {
   name: varchar(255).notNull(),
   email: varchar(255).unique(),
   age: integer().default(0),
+  tags: array().type<string[]>(),
 });
 
 const posts = table("posts", {
   id: integer().primaryKey().autoIncrement(),
-  userId: integer().references(() => users.id),
+  userId: integer().references(users.id),
   title: varchar(255).notNull(),
 });
 
@@ -51,6 +52,16 @@ describe("File Driver", () => {
       const user = await db.users.insert({ name: "Bob", email: "bob@file.com", age: 30 });
       expect(user.id).toBe(2);
     });
+
+    it("should insert with array data", async () => {
+      const user = await db.users.insert({
+        name: "ArrayUser",
+        email: "array@file.com",
+        tags: ["tag1", "tag2"],
+      });
+      expect(user.name).toBe("ArrayUser");
+      expect(user.tags).toEqual(["tag1", "tag2"]);
+    });
   });
 
   describe("insertMany", () => {
@@ -66,7 +77,7 @@ describe("File Driver", () => {
   describe("find", () => {
     it("should find all rows", async () => {
       const result = await db.users.find();
-      expect(result.length).toBe(4);
+      expect(result.length).toBe(5);
     });
 
     it("should find with where", async () => {
@@ -101,7 +112,7 @@ describe("File Driver", () => {
 
     it("should find with select", async () => {
       const result = await db.users.find({ select: ["name"] });
-      expect(result.length).toBe(4);
+      expect(result.length).toBe(5);
       expect(result[0]?.name).toBeDefined();
     });
 
@@ -116,7 +127,7 @@ describe("File Driver", () => {
       const result = await db.users.find({
         where: { name: { notIn: ["Alice", "Bob"] } },
       });
-      expect(result.length).toBe(2);
+      expect(result.length).toBe(3);
     });
 
     it("should find with between", async () => {
@@ -126,14 +137,14 @@ describe("File Driver", () => {
 
     it("should find with neq", async () => {
       const result = await db.users.find({ where: { name: { neq: "Alice" } } });
-      expect(result.length).toBe(3);
+      expect(result.length).toBe(4);
     });
   });
 
   describe("findMany", () => {
     it("should be an alias for find", async () => {
       const result = await db.users.findMany();
-      expect(result.length).toBe(4);
+      expect(result.length).toBe(5);
     });
   });
 
@@ -171,7 +182,7 @@ describe("File Driver", () => {
   describe("count", () => {
     it("should count all rows", async () => {
       const count = await db.users.count();
-      expect(count).toBe(4);
+      expect(count).toBe(5);
     });
 
     it("should count with where", async () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+  array,
   bigint,
   blob,
   boolean,
@@ -101,6 +102,13 @@ describe("Schema - Column builders", () => {
     const meta = col.__build("data");
     expect(meta.type).toBe("blob");
   });
+
+  it("should create an array column", () => {
+    const col = array();
+    expect(col).toBeInstanceOf(ColumnBuilder);
+    const meta = col.__build("tags");
+    expect(meta.type).toBe("array");
+  });
 });
 
 describe("Schema - Column modifiers", () => {
@@ -182,6 +190,7 @@ describe("Schema - Column name alias", () => {
     expect(name("col").decimal(8, 4).__build("x").type).toBe("decimal");
     expect(name("col").float().__build("x").type).toBe("float");
     expect(name("col").blob().__build("x").type).toBe("blob");
+    expect(name("col").array().__build("x").type).toBe("array");
   });
 
   it("should build table columnMap correctly", () => {
@@ -273,5 +282,48 @@ describe("Schema - Table definition", () => {
     expect(posts.__deferredRefs.length).toBe(1);
     expect(posts.__deferredRefs[0]?.columnName).toBe("userId");
     expect(posts.__deferredRefs[0]?.onDelete).toBe("CASCADE");
+  });
+
+  it("should support direct references (without arrow function)", () => {
+    const users = table("users", {
+      id: integer().primaryKey().autoIncrement(),
+      name: varchar(255).notNull(),
+    });
+
+    const posts = table("posts", {
+      id: integer().primaryKey().autoIncrement(),
+      userId: integer().references(users.id, { onDelete: "CASCADE" }),
+      title: varchar(255).notNull(),
+    });
+
+    expect(posts.__deferredRefs.length).toBe(1);
+    expect(posts.__deferredRefs[0]?.columnName).toBe("userId");
+    expect(posts.__deferredRefs[0]?.onDelete).toBe("CASCADE");
+  });
+});
+
+describe("Schema - Table cache config", () => {
+  it("should set cache config on table definition", () => {
+    const users = table(
+      "users",
+      {
+        id: integer().primaryKey().autoIncrement(),
+        name: varchar(255).notNull(),
+      },
+      { cache: { enabled: true, ttl: 5000 } },
+    );
+
+    expect(users.__cache).toBeDefined();
+    expect(users.__cache!.enabled).toBe(true);
+    expect(users.__cache!.ttl).toBe(5000);
+  });
+
+  it("should have undefined cache when not configured", () => {
+    const users = table("users", {
+      id: integer().primaryKey().autoIncrement(),
+      name: varchar(255).notNull(),
+    });
+
+    expect(users.__cache).toBeUndefined();
   });
 });

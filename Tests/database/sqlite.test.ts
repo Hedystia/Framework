@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { boolean, database, integer, table, text, varchar } from "@hedystia/db";
+import { array, boolean, database, integer, json, table, text, varchar } from "@hedystia/db";
 import { existsSync, rmSync } from "fs";
 
 const TEST_DB = "/tmp/hedystia_test_sqlite.db";
@@ -10,6 +10,8 @@ const users = table("users", {
   email: varchar(255).unique(),
   age: integer().default(0),
   active: boolean().default(true),
+  tags: array(),
+  metadata: json(),
 });
 
 const posts = table("posts", {
@@ -348,6 +350,38 @@ for (const provider of providers) {
         });
         expect(usersWithPosts[0]?.posts).toBeDefined();
         expect(usersWithPosts[0]?.posts?.length).toBe(2);
+      });
+    });
+
+    describe("array and json columns", () => {
+      it("should insert and retrieve array data", async () => {
+        if (!initialized) {
+          return;
+        }
+        const user = await db.users.insert({
+          name: "ArrayUser",
+          email: `arrayuser@${provider}.com`,
+          tags: ["admin", "editor"],
+        });
+        expect(user.name).toBe("ArrayUser");
+
+        const found = await db.users.findFirst({ where: { name: "ArrayUser" } });
+        expect(found).not.toBeNull();
+      });
+
+      it("should insert and retrieve json data", async () => {
+        if (!initialized) {
+          return;
+        }
+        const user = await db.users.insert({
+          name: "JsonUser",
+          email: `jsonuser@${provider}.com`,
+          metadata: { role: "admin", level: 5 },
+        });
+        expect(user.name).toBe("JsonUser");
+
+        const found = await db.users.findFirst({ where: { name: "JsonUser" } });
+        expect(found).not.toBeNull();
       });
     });
 
