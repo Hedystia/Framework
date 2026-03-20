@@ -258,8 +258,15 @@ export interface DatabaseConfig {
    * schemas: schemas
    */
   schemas: readonly AnyTableDef[] | Record<string, unknown>;
-  /** Migration definitions to run on initialization */
-  migrations?: any[];
+  /**
+   * Migration definitions — either an array of migrations or a module namespace object.
+   * @example
+   * // Array form
+   * migrations: [createUsers, addAge]
+   * // Module namespace form (import * as migrations from "./migrations")
+   * migrations: migrations
+   */
+  migrations?: MigrationDefinition[] | Record<string, unknown>;
   /** Database type and optional driver provider */
   database: DatabaseType;
   /** Connection configuration (or array for future multi-connection support) */

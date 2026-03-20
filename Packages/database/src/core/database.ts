@@ -105,6 +105,18 @@ type DatabaseInstance<S> = ExtractRepos<S> & {
  * @param {DatabaseConfig} config - Database configuration
  * @returns {DatabaseInstance<S>} Database instance with table repositories
  */
+function normalizeMigrations(
+  migrations: MigrationDefinition[] | Record<string, unknown>,
+): MigrationDefinition[] {
+  if (Array.isArray(migrations)) {
+    return migrations;
+  }
+  return Object.values(migrations).filter(
+    (v): v is MigrationDefinition =>
+      v != null && typeof v === "object" && "name" in v && "up" in v && "down" in v,
+  );
+}
+
 function normalizeSchemas<S extends readonly AnyTableDef[]>(schemas: any): S {
   if (Array.isArray(schemas)) {
     return schemas as any as S;
@@ -171,8 +183,11 @@ export function database<const S extends readonly AnyTableDef[] | Record<string,
       await Promise.all(syncPromises);
     }
 
-    if (config.runMigrations && config.migrations && config.migrations.length > 0) {
-      await runMigrations(driver, registry, config.migrations);
+    if (config.runMigrations && config.migrations) {
+      const migrations = normalizeMigrations(config.migrations);
+      if (migrations.length > 0) {
+        await runMigrations(driver, registry, migrations);
+      }
     }
   };
 
