@@ -22,29 +22,90 @@ import type {
 import { TableRepository } from "./repository";
 
 type TypedTableRepository<S extends readonly AnyTableDef[], T extends AnyTableDef> = {
+  /**
+   * Find all rows matching the given options
+   * @param options - Filter, sort, paginate, and eagerly load relations
+   * @returns Array of matching rows
+   */
   find<O extends QueryOptions<InferRow<T>, RelationQueryMap<S, T>> = {}>(
     options?: O,
   ): Promise<ResolveResult<S, T, O>[]>;
 
+  /**
+   * Find all rows matching the given options (alias for {@link find})
+   * @param options - Filter, sort, paginate, and eagerly load relations
+   * @returns Array of matching rows
+   */
   findMany<O extends QueryOptions<InferRow<T>, RelationQueryMap<S, T>> = {}>(
     options?: O,
   ): Promise<ResolveResult<S, T, O>[]>;
 
+  /**
+   * Find the first row matching the given options
+   * @param options - Filter, sort, and eagerly load relations
+   * @returns The first matching row, or `null` if none found
+   */
   findFirst<O extends QueryOptions<InferRow<T>, RelationQueryMap<S, T>> = {}>(
     options?: O,
   ): Promise<ResolveResult<S, T, O> | null>;
 
+  /**
+   * Insert one or more rows into the table
+   * @param data - Row data (or array of row data) to insert
+   * @returns The inserted row
+   */
   insert(data: Partial<InferRow<T>> | Partial<InferRow<T>>[]): Promise<InferRow<T>>;
+
+  /**
+   * Insert multiple rows into the table
+   * @param data - Array of row data to insert
+   * @returns Array of inserted rows
+   */
   insertMany(data: Partial<InferRow<T>>[]): Promise<InferRow<T>[]>;
+
+  /**
+   * Update rows matching the where clause
+   * @param options - Where clause and partial data to apply
+   * @returns Array of updated rows
+   */
   update(options: UpdateOptions<InferRow<T>>): Promise<InferRow<T>[]>;
+
+  /**
+   * Delete rows matching the where clause
+   * @param options - Where clause to select rows for deletion
+   * @returns Number of deleted rows
+   */
   delete(options: DeleteOptions<InferRow<T>>): Promise<number>;
+
+  /**
+   * Count rows matching the where clause
+   * @param options - Optional where clause to filter rows
+   * @returns Number of matching rows
+   */
   count(options?: Pick<QueryOptions<InferRow<T>>, "where">): Promise<number>;
+
+  /**
+   * Check whether at least one row matches the where clause
+   * @param options - Where clause to check
+   * @returns `true` if a matching row exists, `false` otherwise
+   */
   exists(options: Pick<QueryOptions<InferRow<T>>, "where">): Promise<boolean>;
+
+  /**
+   * Insert a row if it doesn't exist, or update it if it does
+   * @param options - Where clause to check, data to create, and data to update
+   * @returns The created or updated row
+   */
   upsert(options: {
     where: WhereClause<InferRow<T>>;
     create: Partial<InferRow<T>>;
     update: Partial<InferRow<T>>;
   }): Promise<InferRow<T>>;
+
+  /**
+   * Remove all rows from the table
+   * @returns Resolves when the table has been truncated
+   */
   truncate(): Promise<void>;
 };
 
