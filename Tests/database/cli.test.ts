@@ -18,9 +18,22 @@ describe("CLI Templates", () => {
     }
   });
 
-  it("should generate migration template", () => {
-    const content = generateMigrationTemplate("create_users");
-    expect(content).toContain('migration("create_users"');
+  it("should generate migration template with id", () => {
+    const content = generateMigrationTemplate(
+      "20260101000000_create_users",
+      "createUsers20260101000000",
+    );
+    expect(content).toContain(
+      'export const createUsers20260101000000 = migration("20260101000000_create_users"',
+    );
+    expect(content).toContain("async up(");
+    expect(content).toContain("async down(");
+    expect(content).toContain("@hedystia/db");
+  });
+
+  it("should generate migration template without id", () => {
+    const content = generateMigrationTemplate("create_users", "createUsers");
+    expect(content).toContain('export const createUsers = migration("create_users"');
     expect(content).toContain("async up(");
     expect(content).toContain("async down(");
     expect(content).toContain("@hedystia/db");
@@ -134,7 +147,7 @@ export const tasks = table("tasks", {
       `${MIGRATIONS_DIR}/20260101000000_create_tasks.ts`,
       `import { migration, table, integer, varchar } from "@hedystia/db";
 
-export default migration("20260101000000_create_tasks", {
+export const createTasks20260101000000 = migration("20260101000000_create_tasks", {
   async up({ schema }) {
     schema.createTable(
       table("tasks", {
