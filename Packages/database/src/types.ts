@@ -132,29 +132,87 @@ type AutoIncrementKeys<T> = T extends TableDefinition<infer R, any, any> ? keyof
 /** Extract the updatable type from a table definition (all fields become optional) */
 export type InferUpdate<T> = T extends TableDefinition<infer R, any, any> ? Partial<R> : never;
 
-/** Condition operators for a single column in a WHERE clause */
+/**
+ * Condition operators for a single column in a WHERE clause.
+ *
+ * @example
+ * ```ts
+ * // Exact match
+ * { age: { eq: 25 } }
+ * // Range query
+ * { age: { gte: 18, lte: 65 } }
+ * // Pattern matching
+ * { name: { like: "%alice%" } }
+ * // Set membership
+ * { status: { in: ["active", "pending"] } }
+ * ```
+ */
 export interface WhereCondition {
+  /** Equal to — matches rows where the column value equals the given value */
   eq?: unknown;
+  /** Not equal to — matches rows where the column value differs from the given value */
   neq?: unknown;
+  /** Greater than — matches rows where the column value is strictly greater */
   gt?: unknown;
+  /** Greater than or equal to — matches rows where the column value is greater or equal */
   gte?: unknown;
+  /** Less than — matches rows where the column value is strictly less */
   lt?: unknown;
+  /** Less than or equal to — matches rows where the column value is less or equal */
   lte?: unknown;
+  /** SQL LIKE — matches rows where the column value matches the pattern (use `%` as wildcard) */
   like?: string;
+  /** SQL NOT LIKE — matches rows where the column value does not match the pattern */
   notLike?: string;
+  /** IN — matches rows where the column value is one of the given values */
   in?: unknown[];
+  /** NOT IN — matches rows where the column value is not one of the given values */
   notIn?: unknown[];
+  /** IS NULL / IS NOT NULL — when `true`, matches rows where the column is NULL; when `false`, matches non-NULL */
   isNull?: boolean;
+  /** BETWEEN — matches rows where the column value falls within the inclusive range `[min, max]` */
   between?: [unknown, unknown];
 }
 
-/** Type-safe WHERE clause supporting equality, operators, and logical combinators (OR/AND) */
-export type WhereClause<T = Record<string, any>> = {
+/** Flatten an intersection into a single object type for better autocomplete */
+type Flat<T> = { [K in keyof T]: T[K] } & {};
+
+/** Column-level filter conditions for a WHERE clause */
+type WhereFields<T> = Flat<{
   [K in keyof T]?: T[K] | WhereCondition;
-} & {
-  OR?: WhereClause<T>[];
-  AND?: WhereClause<T>[];
-};
+}>;
+
+/**
+ * Type-safe WHERE clause supporting equality, operators, and logical combinators (OR/AND).
+ *
+ * @example
+ * ```ts
+ * // Simple equality
+ * { where: { name: "Alice" } }
+ *
+ * // Using operators
+ * { where: { age: { gte: 18 } } }
+ *
+ * // OR — matches rows satisfying at least one condition
+ * { where: { OR: [{ name: "Alice" }, { name: "Bob" }] } }
+ *
+ * // AND — matches rows satisfying all conditions
+ * { where: { AND: [{ age: { gte: 18 } }, { active: true }] } }
+ *
+ * // Combined AND + OR
+ * { where: { AND: [{ age: { gte: 18 } }], OR: [{ name: "Alice" }, { name: "Bob" }] } }
+ * ```
+ */
+export type WhereClause<T = Record<string, any>> = Flat<
+  {
+    [K in keyof T]?: T[K] | WhereCondition;
+  } & {
+    /** Logical OR — matches rows satisfying **at least one** of the given conditions */
+    OR?: WhereFields<T>[];
+    /** Logical AND — matches rows satisfying **all** of the given conditions */
+    AND?: WhereFields<T>[];
+  }
+>;
 
 /** Options for querying rows — filtering, sorting, pagination, and relation loading */
 export interface QueryOptions<T = Record<string, any>, Rel extends Record<string, any> = {}> {
@@ -322,16 +380,27 @@ export interface DatabaseDriver {
 
 /** Generic repository interface providing CRUD operations for a table */
 export interface Repository<T extends Record<string, any>> {
+  /** Find all rows matching the given options */
   find(options?: QueryOptions<T>): Promise<T[]>;
+  /** Find all rows matching the given options (alias for {@link find}) */
   findMany(options?: QueryOptions<T>): Promise<T[]>;
+  /** Find the first row matching the given options, or `null` if none found */
   findFirst(options?: QueryOptions<T>): Promise<T | null>;
+  /** Insert one or more rows into the table */
   insert(data: Partial<T> | Partial<T>[]): Promise<T>;
+  /** Insert multiple rows into the table */
   insertMany(data: Partial<T>[]): Promise<T[]>;
+  /** Update rows matching the where clause */
   update(options: UpdateOptions<T>): Promise<T[]>;
+  /** Delete rows matching the where clause */
   delete(options: DeleteOptions<T>): Promise<number>;
+  /** Count rows matching the where clause */
   count(options?: Pick<QueryOptions<T>, "where">): Promise<number>;
+  /** Check whether at least one row matches the where clause */
   exists(options: Pick<QueryOptions<T>, "where">): Promise<boolean>;
+  /** Insert a row if it doesn't exist, or update it if it does */
   upsert(options: { where: WhereClause<T>; create: Partial<T>; update: Partial<T> }): Promise<T>;
+  /** Remove all rows from the table */
   truncate(): Promise<void>;
 }
 
