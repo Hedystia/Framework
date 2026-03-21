@@ -159,6 +159,17 @@ type DatabaseInstance<S> = ExtractRepos<S> & {
    * @returns {Promise<T>} Result
    */
   transaction<T>(fn: () => Promise<T>): Promise<T>;
+  /**
+   * Run pending migrations manually
+   * @returns {Promise<void>}
+   */
+  migrateUp(): Promise<void>;
+  /**
+   * Rollback migrations
+   * @param {number} [steps=1] - Number of migrations to rollback
+   * @returns {Promise<string[]>} Names of rolled back migrations
+   */
+  migrateDown(steps?: number): Promise<string[]>;
 };
 
 /**
@@ -194,9 +205,22 @@ export function database<const S extends readonly AnyTableDef[] | Record<string,
   const registry = new SchemaRegistry();
   registry.register(schemas);
 
-  const connectionConfig = Array.isArray(config.connection)
-    ? config.connection[0]
-    : config.connection;
+  const dbName = typeof config.database === "string" ? config.database : config.database.name;
+
+  let connectionConfig: ConnectionConfig | undefined;
+  if (Array.isArray(config.connection)) {
+    if (dbName === "sqlite") {
+      connectionConfig = config.connection.find((c) => "filename" in c) ?? config.connection[0];
+    } else if (dbName === "mysql" || dbName === "mariadb") {
+      connectionConfig = config.connection.find((c) => "host" in c) ?? config.connection[0];
+    } else if (dbName === "file") {
+      connectionConfig = config.connection.find((c) => "directory" in c) ?? config.connection[0];
+    } else {
+      connectionConfig = config.connection[0];
+    }
+  } else {
+    connectionConfig = config.connection;
+  }
 
   if (!connectionConfig) {
     throw new DatabaseError("Connection config is required");
@@ -279,6 +303,23 @@ export function database<const S extends readonly AnyTableDef[] | Record<string,
       await ensureInitialized();
       return driver.transaction(fn);
     },
+    migrateUp: async () => {
+      await ensureInitialized();
+      if (config.migrations) {
+        const migrations = normalizeMigrations(config.migrations);
+        if (migrations.length > 0) {
+          await runMigrations(driver, registry, migrations);
+        }
+      }
+    },
+    migrateDown: async (steps = 1) => {
+      await ensureInitialized();
+      if (config.migrations) {
+        const migrations = normalizeMigrations(config.migrations);
+        return rollbackMigrations(driver, registry, migrations, steps);
+      }
+      return [];
+    },
   };
 
   for (const schema of schemas) {
@@ -301,12 +342,8 @@ export function database<const S extends readonly AnyTableDef[] | Record<string,
   return instance as any as DatabaseInstance<S>;
 }
 
-async function runMigrations(
-  driver: DatabaseDriver,
-  registry: SchemaRegistry,
-  migrations: MigrationDefinition[],
-): Promise<void> {
-  const migrationsTableMeta: TableMetadata = {
+function getMigrationsTableMeta(): TableMetadata {
+  return {
     name: MIGRATIONS_TABLE,
     columns: [
       {
@@ -339,47 +376,64 @@ async function runMigrations(
       },
     ],
   };
+}
 
+function createMigrationContext(
+  driver: DatabaseDriver,
+  registry: SchemaRegistry,
+): MigrationDefinition["up"] extends (ctx: infer C) => any ? C : never {
+  return {
+    schema: {
+      createTable: async (tableDef: AnyTableDef) => {
+        const meta = registry.getTable(tableDef.__name);
+        if (meta) {
+          await driver.createTable(meta);
+        }
+      },
+      dropTable: async (name: string) => {
+        await driver.dropTable(name);
+      },
+      addColumn: async (table: string, _name: string, column: any) => {
+        await driver.addColumn(table, column);
+      },
+      dropColumn: async (table: string, name: string) => {
+        await driver.dropColumn(table, name);
+      },
+      renameColumn: async (table: string, oldName: string, newName: string) => {
+        await driver.renameColumn(table, oldName, newName);
+      },
+      addIndex: async () => {},
+      dropIndex: async () => {},
+    },
+    sql: async (query: string, params?: unknown[]) => {
+      return driver.execute(query, params);
+    },
+  };
+}
+
+async function ensureMigrationsTable(driver: DatabaseDriver): Promise<void> {
   const exists = await driver.tableExists(MIGRATIONS_TABLE);
   if (!exists) {
-    await driver.createTable(migrationsTableMeta);
+    await driver.createTable(getMigrationsTableMeta());
   }
+}
+
+async function runMigrations(
+  driver: DatabaseDriver,
+  registry: SchemaRegistry,
+  migrations: MigrationDefinition[],
+): Promise<void> {
+  await ensureMigrationsTable(driver);
 
   const executed = await driver.query(`SELECT name FROM \`${MIGRATIONS_TABLE}\``);
   const executedNames = new Set(executed.map((r: any) => r.name));
+
+  const ctx = createMigrationContext(driver, registry);
 
   for (const migration of migrations) {
     if (executedNames.has(migration.name)) {
       continue;
     }
-
-    const ctx = {
-      schema: {
-        createTable: async (tableDef: AnyTableDef) => {
-          const meta = registry.getTable(tableDef.__name);
-          if (meta) {
-            await driver.createTable(meta);
-          }
-        },
-        dropTable: async (name: string) => {
-          await driver.dropTable(name);
-        },
-        addColumn: async (table: string, _name: string, column: any) => {
-          await driver.addColumn(table, column);
-        },
-        dropColumn: async (table: string, name: string) => {
-          await driver.dropColumn(table, name);
-        },
-        renameColumn: async (table: string, oldName: string, newName: string) => {
-          await driver.renameColumn(table, oldName, newName);
-        },
-        addIndex: async () => {},
-        dropIndex: async () => {},
-      },
-      sql: async (query: string, params?: unknown[]) => {
-        return driver.execute(query, params);
-      },
-    };
 
     await migration.up(ctx);
 
@@ -388,4 +442,36 @@ async function runMigrations(
       [migration.name, new Date()],
     );
   }
+}
+
+async function rollbackMigrations(
+  driver: DatabaseDriver,
+  registry: SchemaRegistry,
+  migrations: MigrationDefinition[],
+  steps = 1,
+): Promise<string[]> {
+  await ensureMigrationsTable(driver);
+
+  const executed = await driver.query(`SELECT name FROM \`${MIGRATIONS_TABLE}\` ORDER BY id DESC`);
+  const executedNames = executed.map((r: any) => r.name as string);
+
+  const ctx = createMigrationContext(driver, registry);
+  const migrationMap = new Map(migrations.map((m) => [m.name, m]));
+  const rolledBack: string[] = [];
+
+  const toRollback = executedNames.slice(0, steps);
+
+  for (const name of toRollback) {
+    const migration = migrationMap.get(name);
+    if (!migration) {
+      continue;
+    }
+
+    await migration.down(ctx);
+
+    await driver.execute(`DELETE FROM \`${MIGRATIONS_TABLE}\` WHERE \`name\` = ?`, [name]);
+    rolledBack.push(name);
+  }
+
+  return rolledBack;
 }
