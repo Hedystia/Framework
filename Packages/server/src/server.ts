@@ -758,10 +758,11 @@ export class Hedystia<
   /**
    * Start HTTP server
    * @param {number} port - Server port number
+   * @param {function} [callback] - Optional callback invoked once the server is listening
    * @returns {this} Current instance
    * @throws {Error} If not running in Bun runtime
    */
-  listen(port: number): this {
+  listen(port: number, callback?: (server: NonNullable<typeof this.server>) => void): this {
     const serve = globalThis.Bun?.serve;
 
     if (!serve) {
@@ -780,6 +781,9 @@ export class Hedystia<
         idleTimeout: this.idleTimeout,
         fetch: (req) => this.fetch(req),
       });
+      if (callback) {
+        callback(this.server!);
+      }
       return this;
     }
 
@@ -825,6 +829,10 @@ export class Hedystia<
         idleTimeout: this.idleTimeout,
         fetch: (req) => this.fetch(req),
       });
+    }
+
+    if (callback) {
+      callback(this.server!);
     }
 
     return this;
