@@ -169,6 +169,9 @@ export class SQLiteDriver extends BaseDriver {
    */
   async disconnect(): Promise<void> {
     if (this.db) {
+      try {
+        await this.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+      } catch {}
       await this.db.close();
       this.db = null;
       this.connected = false;
@@ -183,8 +186,13 @@ export class SQLiteDriver extends BaseDriver {
    */
   async execute(sql: string, params: unknown[] = []): Promise<any> {
     try {
+      const formatted = this.formatParams(params);
+      if (formatted.length === 0) {
+        await this.db!.exec(sql);
+        return { insertId: 0, affectedRows: 0 };
+      }
       const stmt = this.db!.prepare(sql);
-      const result = await stmt.run(...this.formatParams(params));
+      const result = await stmt.run(...formatted);
       return {
         insertId: Number(result.lastInsertRowid),
         affectedRows: result.changes,
