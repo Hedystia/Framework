@@ -198,9 +198,23 @@ function normalizeSchemas<S extends readonly AnyTableDef[]>(schemas: any): S {
   ) as any;
 }
 
+function buildSchemaKeyMap(rawSchemas: any): Map<string, string> {
+  const map = new Map<string, string>();
+  if (Array.isArray(rawSchemas)) {
+    return map;
+  }
+  for (const [key, value] of Object.entries(rawSchemas)) {
+    if (value != null && typeof value === "object" && (value as any).__table === true) {
+      map.set((value as any).__name, key);
+    }
+  }
+  return map;
+}
+
 export function database<const S extends readonly AnyTableDef[] | Record<string, any>>(
   config: DatabaseConfig & { schemas: S },
 ): DatabaseInstance<S> {
+  const schemaKeyMap = buildSchemaKeyMap(config.schemas);
   const schemas = normalizeSchemas(config.schemas) as any;
   const registry = new SchemaRegistry();
   registry.register(schemas);
@@ -336,7 +350,8 @@ export function database<const S extends readonly AnyTableDef[] | Record<string,
         return original;
       },
     });
-    instance[schema.__name] = proxy;
+    const accessorKey = schemaKeyMap.get(schema.__name) ?? schema.__name;
+    instance[accessorKey] = proxy;
   }
 
   return instance as any as DatabaseInstance<S>;
