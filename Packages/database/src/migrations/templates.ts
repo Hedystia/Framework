@@ -1,12 +1,13 @@
 /**
  * Generate a migration file template
- * @param {string} name - Migration name
+ * @param {string} id - Migration id (e.g. "20260320095958_sessions")
+ * @param {string} varName - Variable name for the export (camelCase)
  * @returns {string} Migration file content
  */
-export function generateMigrationTemplate(name: string): string {
+export function generateMigrationTemplate(id: string, varName: string): string {
   return `import { migration } from "@hedystia/db";
 
-export default migration("${name}", {
+export const ${varName} = migration("${id}", {
   async up({ schema, sql }) {
     // Add your migration logic here
   },

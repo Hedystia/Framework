@@ -19,6 +19,10 @@ function getName(): string | undefined {
   return getFlag("--name") ?? args[2];
 }
 
+function hasFlag(flag: string): boolean {
+  return args.includes(flag);
+}
+
 function getMigrateOptions() {
   return {
     migrationsPath: getFlag("--migrations"),
@@ -35,11 +39,11 @@ switch (command) {
     if (action === "create") {
       const name = subCommand === "create" ? getName() : subCommand;
       if (!name) {
-        console.log("Usage: @hedystia/db migration create <name> [--path <path>]");
-        console.log("       @hedystia/db migration <name> [--path <path>]");
+        console.log("Usage: @hedystia/db migration create <name> [--path <path>] [--no-id]");
+        console.log("       @hedystia/db migration <name> [--path <path>] [--no-id]");
         process.exit(1);
       }
-      createMigration(name, getFlag("--path"));
+      createMigration(name, getFlag("--path"), hasFlag("--no-id"));
     }
     break;
   }
@@ -88,9 +92,11 @@ switch (command) {
     console.log("@hedystia/db CLI");
     console.log("");
     console.log("Commands:");
-    console.log("  migration create <name> [--path <path>]  Create a new migration file");
     console.log(
-      "  migration <name> [--path <path>]         Create a new migration file (shorthand)",
+      "  migration create <name> [--path <path>] [--no-id]  Create a new migration file",
+    );
+    console.log(
+      "  migration <name> [--path <path>] [--no-id]         Create a new migration file (shorthand)",
     );
     console.log("  schema create <name> [--path <path>]     Create a new schema file");
     console.log("  schema <name> [--path <path>]            Create a new schema file (shorthand)");

@@ -385,10 +385,11 @@ function createMigrationContext(
   return {
     schema: {
       createTable: async (tableDef: AnyTableDef) => {
-        const meta = registry.getTable(tableDef.__name);
-        if (meta) {
-          await driver.createTable(meta);
-        }
+        const meta = registry.getTable(tableDef.__name) ?? {
+          name: tableDef.__name,
+          columns: [...tableDef.__columns],
+        };
+        await driver.createTable(meta);
       },
       dropTable: async (name: string) => {
         await driver.dropTable(name);
