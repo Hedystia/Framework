@@ -183,6 +183,33 @@ for (const provider of providers) {
         expect(result.length).toBe(2);
       });
 
+      it("should find with AND condition", async () => {
+        if (!initialized) {
+          return;
+        }
+        const result = await db.users.find({
+          where: { AND: [{ name: "Alice" }, { age: { gte: 20 } }] },
+        });
+        expect(result.length).toBe(1);
+        expect(result[0]?.name).toBe("Alice");
+      });
+
+      it("should find with AND and OR combined", async () => {
+        if (!initialized) {
+          return;
+        }
+        const result = await db.users.find({
+          where: {
+            AND: [{ age: { gte: 25 } }],
+            OR: [{ name: "Alice" }, { name: "Charlie" }],
+          },
+        });
+        expect(result.length).toBeGreaterThanOrEqual(1);
+        for (const user of result) {
+          expect(["Alice", "Charlie"]).toContain(user.name);
+        }
+      });
+
       it("should find with between", async () => {
         if (!initialized) {
           return;

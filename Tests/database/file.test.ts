@@ -123,6 +123,27 @@ describe("File Driver", () => {
       expect(result.length).toBe(2);
     });
 
+    it("should find with AND condition", async () => {
+      const result = await db.users.find({
+        where: { AND: [{ name: "Alice" }, { age: { gte: 20 } }] },
+      });
+      expect(result.length).toBe(1);
+      expect(result[0]?.name).toBe("Alice");
+    });
+
+    it("should find with AND and OR combined", async () => {
+      const result = await db.users.find({
+        where: {
+          AND: [{ age: { gte: 25 } }],
+          OR: [{ name: "Alice" }, { name: "Charlie" }],
+        },
+      });
+      expect(result.length).toBeGreaterThanOrEqual(1);
+      for (const user of result) {
+        expect(["Alice", "Charlie"]).toContain(user.name);
+      }
+    });
+
     it("should find with notIn", async () => {
       const result = await db.users.find({
         where: { name: { notIn: ["Alice", "Bob"] } },
