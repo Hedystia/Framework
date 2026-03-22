@@ -57,6 +57,7 @@ export class MySQLDriver extends BaseDriver {
             connectionLimit: 10,
             enableKeepAlive: true,
             keepAliveInitialDelay: 10000,
+            decimalNumbers: true,
           });
           this.connected = true;
           return;
