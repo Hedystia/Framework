@@ -45,7 +45,7 @@ for (const config of mysqlConfigs) {
     let initialized = false;
 
     const db = database({
-      schemas: [users, posts],
+      schemas: { users, posts },
       database: config,
       connection: {
         host: process.env.MYSQL_HOST ?? "localhost",
@@ -85,8 +85,8 @@ for (const config of mysqlConfigs) {
       }
       try {
         if (initialized) {
-          await db.hedystia_test_posts.truncate();
-          await db.hedystia_test_users.truncate();
+          await db.posts.truncate();
+          await db.users.truncate();
         }
       } catch {}
     });
@@ -104,7 +104,7 @@ for (const config of mysqlConfigs) {
         if (!initialized) {
           return;
         }
-        const user = await db.hedystia_test_users.insert({
+        const user = await db.users.insert({
           name: "Alice",
           email: `alice@${config.name}-${config.provider}.com`,
           age: 25,
@@ -117,7 +117,7 @@ for (const config of mysqlConfigs) {
         if (!initialized) {
           return;
         }
-        const user = await db.hedystia_test_users.insert({
+        const user = await db.users.insert({
           name: "Bob",
           email: `bob@${config.name}-${config.provider}.com`,
         });
@@ -131,7 +131,7 @@ for (const config of mysqlConfigs) {
         if (!initialized) {
           return;
         }
-        const result = await db.hedystia_test_users.insertMany([
+        const result = await db.users.insertMany([
           { name: "Charlie", email: `charlie@${config.name}-${config.provider}.com`, age: 30 },
           { name: "Diana", email: `diana@${config.name}-${config.provider}.com`, age: 28 },
         ]);
@@ -144,7 +144,7 @@ for (const config of mysqlConfigs) {
         if (!initialized) {
           return;
         }
-        const result = await db.hedystia_test_users.find();
+        const result = await db.users.find();
         expect(result.length).toBeGreaterThanOrEqual(4);
       });
 
@@ -152,7 +152,7 @@ for (const config of mysqlConfigs) {
         if (!initialized) {
           return;
         }
-        const result = await db.hedystia_test_users.find({ where: { name: "Alice" } });
+        const result = await db.users.find({ where: { name: "Alice" } });
         expect(result.length).toBe(1);
       });
 
@@ -160,7 +160,7 @@ for (const config of mysqlConfigs) {
         if (!initialized) {
           return;
         }
-        const result = await db.hedystia_test_users.find({
+        const result = await db.users.find({
           where: { OR: [{ name: "Alice" }, { name: "Bob" }] },
         });
         expect(result.length).toBe(2);
@@ -170,7 +170,7 @@ for (const config of mysqlConfigs) {
         if (!initialized) {
           return;
         }
-        const result = await db.hedystia_test_users.find({
+        const result = await db.users.find({
           where: { AND: [{ name: "Alice" }, { age: { gte: 20 } }] },
         });
         expect(result.length).toBe(1);
@@ -181,7 +181,7 @@ for (const config of mysqlConfigs) {
         if (!initialized) {
           return;
         }
-        const result = await db.hedystia_test_users.find({
+        const result = await db.users.find({
           where: {
             AND: [{ age: { gte: 25 } }],
             OR: [{ name: "Alice" }, { name: "Charlie" }],
@@ -199,7 +199,7 @@ for (const config of mysqlConfigs) {
         if (!initialized) {
           return;
         }
-        const result = await db.hedystia_test_users.update({
+        const result = await db.users.update({
           where: { name: "Alice" },
           data: { age: 26 },
         });
@@ -212,15 +212,15 @@ for (const config of mysqlConfigs) {
         if (!initialized) {
           return;
         }
-        const user = await db.hedystia_test_users.findFirst({ where: { name: "Alice" } });
-        await db.hedystia_test_posts.insert({ userId: user!.id, title: "MySQL Post 1" });
-        await db.hedystia_test_posts.insert({ userId: user!.id, title: "MySQL Post 2" });
+        const user = await db.users.findFirst({ where: { name: "Alice" } });
+        await db.posts.insert({ userId: user!.id, title: "MySQL Post 1" });
+        await db.posts.insert({ userId: user!.id, title: "MySQL Post 2" });
 
-        const usersWithPosts = await db.hedystia_test_users.find({
+        const usersWithPosts = await db.users.find({
           where: { name: "Alice" },
-          with: { hedystia_test_posts: true },
+          with: { posts: true },
         });
-        expect(usersWithPosts[0]?.hedystia_test_posts?.length).toBe(2);
+        expect(usersWithPosts[0]?.posts?.length).toBe(2);
       });
     });
 
@@ -229,8 +229,8 @@ for (const config of mysqlConfigs) {
         if (!initialized) {
           return;
         }
-        const r1 = await db.hedystia_test_users.find({ where: { name: "Alice" } });
-        const r2 = await db.hedystia_test_users.find({ where: { name: "Alice" } });
+        const r1 = await db.users.find({ where: { name: "Alice" } });
+        const r2 = await db.users.find({ where: { name: "Alice" } });
         expect(r1).toEqual(r2);
       });
 
@@ -238,12 +238,12 @@ for (const config of mysqlConfigs) {
         if (!initialized) {
           return;
         }
-        const before = await db.hedystia_test_users.find();
-        await db.hedystia_test_users.insert({
+        const before = await db.users.find();
+        await db.users.insert({
           name: "CacheTest",
           email: `cachetest@${config.name}-${config.provider}.com`,
         });
-        const after = await db.hedystia_test_users.find();
+        const after = await db.users.find();
         expect(after.length).toBe(before.length + 1);
       });
     });

@@ -4,7 +4,7 @@ import { existsSync, rmSync } from "fs";
 
 const TEST_DIR = "/tmp/hedystia_test_filedb";
 
-const users = table("users", {
+const users = table("hedystia_test_users", {
   id: integer().primaryKey().autoIncrement(),
   name: varchar(255).notNull(),
   email: varchar(255).unique(),
@@ -12,14 +12,14 @@ const users = table("users", {
   tags: array().type<string[]>(),
 });
 
-const posts = table("posts", {
+const posts = table("hedystia_test_posts", {
   id: integer().primaryKey().autoIncrement(),
   userId: integer().references(users.id),
   title: varchar(255).notNull(),
 });
 
 const db = database({
-  schemas: [users, posts],
+  schemas: { users, posts },
   database: "file",
   connection: { directory: TEST_DIR },
   syncSchemas: true,

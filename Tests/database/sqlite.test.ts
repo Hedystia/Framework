@@ -4,7 +4,7 @@ import { existsSync, rmSync } from "fs";
 
 const TEST_DB = "/tmp/hedystia_test_sqlite.db";
 
-const users = table("users", {
+const users = table("hedystia_test_users", {
   id: integer().primaryKey().autoIncrement(),
   name: varchar(255).notNull(),
   email: varchar(255).unique(),
@@ -14,7 +14,7 @@ const users = table("users", {
   metadata: json(),
 });
 
-const posts = table("posts", {
+const posts = table("hedystia_test_posts", {
   id: integer().primaryKey().autoIncrement(),
   userId: integer()
     .name("user_id")
@@ -30,7 +30,7 @@ for (const provider of providers) {
     let initialized = false;
 
     const db = database({
-      schemas: [users, posts],
+      schemas: { users, posts },
       database: { name: "sqlite", provider },
       connection: { filename: TEST_DB },
       syncSchemas: true,
@@ -417,7 +417,9 @@ for (const provider of providers) {
         if (!initialized) {
           return;
         }
-        const rows = await db.raw("SELECT * FROM `users` WHERE `name` = ?", ["Alice"]);
+        const rows = await db.raw("SELECT * FROM `hedystia_test_users` WHERE `name` = ?", [
+          "Alice",
+        ]);
         expect(rows.length).toBe(1);
       });
     });
@@ -429,7 +431,7 @@ for (const provider of providers) {
         }
         const before = await db.users.count();
         await db.transaction(async () => {
-          await db.raw("INSERT INTO `users` (`name`, `email`) VALUES (?, ?)", [
+          await db.raw("INSERT INTO `hedystia_test_users` (`name`, `email`) VALUES (?, ?)", [
             `TxUser_${provider}`,
             `tx@${provider}.com`,
           ]);
