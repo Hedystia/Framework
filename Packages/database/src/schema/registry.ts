@@ -22,7 +22,10 @@ export class SchemaRegistry {
    * Register table definitions and resolve all deferred references
    * @param {readonly TableDefinition[]} schemas - Table definitions to register
    */
-  register(schemas: readonly TableDefinition<any, any, any, any>[]): void {
+  register(
+    schemas: readonly TableDefinition<any, any, any, any>[],
+    schemaKeyMap?: Map<string, string>,
+  ): void {
     for (const schema of schemas) {
       if (!schema.__table || !schema.__name) {
         throw new SchemaError("Invalid table definition");
@@ -86,7 +89,7 @@ export class SchemaRegistry {
         if (!this.relations.has(resolved.table)) {
           this.relations.set(resolved.table, []);
         }
-        const reverseRelationName = schema.__name;
+        const reverseRelationName = schemaKeyMap?.get(schema.__name) ?? schema.__name;
         this.relations.get(resolved.table)!.push({
           from: { table: resolved.table, column: resolved.column },
           to: { table: schema.__name, column: dbColumnName },
