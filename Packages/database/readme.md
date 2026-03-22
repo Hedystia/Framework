@@ -21,9 +21,12 @@ bun add @hedystia/db
 
 | Database | Driver Package | Command |
 | --- | --- | --- |
-| **SQLite** | `better-sqlite3` or `sqlite3` | `bun add better-sqlite3` |
-| **MySQL** | `mysql2` | `bun add mysql2` |
-| **Edge** | `bun:sqlite` or `sql.js` | *Built-in or bun add sql.js* |
+| **SQLite** | `better-sqlite3`, `sqlite3`, `sql.js` | `bun add better-sqlite3` |
+| **MySQL** | `mysql2` or `mysql` | `bun add mysql2` |
+| **S3** | `@aws-sdk/client-s3` | `bun add @aws-sdk/client-s3` |
+| **File** | *Built-in* | *No installation needed* |
+| **Edge** | `bun:sqlite` (Bun only) | *No installation needed* |
+
 
 ---
 
