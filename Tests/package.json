@@ -9,6 +9,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1014.0",
     "@hedystia/adapter": "workspace:*",
     "@hedystia/better-auth-typeorm": "^0.2.0",
     "@hedystia/client": "workspace:*",
