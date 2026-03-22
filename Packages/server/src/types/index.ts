@@ -3,7 +3,7 @@ import type { RouteDefinition } from "./routes";
 
 export type ValidationSchema = StandardSchemaV1<any, any>;
 
-export type InferOutput<T extends ValidationSchema> = NonNullable<T["~standard"]["types"]> extends { output: infer O } ? O : never;
+export type InferOutput<T extends ValidationSchema> = StandardSchemaV1.InferOutput<T>;
 
 export type CookieOptions = {
   domain?: string;
