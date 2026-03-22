@@ -2,11 +2,13 @@ import { DriverError } from "../errors";
 import type { ConnectionConfig, DatabaseDriver, DatabaseType } from "../types";
 import { FileDriver } from "./file";
 import { MySQLDriver } from "./mysql";
+import { S3Driver } from "./s3";
 import { SQLiteDriver } from "./sqlite";
 
 export { BaseDriver } from "./driver";
 export { FileDriver } from "./file";
 export { MySQLDriver } from "./mysql";
+export { S3Driver } from "./s3";
 export * from "./sql-compiler";
 export { SQLiteDriver } from "./sqlite";
 
@@ -28,6 +30,8 @@ export function createDriver(type: DatabaseType, config: ConnectionConfig): Data
       return new MySQLDriver(config as any, provider as any);
     case "file":
       return new FileDriver(config as any);
+    case "s3":
+      return new S3Driver(config as any);
     default:
       throw new DriverError(`Unsupported database type: ${name}`);
   }

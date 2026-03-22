@@ -52,6 +52,7 @@ export type {
   RelationsFor,
   Repository,
   ResolveResult,
+  S3ConnectionConfig,
   SQLiteConnectionConfig,
   TableCacheConfig,
   TableDefinition,

@@ -23,10 +23,12 @@ export type DatabaseType =
   | "mariadb"
   | "sqlite"
   | "file"
+  | "s3"
   | { name: "mysql"; provider: "mysql" | "mysql2" }
   | { name: "mariadb"; provider: "mysql" | "mysql2" }
   | { name: "sqlite"; provider: "better-sqlite3" | "sqlite3" | "sql.js" | "bun:sqlite" }
-  | { name: "file"; provider: string };
+  | { name: "file"; provider: string }
+  | { name: "s3"; provider: string };
 
 /** Metadata describing a single database column */
 export interface ColumnMetadata {
@@ -266,11 +268,28 @@ export interface FileConnectionConfig {
   directory: string;
 }
 
+/** Connection configuration for S3-based storage */
+export interface S3ConnectionConfig {
+  /** S3 bucket name */
+  bucket: string;
+  /** S3 endpoint URL */
+  endpoint?: string;
+  /** AWS region */
+  region?: string;
+  /** S3 access key ID */
+  accessKeyId?: string;
+  /** S3 secret access key */
+  secretAccessKey?: string;
+  /** Key prefix for stored objects */
+  prefix?: string;
+}
+
 /** Union of all supported connection configurations */
 export type ConnectionConfig =
   | MySQLConnectionConfig
   | SQLiteConnectionConfig
-  | FileConnectionConfig;
+  | FileConnectionConfig
+  | S3ConnectionConfig;
 
 /**
  * Global cache configuration for the database instance.
@@ -427,31 +446,36 @@ type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (
 
 type Simplify<T> = { [K in keyof T]: T[K] } & {};
 
-type ForwardRelationEntries<S extends readonly AnyTableDef[], T extends AnyTableDef> =
+type IsArray<T> = T extends readonly any[] ? true : false;
+type SchemaKey<S, T extends AnyTableDef> =
+  IsArray<S> extends true ? TableName<T> : { [K in keyof S]: S[K] extends T ? K : never }[keyof S];
+
+type ForwardRelationEntries<S, T extends AnyTableDef> =
   TableRefs<T> extends infer R
     ? R extends DeferredRefMeta<infer Col, infer ToTable, any, infer Name>
       ? {
           [K in Name extends string ? Name : StripIdSuffix<Col>]: {
-            table: SchemaByName<S, ToTable>;
+            table: SchemaByName<InferSchemas<S>, ToTable>;
             many: false;
           };
         }
       : never
     : never;
 
-type ReverseRelationEntry<U extends AnyTableDef, TargetName extends string> =
+type ReverseRelationEntry<S, U extends AnyTableDef, TargetName extends string> =
   TableRefs<U> extends infer R
     ? R extends DeferredRefMeta<any, TargetName, any, any>
-      ? { [K in TableName<U>]: { table: U; many: true } }
+      ? { [K in SchemaKey<S, U> & string]: { table: U; many: true } }
       : never
     : never;
 
-type ReverseRelationEntries<
-  S extends readonly AnyTableDef[],
-  T extends AnyTableDef,
-> = ReverseRelationEntry<S[number], TableName<T>>;
+type ReverseRelationEntries<S, T extends AnyTableDef> = ReverseRelationEntry<
+  S,
+  InferSchemas<S>[number],
+  TableName<T>
+>;
 
-export type RelationsFor<S extends readonly AnyTableDef[], T extends AnyTableDef> = Simplify<
+export type RelationsFor<S, T extends AnyTableDef> = Simplify<
   UnionToIntersection<ForwardRelationEntries<S, T> | ReverseRelationEntries<S, T>>
 >;
 
@@ -466,11 +490,7 @@ type DepthPrev = [never, 0, 1, 2, 3];
 type ExtractRelationRow<Rel> = Rel extends { table: infer R } ? InferRow<R> : never;
 type ExtractRelationMany<Rel> = Rel extends { many: true } ? true : false;
 
-export type RelationQueryMap<
-  S extends readonly AnyTableDef[],
-  T extends AnyTableDef,
-  D extends number = 3,
-> = [D] extends [never]
+export type RelationQueryMap<S, T extends AnyTableDef, D extends number = 3> = [D] extends [never]
   ? {}
   : {
       [K in keyof RelationsFor<S, T>]: {
@@ -482,9 +502,7 @@ export type RelationQueryMap<
       };
     };
 
-type ResolveWith<S extends readonly AnyTableDef[], T extends AnyTableDef, W> = [W] extends [
-  undefined,
-]
+type ResolveWith<S, T extends AnyTableDef, W> = [W] extends [undefined]
   ? {}
   : W extends Record<string, any>
     ? {
@@ -496,8 +514,5 @@ type ResolveWith<S extends readonly AnyTableDef[], T extends AnyTableDef, W> = [
       }
     : {};
 
-export type ResolveResult<
-  S extends readonly AnyTableDef[],
-  T extends AnyTableDef,
-  O,
-> = InferRow<T> & ResolveWith<S, T, O extends { with: infer W } ? W : undefined>;
+export type ResolveResult<S, T extends AnyTableDef, O> = InferRow<T> &
+  ResolveWith<S, T, O extends { with: infer W } ? W : undefined>;

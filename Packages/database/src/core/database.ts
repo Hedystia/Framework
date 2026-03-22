@@ -10,7 +10,6 @@ import type {
   DatabaseDriver,
   DeleteOptions,
   InferRow,
-  InferSchemas,
   MigrationDefinition,
   QueryOptions,
   RelationQueryMap,
@@ -21,7 +20,7 @@ import type {
 } from "../types";
 import { TableRepository } from "./repository";
 
-type TypedTableRepository<S extends readonly AnyTableDef[], T extends AnyTableDef> = {
+type TypedTableRepository<S, T extends AnyTableDef> = {
   /**
    * Find all rows matching the given options
    * @param options - Filter, sort, paginate, and eagerly load relations
@@ -114,7 +113,7 @@ type ExtractRepos<S> = S extends readonly AnyTableDef[]
   : S extends Record<string, any>
     ? {
         [K in keyof S as S[K] extends AnyTableDef ? K : never]: TypedTableRepository<
-          InferSchemas<S>,
+          S,
           Extract<S[K], AnyTableDef>
         >;
       }
@@ -201,6 +200,11 @@ function normalizeSchemas<S extends readonly AnyTableDef[]>(schemas: any): S {
 function buildSchemaKeyMap(rawSchemas: any): Map<string, string> {
   const map = new Map<string, string>();
   if (Array.isArray(rawSchemas)) {
+    for (const schema of rawSchemas) {
+      if (schema != null && typeof schema === "object" && schema.__table === true) {
+        map.set(schema.__name, schema.__name);
+      }
+    }
     return map;
   }
   for (const [key, value] of Object.entries(rawSchemas)) {
@@ -217,7 +221,7 @@ export function database<const S extends readonly AnyTableDef[] | Record<string,
   const schemaKeyMap = buildSchemaKeyMap(config.schemas);
   const schemas = normalizeSchemas(config.schemas) as any;
   const registry = new SchemaRegistry();
-  registry.register(schemas);
+  registry.register(schemas, schemaKeyMap);
 
   const dbName = typeof config.database === "string" ? config.database : config.database.name;
 
@@ -229,6 +233,8 @@ export function database<const S extends readonly AnyTableDef[] | Record<string,
       connectionConfig = config.connection.find((c) => "host" in c) ?? config.connection[0];
     } else if (dbName === "file") {
       connectionConfig = config.connection.find((c) => "directory" in c) ?? config.connection[0];
+    } else if (dbName === "s3") {
+      connectionConfig = config.connection.find((c) => "bucket" in c) ?? config.connection[0];
     } else {
       connectionConfig = config.connection[0];
     }
