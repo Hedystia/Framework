@@ -26,15 +26,20 @@ jobs:
     container:
       image: 'oven/bun:latest'
     steps:
-      - name: 'Install Git'
+      - name: 'Install System Dependencies'
         run: |
           apt-get update
-          apt-get install -y git
+          apt-get install -y git build-essential python3 curl
       - name: 'Checkout'
         uses: 'actions/checkout@v4'
+      - name: 'Configure NPM'
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       - run: 'bun run release'
         env:
-          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   github-changelog:
     needs: publish-registry
@@ -42,10 +47,10 @@ jobs:
     container:
       image: 'oven/bun:latest'
     steps:
-      - name: 'Install Git'
+      - name: 'Install System Dependencies'
         run: |
           apt-get update
-          apt-get install -y git
+          apt-get install -y git build-essential python3 curl
       - name: 'Checkout'
         uses: 'actions/checkout@v4'
         with:
