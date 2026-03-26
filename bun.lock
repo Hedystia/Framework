@@ -17,15 +17,15 @@
     },
     "Packages/adapter": {
       "name": "@hedystia/adapter",
-      "version": "2.0.11",
+      "version": "2.0.13",
       "dependencies": {
-        "hedystia": "workspace:^",
+        "hedystia": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "^1.3.3",
       },
       "peerDependencies": {
-        "typescript": ">= 5.0.0",
+        "typescript": ">= 6.0.0",
       },
       "optionalPeers": [
         "typescript",
@@ -33,16 +33,16 @@
     },
     "Packages/client": {
       "name": "@hedystia/client",
-      "version": "2.0.11",
+      "version": "2.0.13",
       "dependencies": {
-        "@hedystia/types": "workspace:^",
-        "hedystia": "workspace:^",
+        "@hedystia/types": "workspace:*",
+        "hedystia": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "^1.3.3",
       },
       "peerDependencies": {
-        "typescript": ">= 5.0.0",
+        "typescript": ">= 6.0.0",
       },
       "optionalPeers": [
         "typescript",
@@ -50,7 +50,7 @@
     },
     "Packages/database": {
       "name": "@hedystia/db",
-      "version": "2.0.11",
+      "version": "2.0.13",
       "bin": {
         "@hedystia/db": "./dist/cli.mjs",
       },
@@ -64,7 +64,7 @@
         "mysql2": ">= 3.0.0",
         "sql.js": ">= 1.0.0",
         "sqlite3": ">= 6.0.0",
-        "typescript": ">= 5.0.0",
+        "typescript": ">= 6.0.0",
       },
       "optionalPeers": [
         "@aws-sdk/client-s3",
@@ -78,16 +78,16 @@
     },
     "Packages/server": {
       "name": "hedystia",
-      "version": "2.0.11",
+      "version": "2.0.13",
       "dependencies": {
-        "@hedystia/types": "workspace:^",
-        "@hedystia/validations": "workspace:^",
+        "@hedystia/types": "workspace:*",
+        "@hedystia/validations": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "^1.3.3",
       },
       "peerDependencies": {
-        "typescript": ">= 5.0.0",
+        "typescript": ">= 6.0.0",
       },
       "optionalPeers": [
         "typescript",
@@ -95,10 +95,10 @@
     },
     "Packages/swagger": {
       "name": "@hedystia/swagger",
-      "version": "2.0.11",
+      "version": "2.0.13",
       "dependencies": {
         "@apidevtools/swagger-parser": "^10.1.1",
-        "hedystia": "workspace:^",
+        "hedystia": "workspace:*",
         "openapi-types": "^12.1.3",
       },
       "devDependencies": {
@@ -107,7 +107,7 @@
       "peerDependencies": {
         "@apidevtools/swagger-parser": "^10.1.1",
         "openapi-types": ">= 12.0.0",
-        "typescript": ">= 5.0.0",
+        "typescript": ">= 6.0.0",
       },
       "optionalPeers": [
         "openapi-types",
@@ -116,16 +116,16 @@
     },
     "Packages/types": {
       "name": "@hedystia/types",
-      "version": "2.0.11",
+      "version": "2.0.13",
       "dependencies": {
-        "@hedystia/validations": "workspace:^",
+        "@hedystia/validations": "workspace:*",
+        "@standard-schema/spec": "1.1.0",
       },
       "devDependencies": {
-        "@standard-schema/spec": "1.1.0",
         "@types/bun": "^1.3.3",
       },
       "peerDependencies": {
-        "typescript": ">= 5.0.0",
+        "typescript": ">= 6.0.0",
       },
       "optionalPeers": [
         "typescript",
@@ -133,13 +133,15 @@
     },
     "Packages/validations": {
       "name": "@hedystia/validations",
-      "version": "2.0.11",
-      "devDependencies": {
+      "version": "2.0.13",
+      "dependencies": {
         "@standard-schema/spec": "1.1.0",
+      },
+      "devDependencies": {
         "@types/bun": "^1.3.3",
       },
       "peerDependencies": {
-        "typescript": ">= 5.0.0",
+        "typescript": ">= 6.0.0",
       },
       "optionalPeers": [
         "typescript",
