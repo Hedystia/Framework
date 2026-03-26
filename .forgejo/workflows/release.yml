@@ -30,7 +30,7 @@ jobs:
           apt-get update
           apt-get install -y git
       - name: Checkout
-      - uses: actions/checkout@v4
+        uses: actions/checkout@v4
       - run: bun run release
         env:
           NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -41,7 +41,12 @@ jobs:
     container:
       image: oven/bun:latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Install Git
+        run: |
+          apt-get update
+          apt-get install -y git
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - run: bun install
@@ -54,14 +59,14 @@ jobs:
     needs: [publish-registry, github-changelog]
     runs-on: docker
     steps:
-      - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+      - if: ${{ contains(needs.*.result, "failure") || contains(needs.*.result, "cancelled") }}
         run: |
           curl -L -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
             https://api.github.com/repos/${{ env.GITHUB_REPO }}/statuses/${{ forge.sha }} \
             -d '{"state":"error", "context":"Release", "description":"Release process failed"}'
-      - if: ${{ !(contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
+      - if: ${{ !(contains(needs.*.result, "failure") || contains(needs.*.result, "cancelled")) }}
         run: |
           curl -L -X POST \
             -H "Accept: application/vnd.github+json" \
