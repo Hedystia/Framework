@@ -1,5 +1,5 @@
 import { generateTypes } from "@hedystia/types";
-import type { StandardSchemaV1 } from "@standard-schema/spec";
+import type { RouteDefinition } from "@hedystia/types";
 import Core from "./core";
 import generateCorsHeaders from "./handlers/cors";
 import processGenericHandlers from "./handlers/generic";
@@ -15,7 +15,7 @@ import type {
   SubscriptionHandler,
   ValidationSchema,
 } from "./types";
-import type { Assertion, RouteDefinition } from "./types/routes";
+import type { Assertion } from "./types/routes";
 import type { DebugLevel } from "./utils";
 import { createLogger, determineContentType, isBunHTMLBundle, parseRequestBody } from "./utils";
 

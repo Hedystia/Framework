@@ -1,3 +1,4 @@
+import type { RouteDefinition } from "@hedystia/types";
 import createWrappedHandler from "../handlers/wrapped";
 import { Hedystia } from "../server";
 import type {
@@ -21,7 +22,7 @@ import type {
   WebSocketHandler,
   WebSocketOptions,
 } from "../types";
-import type { RouteDefinition, TestContext } from "../types/routes";
+import type { TestContext } from "../types/routes";
 import { determineContentType, isBunHTMLBundle } from "../utils";
 
 type NextFunction = () => Promise<Response>;

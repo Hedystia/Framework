@@ -1,6 +1,7 @@
-import type { StandardSchemaV1 } from "@standard-schema/spec";
+import type { ValidationSchema } from "@hedystia/types";
+import type { InferOutput } from "./index";
 
-type ValidationSchema = StandardSchemaV1<any, any>;
+export type { RouteDefinition } from "@hedystia/types";
 
 export interface Assertion {
   toBe(expected: any): void;
@@ -41,22 +42,12 @@ export type TestContext<
   ResponseSchema extends ValidationSchema | undefined = undefined,
 > = {
   createRequest: (data: {
-    params?: ParamsSchema extends ValidationSchema
-      ? StandardSchemaV1.InferInput<ParamsSchema>
-      : undefined;
-    query?: QuerySchema extends ValidationSchema
-      ? StandardSchemaV1.InferInput<QuerySchema>
-      : undefined;
-    body?: BodySchema extends ValidationSchema
-      ? StandardSchemaV1.InferInput<BodySchema>
-      : undefined;
-    headers?: HeadersSchema extends ValidationSchema
-      ? StandardSchemaV1.InferInput<HeadersSchema>
-      : undefined;
+    params?: ParamsSchema extends ValidationSchema ? InferOutput<ParamsSchema> : undefined;
+    query?: QuerySchema extends ValidationSchema ? InferOutput<QuerySchema> : undefined;
+    body?: BodySchema extends ValidationSchema ? InferOutput<BodySchema> : undefined;
+    headers?: HeadersSchema extends ValidationSchema ? InferOutput<HeadersSchema> : undefined;
   }) => Promise<{
-    response: ResponseSchema extends ValidationSchema
-      ? StandardSchemaV1.InferOutput<ResponseSchema>
-      : any;
+    response: ResponseSchema extends ValidationSchema ? InferOutput<ResponseSchema> : any;
     statusCode: number;
     ok: boolean;
   }>;
@@ -66,18 +57,4 @@ export type TestContext<
   assertThrows: (fn: () => Promise<void>) => Promise<void>;
   path: string;
   method: string;
-};
-
-export type RouteDefinition = {
-  method: "GET" | "PATCH" | "POST" | "PUT" | "DELETE" | "WS" | "SUB";
-  path: string;
-  params?: unknown;
-  query?: unknown;
-  headers?: unknown;
-  body?: unknown;
-  response?: unknown;
-  data?: unknown;
-  error?: unknown;
-  message?: unknown;
-  test?: (context: TestContext<any, any, any, any, any>) => Promise<void> | void;
 };

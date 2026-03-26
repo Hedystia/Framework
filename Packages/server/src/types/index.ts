@@ -1,9 +1,12 @@
-import type { StandardSchemaV1 } from "@standard-schema/spec";
-import type { RouteDefinition } from "./routes";
+import type { InferOutput, RouteDefinition, ValidationSchema } from "@hedystia/types";
 
-export type ValidationSchema = StandardSchemaV1<any, any>;
-
-export type InferOutput<T extends ValidationSchema> = StandardSchemaV1.InferOutput<T>;
+export type {
+  InferInput,
+  InferOutput,
+  JSONValidationSchema,
+  RouteDefinition,
+  ValidationSchema,
+} from "@hedystia/types";
 
 export type CookieOptions = {
   domain?: string;
@@ -258,9 +261,10 @@ export type SubscriptionMessageContext<Routes extends RouteDefinition[] = []> =
       }
     : SubscriptionMessageRouteToContext<ExtractSubscriptionMessageRoutes<Routes>>;
 
-type ResolveParams<Path extends string, Params = any> = Params extends Record<string, any>
-  ? ResolveParamsWithTypes<Path, Params>
-  : ResolveParamsWithoutTypes<Path>;
+type ResolveParams<Path extends string, Params = any> =
+  Params extends Record<string, any>
+    ? ResolveParamsWithTypes<Path, Params>
+    : ResolveParamsWithoutTypes<Path>;
 
 type ResolveParamsWithTypes<
   T extends string,
