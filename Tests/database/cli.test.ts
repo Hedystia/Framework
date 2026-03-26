@@ -2,8 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { generateMigrationTemplate, generateSchemaTemplate } from "@hedystia/db";
 import { spawn } from "bun";
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "fs";
+import path from "path";
 
 const TEST_CLI_DIR = "/tmp/hedystia_test_cli";
+const CLI_PATH = path.resolve(import.meta.dirname, "../../Packages/database/src/cli.ts");
 
 describe("CLI Templates", () => {
   beforeAll(() => {
@@ -54,16 +56,7 @@ describe("CLI Commands", () => {
 
   it("should create migration file via CLI", async () => {
     const proc = spawn(
-      [
-        process.execPath,
-        "run",
-        "./Packages/database/src/cli.ts",
-        "migration",
-        "create",
-        "test_migration",
-        "--path",
-        migrationDir,
-      ],
+      [process.execPath, CLI_PATH, "migration", "create", "test_migration", "--path", migrationDir],
       { cwd: process.cwd() },
     );
     await proc.exited;
@@ -75,16 +68,7 @@ describe("CLI Commands", () => {
 
   it("should create schema file via CLI", async () => {
     const proc = spawn(
-      [
-        process.execPath,
-        "run",
-        "./Packages/database/src/cli.ts",
-        "schema",
-        "create",
-        "products",
-        "--path",
-        schemaDir,
-      ],
+      [process.execPath, CLI_PATH, "schema", "create", "products", "--path", schemaDir],
       { cwd: process.cwd() },
     );
     await proc.exited;
@@ -96,15 +80,7 @@ describe("CLI Commands", () => {
   it("should create migration with shorthand syntax", async () => {
     const dir = `${TEST_CLI_DIR}/migrations2`;
     const proc = spawn(
-      [
-        process.execPath,
-        "run",
-        "./Packages/database/src/cli.ts",
-        "migration",
-        "short_migration",
-        "--path",
-        dir,
-      ],
+      [process.execPath, CLI_PATH, "migration", "short_migration", "--path", dir],
       { cwd: process.cwd() },
     );
     await proc.exited;
@@ -169,8 +145,7 @@ export const createTasks20260101000000 = migration("20260101000000_create_tasks"
     const proc = spawn(
       [
         process.execPath,
-        "run",
-        "./Packages/database/src/cli.ts",
+        CLI_PATH,
         "migrate",
         "up",
         "--migrations",
@@ -194,8 +169,7 @@ export const createTasks20260101000000 = migration("20260101000000_create_tasks"
     const proc = spawn(
       [
         process.execPath,
-        "run",
-        "./Packages/database/src/cli.ts",
+        CLI_PATH,
         "migrate",
         "down",
         "--migrations",
@@ -218,7 +192,7 @@ export const createTasks20260101000000 = migration("20260101000000_create_tasks"
   });
 
   it("should show usage when no subcommand given", async () => {
-    const proc = spawn([process.execPath, "run", "./Packages/database/src/cli.ts", "migrate"], {
+    const proc = spawn([process.execPath, CLI_PATH, "migrate"], {
       cwd: process.cwd(),
       stdout: "pipe",
       stderr: "pipe",
