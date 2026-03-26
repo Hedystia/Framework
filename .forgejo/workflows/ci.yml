@@ -15,27 +15,20 @@ env:
   GIT_SSL_NO_VERIFY: "true"
 
 jobs:
-  status-pending:
+  status_pending:
     runs-on: docker
     steps:
-      - run: |
+      - name: Send Pending Status
+        run: |
           curl -L -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
             https://api.github.com/repos/${{ env.GITHUB_REPO }}/statuses/${{ forge.sha }} \
             -d '{"state":"pending", "context":"CI", "description":"Provisioning local services and running tests"}'
 
-  test-suite:
-    needs: status-pending
+  test_suite:
+    needs: status_pending
     runs-on: docker
-    env:
-      MYSQL_DATABASE: "test_db"
-      MYSQL_USER: "dev_user"
-      MYSQL_PASSWORD: "dev_password"
-      MYSQL_HOST: "db"
-      S3_URL: "http://s3:9000"
-      S3_KEY_ID: "minio_admin"
-      S3_ACCESS_KEY: "minio_password"
     strategy:
       fail-fast: false
       matrix:
@@ -51,11 +44,19 @@ jobs:
           MYSQL_USER: "dev_user"
           MYSQL_PASSWORD: "dev_password"
       s3:
-        image: bitnami/minio:latest
+        image: minio/minio:latest
         env:
           MINIO_ROOT_USER: "minio_admin"
           MINIO_ROOT_PASSWORD: "minio_password"
-          MINIO_DEFAULT_BUCKETS: "test-bucket"
+        options: server /data
+    env:
+      MYSQL_DATABASE: "test_db"
+      MYSQL_USER: "dev_user"
+      MYSQL_PASSWORD: "dev_password"
+      MYSQL_HOST: "db"
+      S3_URL: "http://s3:9000"
+      S3_KEY_ID: "minio_admin"
+      S3_ACCESS_KEY: "minio_password"
     steps:
       - name: Install Git
         run: |
@@ -68,19 +69,21 @@ jobs:
       - name: Run matrix command
         run: bun run ${{ matrix.command }}
 
-  status-report:
+  status_report:
     if: always()
-    needs: test-suite
+    needs: test_suite
     runs-on: docker
     steps:
-      - if: ${{ contains(needs.*.result, "failure") || contains(needs.*.result, "cancelled") }}
+      - name: Report Failure
+        if: ${{ contains(needs.test_suite.result, 'failure') || contains(needs.test_suite.result, 'cancelled') }}
         run: |
           curl -L -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
             https://api.github.com/repos/${{ env.GITHUB_REPO }}/statuses/${{ forge.sha }} \
             -d '{"state":"error", "context":"CI", "description":"One or more tests failed"}'
-      - if: ${{ !(contains(needs.*.result, "failure") || contains(needs.*.result, "cancelled")) }}
+      - name: Report Success
+        if: ${{ !(contains(needs.test_suite.result, 'failure') || contains(needs.test_suite.result, 'cancelled')) }}
         run: |
           curl -L -X POST \
             -H "Accept: application/vnd.github+json" \
