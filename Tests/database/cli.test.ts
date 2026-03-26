@@ -55,7 +55,7 @@ describe("CLI Commands", () => {
   it("should create migration file via CLI", async () => {
     const proc = spawn(
       [
-        "bun",
+        process.execPath,
         "run",
         "./Packages/database/src/cli.ts",
         "migration",
@@ -64,7 +64,7 @@ describe("CLI Commands", () => {
         "--path",
         migrationDir,
       ],
-      { cwd: "/home/zastinian/Documents/codes/Framework" },
+      { cwd: process.cwd() },
     );
     await proc.exited;
     expect(existsSync(migrationDir)).toBe(true);
@@ -76,7 +76,7 @@ describe("CLI Commands", () => {
   it("should create schema file via CLI", async () => {
     const proc = spawn(
       [
-        "bun",
+        process.execPath,
         "run",
         "./Packages/database/src/cli.ts",
         "schema",
@@ -85,7 +85,7 @@ describe("CLI Commands", () => {
         "--path",
         schemaDir,
       ],
-      { cwd: "/home/zastinian/Documents/codes/Framework" },
+      { cwd: process.cwd() },
     );
     await proc.exited;
     expect(existsSync(schemaDir)).toBe(true);
@@ -97,7 +97,7 @@ describe("CLI Commands", () => {
     const dir = `${TEST_CLI_DIR}/migrations2`;
     const proc = spawn(
       [
-        "bun",
+        process.execPath,
         "run",
         "./Packages/database/src/cli.ts",
         "migration",
@@ -105,7 +105,7 @@ describe("CLI Commands", () => {
         "--path",
         dir,
       ],
-      { cwd: "/home/zastinian/Documents/codes/Framework" },
+      { cwd: process.cwd() },
     );
     await proc.exited;
     expect(existsSync(dir)).toBe(true);
@@ -119,7 +119,6 @@ describe("CLI migrate up/down", () => {
   const DB_PATH = `${MIGRATE_DIR}/test.db`;
   const MIGRATIONS_DIR = `${MIGRATE_DIR}/migrations`;
   const SCHEMAS_DIR = `${MIGRATE_DIR}/schemas`;
-  const CWD = "/home/zastinian/Documents/codes/Framework";
 
   const cleanup = () => {
     if (existsSync(MIGRATE_DIR)) {
@@ -169,7 +168,7 @@ export const createTasks20260101000000 = migration("20260101000000_create_tasks"
   it("should run migrate up via CLI", async () => {
     const proc = spawn(
       [
-        "bun",
+        process.execPath,
         "run",
         "./Packages/database/src/cli.ts",
         "migrate",
@@ -183,7 +182,7 @@ export const createTasks20260101000000 = migration("20260101000000_create_tasks"
         "--connection",
         DB_PATH,
       ],
-      { cwd: CWD, stdout: "pipe", stderr: "pipe" },
+      { cwd: process.cwd(), stdout: "pipe", stderr: "pipe" },
     );
     const exitCode = await proc.exited;
     const stdout = await new Response(proc.stdout).text();
@@ -194,7 +193,7 @@ export const createTasks20260101000000 = migration("20260101000000_create_tasks"
   it("should run migrate down via CLI", async () => {
     const proc = spawn(
       [
-        "bun",
+        process.execPath,
         "run",
         "./Packages/database/src/cli.ts",
         "migrate",
@@ -210,7 +209,7 @@ export const createTasks20260101000000 = migration("20260101000000_create_tasks"
         "--steps",
         "1",
       ],
-      { cwd: CWD, stdout: "pipe", stderr: "pipe" },
+      { cwd: process.cwd(), stdout: "pipe", stderr: "pipe" },
     );
     const exitCode = await proc.exited;
     const stdout = await new Response(proc.stdout).text();
@@ -219,8 +218,8 @@ export const createTasks20260101000000 = migration("20260101000000_create_tasks"
   });
 
   it("should show usage when no subcommand given", async () => {
-    const proc = spawn(["bun", "run", "./Packages/database/src/cli.ts", "migrate"], {
-      cwd: CWD,
+    const proc = spawn([process.execPath, "run", "./Packages/database/src/cli.ts", "migrate"], {
+      cwd: process.cwd(),
       stdout: "pipe",
       stderr: "pipe",
     });

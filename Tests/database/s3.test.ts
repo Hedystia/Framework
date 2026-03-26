@@ -27,14 +27,23 @@ describe("S3 Driver", () => {
   });
 
   beforeAll(async () => {
-    try {
-      await db.initialize();
-      initialized = true;
-      await db.users.truncate();
-    } catch (err: any) {
-      console.warn("S3 driver test skipped:", err.message);
+    let retries = 5;
+    while (retries > 0) {
+      try {
+        await db.initialize();
+        initialized = true;
+        await db.users.truncate();
+        break;
+      } catch (err: any) {
+        retries--;
+        if (retries === 0) {
+          console.warn("S3 driver test skipped:", err.message);
+        } else {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+      }
     }
-  });
+  }, 30000);
 
   afterAll(async () => {
     try {
