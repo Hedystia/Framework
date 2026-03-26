@@ -1,4 +1,5 @@
-import type { Hedystia, RouteDefinition } from "hedystia";
+import type { RouteDefinition } from "@hedystia/types";
+import type { Hedystia } from "hedystia";
 
 export type ResponseFormat = "json" | "text" | "formData" | "bytes" | "arrayBuffer" | "blob";
 
