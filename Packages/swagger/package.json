@@ -42,7 +42,7 @@
   "license": "MIT",
   "scripts": {
     "build": "tsdown --config-loader unrun",
-    "publish": "bun publish --access public",
+    "release:pkg": "bun publish --access public",
     "dev": "tsdown --watch"
   },
   "repository": {

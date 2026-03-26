@@ -19,7 +19,7 @@
     "test:build": "bun run build && bun run --cwd Tests build.js",
     "test:stress": "bun run build && bun run --cwd Tests stress.ts",
     "bump": "bumpp -r",
-    "release": "rm bun.lock && bun install && turbo run build && turbo run publish"
+    "release": "rm bun.lock && bun install && turbo run build && turbo run release:pkg"
   },
   "repository": {
     "type": "git",
