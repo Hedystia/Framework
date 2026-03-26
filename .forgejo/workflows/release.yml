@@ -17,7 +17,7 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
             https://api.github.com/repos/${{ env.GITHUB_REPO }}/statuses/${{ forge.sha }} \
-            -d '{"state":"pending", "context":"Forgejo Release", "description":"Preparing release and publishing"}'
+            -d '{"state":"pending", "context":"Release", "description":"Preparing release and publishing"}'
 
   publish-registry:
     needs: status-pending
@@ -25,6 +25,11 @@ jobs:
     container:
       image: oven/bun:latest
     steps:
+      - name: Install Git
+        run: |
+          apt-get update
+          apt-get install -y git
+      - name: Checkout
       - uses: actions/checkout@v4
       - run: bun run release
         env:
@@ -55,11 +60,11 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
             https://api.github.com/repos/${{ env.GITHUB_REPO }}/statuses/${{ forge.sha }} \
-            -d '{"state":"error", "context":"Forgejo Release", "description":"Release process failed"}'
+            -d '{"state":"error", "context":"Release", "description":"Release process failed"}'
       - if: ${{ !(contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
         run: |
           curl -L -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
             https://api.github.com/repos/${{ env.GITHUB_REPO }}/statuses/${{ forge.sha }} \
-            -d '{"state":"success", "context":"Forgejo Release", "description":"Release published successfully"}'
+            -d '{"state":"success", "context":"Release", "description":"Release published successfully"}'
