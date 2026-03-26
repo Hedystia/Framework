@@ -9,5 +9,5 @@ export default defineConfig({
   clean: true,
   unbundle: true,
   outputOptions: { exports: "named" },
-  deps: { neverBundle: ["mysql2", "better-sqlite3", "bun"] },
+  deps: { neverBundle: ["bun"] },
 });
