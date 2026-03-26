@@ -1,13 +1,13 @@
-name: Production Release
+name: 'Production Release'
 
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 env:
-  GITHUB_REPO: "Hedystia/Hedystia"
-  GIT_SSL_NO_VERIFY: "true"
+  GITHUB_REPO: 'Hedystia/Hedystia'
+  GIT_SSL_NO_VERIFY: 'true'
 
 jobs:
   status-pending:
@@ -15,8 +15,8 @@ jobs:
     steps:
       - run: |
           curl -L -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'Authorization: Bearer ${{ secrets.GH_PAT }}' \
             https://api.github.com/repos/${{ env.GITHUB_REPO }}/statuses/${{ forge.sha }} \
             -d '{"state":"pending", "context":"Release", "description":"Preparing release and publishing"}'
 
@@ -24,15 +24,15 @@ jobs:
     needs: status-pending
     runs-on: docker
     container:
-      image: oven/bun:latest
+      image: 'oven/bun:latest'
     steps:
-      - name: Install Git
+      - name: 'Install Git'
         run: |
           apt-get update
           apt-get install -y git
-      - name: Checkout
-        uses: actions/checkout@v4
-      - run: bun run release
+      - name: 'Checkout'
+        uses: 'actions/checkout@v4'
+      - run: 'bun run release'
         env:
           NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -40,37 +40,37 @@ jobs:
     needs: publish-registry
     runs-on: docker
     container:
-      image: oven/bun:latest
+      image: 'oven/bun:latest'
     steps:
-      - name: Install Git
+      - name: 'Install Git'
         run: |
           apt-get update
           apt-get install -y git
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: 'Checkout'
+        uses: 'actions/checkout@v4'
         with:
           fetch-depth: 0
-      - run: bun install
-      - run: bunx changelogithub
+      - run: 'bun install'
+      - run: 'bunx changelogithub'
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
 
   status-report:
     if: always()
-    needs: [publish-registry, github-changelog]
+    needs: ['publish-registry', 'github-changelog']
     runs-on: docker
     steps:
-      - if: ${{ contains(needs.*.result, "failure") || contains(needs.*.result, "cancelled") }}
+      - if: ${{ contains(needs.publish-registry.result, 'failure') || contains(needs.github-changelog.result, 'failure') || contains(needs.publish-registry.result, 'cancelled') || contains(needs.github-changelog.result, 'cancelled') }}
         run: |
           curl -L -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'Authorization: Bearer ${{ secrets.GH_PAT }}' \
             https://api.github.com/repos/${{ env.GITHUB_REPO }}/statuses/${{ forge.sha }} \
             -d '{"state":"error", "context":"Release", "description":"Release process failed"}'
-      - if: ${{ !(contains(needs.*.result, "failure") || contains(needs.*.result, "cancelled")) }}
+      - if: ${{ !(contains(needs.publish-registry.result, 'failure') || contains(needs.github-changelog.result, 'failure') || contains(needs.publish-registry.result, 'cancelled') || contains(needs.github-changelog.result, 'cancelled')) }}
         run: |
           curl -L -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'Authorization: Bearer ${{ secrets.GH_PAT }}' \
             https://api.github.com/repos/${{ env.GITHUB_REPO }}/statuses/${{ forge.sha }} \
             -d '{"state":"success", "context":"Release", "description":"Release published successfully"}'
