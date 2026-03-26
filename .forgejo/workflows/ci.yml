@@ -23,7 +23,7 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
             https://api.github.com/repos/${{ env.GITHUB_REPO }}/statuses/${{ forge.sha }} \
-            -d '{"state":"pending", "context":"CI", "description":"Running test matrix"}'
+            -d '{"state":"pending", "context":"CI", "description":"Provisioning local services and running tests"}'
 
   test-suite:
     needs: status-pending
@@ -34,6 +34,30 @@ jobs:
         command: ["test", "test:build", "test:stress"]
     container:
       image: oven/bun:latest
+    services:
+      db:
+        image: mariadb:latest
+        env:
+          MYSQL_ROOT_PASSWORD: "root_password"
+          MYSQL_DATABASE: "test_db"
+          MYSQL_USER: "dev_user"
+          MYSQL_PASSWORD: "dev_password"
+      s3:
+        image: minio/minio:latest
+        env:
+          MINIO_ROOT_USER: "minio_admin"
+          MINIO_ROOT_PASSWORD: "minio_password"
+        args:
+          - server
+          - /data
+    env:
+      MYSQL_DATABASE: "test_db"
+      MYSQL_USER: "dev_user"
+      MYSQL_PASSWORD: "dev_password"
+      MYSQL_HOST: "db"
+      S3_URL: "http://s3:9000"
+      S3_KEY_ID: "minio_admin"
+      S3_ACCESS_KEY: "minio_password"
     steps:
       - name: Install Git
         run: |
