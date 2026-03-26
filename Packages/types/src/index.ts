@@ -19,6 +19,16 @@ export async function generateTypes(routes: RouteInfo[], filePath: string): Prom
   const content = `// Automatic Hedystia type generation\nexport type AppRoutes=[${typeDefinitions}];`;
   await writeFile(filePath, content, "utf8");
 }
-export type { TypeGeneratorOptions } from "./types";
-export type { RouteInfo };
+
+export type {
+  Infer,
+  InferInput,
+  InferOutput,
+  JSONValidationSchema,
+  RouteDefinition,
+  RouteInfo,
+  TypeGeneratorOptions,
+  ValidationSchema,
+} from "./types";
+
 export { schemaToTypeString };
