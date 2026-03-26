@@ -1,4 +1,4 @@
-import type { StandardSchemaV1 } from "@standard-schema/spec";
+import type { StandardJSONSchemaV1, StandardSchemaV1 } from "@standard-schema/spec";
 
 type SchemaPrimitive = "string" | "number" | "boolean" | "any";
 
@@ -63,7 +63,12 @@ type InferSchema<S> =
 
 type SchemaDefinition = SchemaLike;
 
-interface Schema<I, O> extends StandardSchemaV1<I, O> {
+type CombinedStandardProps<I, O> = StandardSchemaV1.Props<I, O> & {
+  readonly jsonSchema: StandardJSONSchemaV1.Converter;
+};
+
+interface Schema<I, O> {
+  readonly "~standard": CombinedStandardProps<I, O>;
   optional(): OptionalSchema<I, O | undefined>;
   null(): UnionSchema<I, O | null>;
   nullable(): UnionSchema<I, O | null>;
@@ -80,7 +85,7 @@ interface Schema<I, O> extends StandardSchemaV1<I, O> {
 }
 
 export abstract class BaseSchema<I, O> implements Schema<I, O> {
-  abstract readonly "~standard": StandardSchemaV1.Props<I, O>;
+  abstract readonly "~standard": CombinedStandardProps<I, O>;
   jsonSchema: any = {};
   get inferred(): O {
     return null as unknown as O;
@@ -227,9 +232,13 @@ export class StringSchemaType extends BaseSchema<unknown, string> {
     return schema;
   }
 
-  readonly "~standard": StandardSchemaV1.Props<unknown, string> = {
+  readonly "~standard": CombinedStandardProps<unknown, string> = {
     version: 1,
     vendor: "h-schema",
+    jsonSchema: {
+      input: () => this.jsonSchema,
+      output: () => this.jsonSchema,
+    },
     validate: (value: unknown) => {
       if (this._coerce && typeof value !== "string") {
         value = String(value);
@@ -360,9 +369,13 @@ export class NumberSchemaType extends BaseSchema<unknown, number> {
     return schema;
   }
 
-  readonly "~standard": StandardSchemaV1.Props<unknown, number> = {
+  readonly "~standard": CombinedStandardProps<unknown, number> = {
     version: 1,
     vendor: "h-schema",
+    jsonSchema: {
+      input: () => this.jsonSchema,
+      output: () => this.jsonSchema,
+    },
     validate: (value: unknown) => {
       if (this._coerce && typeof value !== "number") {
         const coerced = Number(value);
@@ -402,9 +415,13 @@ export class BooleanSchemaType extends BaseSchema<unknown, boolean> {
     return this.type;
   }
 
-  readonly "~standard": StandardSchemaV1.Props<unknown, boolean> = {
+  readonly "~standard": CombinedStandardProps<unknown, boolean> = {
     version: 1,
     vendor: "h-schema",
+    jsonSchema: {
+      input: () => this.jsonSchema,
+      output: () => this.jsonSchema,
+    },
     validate: (value: unknown) => {
       if (this._coerce && typeof value !== "boolean") {
         if (value === "true" || value === 1 || value === "1") {
@@ -429,9 +446,13 @@ export class BooleanSchemaType extends BaseSchema<unknown, boolean> {
 
 export class AnySchemaType extends BaseSchema<unknown, any> {
   readonly type: SchemaPrimitive = "any";
-  readonly "~standard": StandardSchemaV1.Props<unknown, any> = {
+  readonly "~standard": CombinedStandardProps<unknown, any> = {
     version: 1,
     vendor: "h-schema",
+    jsonSchema: {
+      input: () => ({}),
+      output: () => ({}),
+    },
     validate: (value: unknown) => {
       return { value };
     },
@@ -454,9 +475,13 @@ export class LiteralSchema<I, T extends string | number | boolean> extends BaseS
     };
   }
 
-  readonly "~standard": StandardSchemaV1.Props<I, T> = {
+  readonly "~standard": CombinedStandardProps<I, T> = {
     version: 1,
     vendor: "h-schema",
+    jsonSchema: {
+      input: () => this.jsonSchema,
+      output: () => this.jsonSchema,
+    },
     validate: (value: unknown) => {
       if (value !== this.value) {
         return {
@@ -481,9 +506,13 @@ export class OptionalSchema<I, O> extends BaseSchema<I, O | undefined> {
     this.jsonSchema = { ...schema.jsonSchema };
   }
 
-  readonly "~standard": StandardSchemaV1.Props<I, O | undefined> = {
+  readonly "~standard": CombinedStandardProps<I, O | undefined> = {
     version: 1,
     vendor: "h-schema",
+    jsonSchema: {
+      input: () => this.jsonSchema,
+      output: () => this.jsonSchema,
+    },
     validate: (value: unknown) => {
       if (value === undefined || value === null) {
         return { value: undefined };
@@ -506,9 +535,13 @@ export class NullSchemaType extends BaseSchema<unknown, null> {
     this.jsonSchema = { type: "null" };
   }
 
-  readonly "~standard": StandardSchemaV1.Props<unknown, null> = {
+  readonly "~standard": CombinedStandardProps<unknown, null> = {
     version: 1,
     vendor: "h-schema",
+    jsonSchema: {
+      input: () => this.jsonSchema,
+      output: () => this.jsonSchema,
+    },
     validate: (value: unknown) => {
       if (value !== null) {
         return {
@@ -536,9 +569,13 @@ export class UnionSchema<I, O> extends BaseSchema<I, O> {
     this.jsonSchema = { anyOf: schemas.map((s) => s.jsonSchema) };
   }
 
-  readonly "~standard": StandardSchemaV1.Props<I, O> = {
+  readonly "~standard": CombinedStandardProps<I, O> = {
     version: 1,
     vendor: "h-schema",
+    jsonSchema: {
+      input: () => this.jsonSchema,
+      output: () => this.jsonSchema,
+    },
     validate: (value: unknown) => {
       const issuesAccum: StandardSchemaV1.Issue[] = [];
       for (const schema of this.schemas) {
@@ -566,9 +603,13 @@ export class ArraySchema<I, O extends any[]> extends BaseSchema<I, O> {
     this.jsonSchema = { type: "array", items: schema.jsonSchema };
   }
 
-  readonly "~standard": StandardSchemaV1.Props<I, O> = {
+  readonly "~standard": CombinedStandardProps<I, O> = {
     version: 1,
     vendor: "h-schema",
+    jsonSchema: {
+      input: () => this.jsonSchema,
+      output: () => this.jsonSchema,
+    },
     validate: (value: unknown) => {
       if (!Array.isArray(value)) {
         return {
@@ -625,9 +666,13 @@ export class InstanceOfSchema<I, O> extends BaseSchema<I, O> {
     this.jsonSchema = { ...schema.jsonSchema, instanceOf: classConstructor.name };
   }
 
-  readonly "~standard": StandardSchemaV1.Props<I, O> = {
+  readonly "~standard": CombinedStandardProps<I, O> = {
     version: 1,
     vendor: "h-schema",
+    jsonSchema: {
+      input: () => this.jsonSchema,
+      output: () => this.jsonSchema,
+    },
     validate: (value: unknown) => {
       if (!(value instanceof this.classConstructor)) {
         return {
@@ -683,9 +728,13 @@ export class ObjectSchemaType<T extends Record<string, unknown>> extends BaseSch
     };
   }
 
-  readonly "~standard": StandardSchemaV1.Props<unknown, T> = {
+  readonly "~standard": CombinedStandardProps<unknown, T> = {
     version: 1,
     vendor: "h-schema",
+    jsonSchema: {
+      input: () => this.jsonSchema,
+      output: () => this.jsonSchema,
+    },
     validate: (value: unknown): StandardSchemaV1.Result<T> => {
       if (typeof value !== "object" || value === null || Array.isArray(value)) {
         return {
@@ -954,4 +1003,21 @@ export const h = {
    * @returns {Schema<unknown, any>} Standard schema
    */
   toStandard: toStandard,
+
+  /**
+   * Get JSON Schema from a validation schema
+   * @param {AnySchema} schema - Schema to convert
+   * @param {Object} [options] - JSON Schema options
+   * @param {string} [options.target] - Target JSON Schema draft version
+   * @returns {Record<string, unknown>} JSON Schema object
+   */
+  getJsonSchema: (
+    schema: AnySchema,
+    options: { target?: string } = {},
+  ): Record<string, unknown> => {
+    const std = toStandard(schema);
+    return std["~standard"].jsonSchema.output({
+      target: (options.target ?? "draft-2020-12") as StandardJSONSchemaV1.Target,
+    });
+  },
 };
