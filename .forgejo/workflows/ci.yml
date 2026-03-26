@@ -12,6 +12,7 @@ on:
 
 env:
   GITHUB_REPO: "Hedystia/Hedystia"
+  GIT_SSL_NO_VERIFY: "true"
 
 jobs:
   status-pending:
@@ -50,14 +51,14 @@ jobs:
     needs: test-suite
     runs-on: docker
     steps:
-      - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+      - if: ${{ contains(needs.*.result, "failure") || contains(needs.*.result, "cancelled") }}
         run: |
           curl -L -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
             https://api.github.com/repos/${{ env.GITHUB_REPO }}/statuses/${{ forge.sha }} \
             -d '{"state":"error", "context":"CI", "description":"One or more tests failed"}'
-      - if: ${{ !(contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
+      - if: ${{ !(contains(needs.*.result, "failure") || contains(needs.*.result, "cancelled")) }}
         run: |
           curl -L -X POST \
             -H "Accept: application/vnd.github+json" \

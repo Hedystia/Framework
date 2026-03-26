@@ -7,6 +7,7 @@ on:
 
 env:
   GITHUB_REPO: "Hedystia/Hedystia"
+  GIT_SSL_NO_VERIFY: "true"
 
 jobs:
   status-pending:
