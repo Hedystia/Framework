@@ -1,0 +1,65 @@
+name: Production Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  GITHUB_REPO: "Hedystia/Hedystia"
+
+jobs:
+  status-pending:
+    runs-on: docker
+    steps:
+      - run: |
+          curl -L -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
+            https://api.github.com/repos/${{ env.GITHUB_REPO }}/statuses/${{ forge.sha }} \
+            -d '{"state":"pending", "context":"Forgejo Release", "description":"Preparing release and publishing"}'
+
+  publish-registry:
+    needs: status-pending
+    runs-on: docker
+    container:
+      image: oven/bun:latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bun run release
+        env:
+          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  github-changelog:
+    needs: publish-registry
+    runs-on: docker
+    container:
+      image: oven/bun:latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: bun install
+      - run: bunx changelogithub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+
+  status-report:
+    if: always()
+    needs: [publish-registry, github-changelog]
+    runs-on: docker
+    steps:
+      - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          curl -L -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
+            https://api.github.com/repos/${{ env.GITHUB_REPO }}/statuses/${{ forge.sha }} \
+            -d '{"state":"error", "context":"Forgejo Release", "description":"Release process failed"}'
+      - if: ${{ !(contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
+        run: |
+          curl -L -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
+            https://api.github.com/repos/${{ env.GITHUB_REPO }}/statuses/${{ forge.sha }} \
+            -d '{"state":"success", "context":"Forgejo Release", "description":"Release published successfully"}'
