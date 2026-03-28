@@ -20,15 +20,6 @@ export async function generateTypes(routes: RouteInfo[], filePath: string): Prom
   await writeFile(filePath, content, "utf8");
 }
 
-export type {
-  Infer,
-  InferInput,
-  InferOutput,
-  JSONValidationSchema,
-  RouteDefinition,
-  RouteInfo,
-  TypeGeneratorOptions,
-  ValidationSchema,
-} from "./types";
+export type { RouteInfo } from "./types";
 
 export { schemaToTypeString };
