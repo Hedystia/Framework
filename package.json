@@ -19,6 +19,8 @@
     "test:build": "bun run build && bun run --cwd Tests build.js",
     "test:stress": "bun run build && bun run --cwd Tests stress.ts",
     "bump": "bumpp -r",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
     "release": "rm bun.lock && bun install && turbo run build && turbo run release:pkg"
   },
   "repository": {
