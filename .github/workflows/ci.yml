@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        command: ['test', 'test:build', 'test:stress']
+        command: ['test', 'test:build', 'test:stress', 'lint']
     steps:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
