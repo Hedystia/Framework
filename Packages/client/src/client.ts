@@ -1,5 +1,4 @@
-import type { RouteDefinition } from "@hedystia/types";
-import type { Hedystia } from "hedystia";
+import type { Hedystia, RouteDefinition } from "hedystia";
 import type { WebSocketCallback } from "./managers";
 import { SubscriptionManager, WebSocketManager } from "./managers";
 import type {

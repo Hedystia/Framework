@@ -1,5 +1,4 @@
-import type { RouteDefinition } from "@hedystia/types";
-import type { Hedystia } from "hedystia";
+import type { Hedystia, RouteDefinition } from "hedystia";
 
 export type ResponseFormat = "json" | "text" | "formData" | "bytes" | "arrayBuffer" | "blob";
 
@@ -54,26 +53,20 @@ export type OptionsArgumentRequired<B, Q, H> = [
   ? false
   : true;
 
-export type RequestFunction<
-  B,
-  Q,
-  H,
-  M extends string,
-  ResponseType,
-  ErrorType,
-> = OptionsArgumentRequired<M extends "GET" ? never : B, Q, H> extends true
-  ? (options: RequestOptions<B, Q, H, M>) => Promise<{
-      error: ErrorType | null;
-      data: ResponseType | null;
-      status: number;
-      ok: boolean;
-    }>
-  : (options?: RequestOptions<B, Q, H, M>) => Promise<{
-      error: ErrorType | null;
-      data: ResponseType | null;
-      status: number;
-      ok: boolean;
-    }>;
+export type RequestFunction<B, Q, H, M extends string, ResponseType, ErrorType> =
+  OptionsArgumentRequired<M extends "GET" ? never : B, Q, H> extends true
+    ? (options: RequestOptions<B, Q, H, M>) => Promise<{
+        error: ErrorType | null;
+        data: ResponseType | null;
+        status: number;
+        ok: boolean;
+      }>
+    : (options?: RequestOptions<B, Q, H, M>) => Promise<{
+        error: ErrorType | null;
+        data: ResponseType | null;
+        status: number;
+        ok: boolean;
+      }>;
 
 export type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
   k: infer I,
