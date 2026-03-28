@@ -187,101 +187,6 @@ export class S3Driver extends BaseDriver {
     return result;
   }
 
-  getTableData(tableName: string): S3TableData | undefined {
-    return this.data.get(tableName);
-  }
-
-  insertRow(tableName: string, row: Record<string, unknown>): number {
-    const tableData = this.data.get(tableName);
-    if (!tableData) {
-      throw new DriverError(`Table "${tableName}" does not exist`);
-    }
-    let pkCol: string | null = null;
-    for (const col of tableData.meta.columns) {
-      if (col.autoIncrement) {
-        pkCol = col.name;
-        break;
-      }
-    }
-    if (pkCol && row[pkCol] === undefined) {
-      tableData.autoIncrementId++;
-      row[pkCol] = tableData.autoIncrementId;
-    }
-    tableData.rows.push({ ...row });
-    this.flush(tableName);
-    return pkCol ? (row[pkCol] as number) : 0;
-  }
-
-  findRows(
-    tableName: string,
-    filter?: (row: Record<string, unknown>) => boolean,
-  ): Record<string, unknown>[] {
-    const tableData = this.data.get(tableName);
-    if (!tableData) {
-      return [];
-    }
-    if (!filter) {
-      return tableData.rows.map((r) => ({ ...r }));
-    }
-    return tableData.rows.filter(filter).map((r) => ({ ...r }));
-  }
-
-  updateRows(
-    tableName: string,
-    filter: (row: Record<string, unknown>) => boolean,
-    data: Record<string, unknown>,
-  ): number {
-    const tableData = this.data.get(tableName);
-    if (!tableData) {
-      return 0;
-    }
-    let count = 0;
-    for (const row of tableData.rows) {
-      if (filter(row)) {
-        Object.assign(row, data);
-        count++;
-      }
-    }
-    if (count > 0) {
-      this.flush(tableName);
-    }
-    return count;
-  }
-
-  deleteRows(tableName: string, filter: (row: Record<string, unknown>) => boolean): number {
-    const tableData = this.data.get(tableName);
-    if (!tableData) {
-      return 0;
-    }
-    const before = tableData.rows.length;
-    tableData.rows = tableData.rows.filter((r) => !filter(r));
-    const deleted = before - tableData.rows.length;
-    if (deleted > 0) {
-      this.flush(tableName);
-    }
-    return deleted;
-  }
-
-  truncateTable(tableName: string): void {
-    const tableData = this.data.get(tableName);
-    if (tableData) {
-      tableData.rows = [];
-      tableData.autoIncrementId = 0;
-      this.flush(tableName);
-    }
-  }
-
-  countRows(tableName: string, filter?: (row: Record<string, unknown>) => boolean): number {
-    const tableData = this.data.get(tableName);
-    if (!tableData) {
-      return 0;
-    }
-    if (!filter) {
-      return tableData.rows.length;
-    }
-    return tableData.rows.filter(filter).length;
-  }
-
   private async loadAll(): Promise<void> {
     try {
       const { ListObjectsV2Command, GetObjectCommand } = await import("@aws-sdk/client-s3");
@@ -341,9 +246,11 @@ export class S3Driver extends BaseDriver {
 
   private executeParsed(sql: string, params: unknown[]): any {
     const trimmed = sql.trim().toUpperCase();
+
     if (trimmed.startsWith("CREATE TABLE")) {
       return { insertId: 0, affectedRows: 0 };
     }
+
     if (trimmed.startsWith("DROP TABLE")) {
       const match = sql.match(/DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?`?(\w+)`?/i);
       if (match?.[1]) {
@@ -351,40 +258,433 @@ export class S3Driver extends BaseDriver {
       }
       return { insertId: 0, affectedRows: 0 };
     }
-    if (trimmed.startsWith("SELECT")) {
-      const tableMatch = sql.match(/FROM\s+`?(\w+)`?/i);
-      if (!tableMatch) {
-        return [];
-      }
-      const tableName = tableMatch[1];
-      if (!tableName) {
-        return [];
-      }
-      return this.findRows(tableName);
-    }
+
     if (trimmed.startsWith("INSERT")) {
-      const tableMatch = sql.match(/INTO\s+`?(\w+)`?/i);
-      if (!tableMatch) {
-        return { insertId: 0, affectedRows: 0 };
+      return this.handleInsert(sql, params);
+    }
+
+    if (trimmed.startsWith("UPDATE")) {
+      return this.handleUpdate(sql, params);
+    }
+
+    if (trimmed.startsWith("DELETE")) {
+      return this.handleDelete(sql, params);
+    }
+
+    if (trimmed.startsWith("SELECT")) {
+      return this.handleSelect(sql, params);
+    }
+
+    return { insertId: 0, affectedRows: 0 };
+  }
+
+  private handleInsert(sql: string, params: unknown[]): any {
+    const tableMatch = sql.match(/INTO\s+`?(\w+)`?/i);
+    if (!tableMatch?.[1]) {
+      return { insertId: 0, affectedRows: 0 };
+    }
+
+    const tableName = tableMatch[1];
+    const tableData = this.data.get(tableName);
+    if (!tableData) {
+      return { insertId: 0, affectedRows: 0 };
+    }
+
+    const colMatch = sql.match(/\(([^)]+)\)\s+VALUES/i);
+    if (!colMatch?.[1]) {
+      return { insertId: 0, affectedRows: 0 };
+    }
+
+    const cols = colMatch[1]
+      .split(",")
+      .map((c) => c.trim().replace(/`/g, ""))
+      .filter(Boolean);
+
+    const rowCount = Math.floor(params.length / cols.length);
+
+    let insertId = 0;
+    let pkCol: string | null = null;
+    for (const col of tableData.meta.columns) {
+      if (col.autoIncrement) {
+        pkCol = col.name;
+        break;
       }
-      const colMatch = sql.match(/\(([^)]+)\)\s+VALUES/i);
-      if (!colMatch) {
-        return { insertId: 0, affectedRows: 0 };
-      }
-      const cols = colMatch[1]?.split(",").map((c) => c.trim().replace(/`/g, ""));
-      if (!cols) {
-        return { insertId: 0, affectedRows: 0 };
-      }
+    }
+
+    for (let rowIdx = 0; rowIdx < rowCount; rowIdx++) {
       const row: Record<string, unknown> = {};
+      const rowParamStart = rowIdx * cols.length;
+
       for (let i = 0; i < cols.length; i++) {
         const col = cols[i];
         if (col) {
-          row[col] = params[i];
+          row[col] = params[rowParamStart + i];
         }
       }
-      const id = this.insertRow(tableMatch[1]!, row);
-      return { insertId: id, affectedRows: 1 };
+
+      if (pkCol && row[pkCol] === undefined) {
+        tableData.autoIncrementId++;
+        row[pkCol] = tableData.autoIncrementId;
+        if (rowIdx === 0) {
+          insertId = tableData.autoIncrementId;
+        }
+      } else if (pkCol && row[pkCol]) {
+        if (rowIdx === 0) {
+          insertId = row[pkCol] as number;
+        }
+      }
+
+      tableData.rows.push({ ...row });
     }
-    return { insertId: 0, affectedRows: 0 };
+
+    this.flush(tableName);
+
+    return { insertId, affectedRows: rowCount };
+  }
+
+  private handleUpdate(sql: string, params: unknown[]): any {
+    const tableMatch = sql.match(/UPDATE\s+`?(\w+)`?/i);
+    if (!tableMatch?.[1]) {
+      return { affectedRows: 0 };
+    }
+
+    const tableName = tableMatch[1];
+    const tableData = this.data.get(tableName);
+    if (!tableData) {
+      return { affectedRows: 0 };
+    }
+
+    const setMatch = sql.match(/SET\s+(.+?)\s+WHERE/i) || sql.match(/SET\s+(.+)$/i);
+    if (!setMatch?.[1]) {
+      return { affectedRows: 0 };
+    }
+
+    const setClauses = setMatch[1].split(",");
+    const updates: Record<string, unknown> = {};
+    let paramIndex = 0;
+
+    for (const clause of setClauses) {
+      const eqMatch = clause.match(/`?(\w+)`?\s*=\s*\?/);
+      if (eqMatch?.[1]) {
+        updates[eqMatch[1]] = params[paramIndex];
+        paramIndex++;
+      }
+    }
+
+    const whereMatch = sql.match(/WHERE\s+(.+)$/i);
+    const whereConditions = whereMatch?.[1] || "";
+
+    let affectedRows = 0;
+    for (const row of tableData.rows) {
+      if (this.matchesWhere(row, whereConditions, params, paramIndex)) {
+        Object.assign(row, updates);
+        affectedRows++;
+      }
+    }
+
+    if (affectedRows > 0) {
+      this.flush(tableName);
+    }
+
+    return { affectedRows };
+  }
+
+  private handleDelete(sql: string, params: unknown[]): any {
+    const tableMatch = sql.match(/FROM\s+`?(\w+)`?/i);
+    if (!tableMatch?.[1]) {
+      return { affectedRows: 0 };
+    }
+
+    const tableName = tableMatch[1];
+    const tableData = this.data.get(tableName);
+    if (!tableData) {
+      return { affectedRows: 0 };
+    }
+
+    const whereMatch = sql.match(/WHERE\s+(.+)$/i);
+    if (!whereMatch?.[1]) {
+      const affectedRows = tableData.rows.length;
+      tableData.rows = [];
+      if (affectedRows > 0) {
+        this.flush(tableName);
+      }
+      return { affectedRows };
+    }
+
+    const whereConditions = whereMatch[1];
+    const before = tableData.rows.length;
+
+    tableData.rows = tableData.rows.filter(
+      (row) => !this.matchesWhere(row, whereConditions, params, 0),
+    );
+
+    const affectedRows = before - tableData.rows.length;
+    if (affectedRows > 0) {
+      this.flush(tableName);
+    }
+
+    return { affectedRows };
+  }
+
+  private handleSelect(sql: string, params: unknown[]): any {
+    const countMatch = sql.match(/SELECT\s+COUNT\s*\(\s*\*\s*\)\s+as\s+(\w+)/i);
+    if (countMatch) {
+      const tableMatch = sql.match(/FROM\s+`?(\w+)`?/i);
+      if (!tableMatch?.[1]) {
+        return [];
+      }
+      const tableName = tableMatch[1];
+      const tableData = this.data.get(tableName);
+      if (!tableData) {
+        return [{ count: 0 }];
+      }
+
+      const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|\s*$)/i);
+      if (whereMatch?.[1]) {
+        const filter = (row: Record<string, unknown>) =>
+          this.matchesWhere(row, whereMatch[1]!, params, 0);
+        const count = tableData.rows.filter(filter).length;
+        return [{ count }];
+      }
+
+      return [{ count: tableData.rows.length }];
+    }
+
+    const tableMatch = sql.match(/FROM\s+`?(\w+)`?/i);
+    if (!tableMatch?.[1]) {
+      return [];
+    }
+
+    const tableName = tableMatch[1];
+    const tableData = this.data.get(tableName);
+    if (!tableData) {
+      return [];
+    }
+
+    let rows = [...tableData.rows];
+
+    const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+ORDER\s+BY|\s+LIMIT|\s*$)/i);
+    if (whereMatch?.[1]) {
+      rows = rows.filter((row) => this.matchesWhere(row, whereMatch[1]!, params, 0));
+    }
+
+    const orderMatch = sql.match(/ORDER\s+BY\s+(.+?)(?:\s+LIMIT|\s*$)/i);
+    if (orderMatch?.[1]) {
+      const orders = orderMatch[1].split(",");
+      rows.sort((a, b) => {
+        for (const orderClause of orders) {
+          const [col, dir] = orderClause.trim().split(/\s+/);
+          const colName = col?.replace(/`/g, "") ?? "";
+          const aVal = (a as any)[colName];
+          const bVal = (b as any)[colName];
+          if (aVal < bVal) {
+            return dir?.toUpperCase() === "DESC" ? 1 : -1;
+          }
+          if (aVal > bVal) {
+            return dir?.toUpperCase() === "DESC" ? -1 : 1;
+          }
+        }
+        return 0;
+      });
+    }
+
+    const limitMatch = sql.match(/LIMIT\s+(\d+)(?:\s+OFFSET\s+(\d+)|\s*,\s*(\d+))?/i);
+    if (limitMatch) {
+      const limit = Number.parseInt(limitMatch[1]!, 10);
+      const offset = limitMatch[2]
+        ? Number.parseInt(limitMatch[2], 10)
+        : limitMatch[3]
+          ? Number.parseInt(limitMatch[3], 10)
+          : 0;
+      rows = rows.slice(offset, offset + limit);
+    }
+
+    return rows.map((r) => ({ ...r }));
+  }
+
+  private matchesWhere(
+    row: Record<string, unknown>,
+    whereStr: string,
+    params: unknown[],
+    paramOffset: number,
+  ): boolean {
+    return this.evaluateWhereExpression(row, whereStr, params, paramOffset).matched;
+  }
+
+  private evaluateWhereExpression(
+    row: Record<string, unknown>,
+    expr: string,
+    params: unknown[],
+    startParamIdx: number,
+  ): { matched: boolean; paramIdx: number } {
+    let paramIdx = startParamIdx;
+    expr = expr.trim();
+
+    if (expr.startsWith("(") && expr.endsWith(")")) {
+      const result = this.evaluateWhereExpression(row, expr.slice(1, -1), params, paramIdx);
+      return result;
+    }
+    const orClauses = this.splitByTopLevel(expr, "OR");
+    if (orClauses.length > 1) {
+      for (const orClause of orClauses) {
+        const result = this.evaluateWhereExpression(row, orClause.trim(), params, paramIdx);
+        paramIdx = result.paramIdx;
+        if (result.matched) {
+          return { matched: true, paramIdx };
+        }
+      }
+      return { matched: false, paramIdx };
+    }
+
+    const andClauses = this.splitByTopLevel(expr, "AND");
+    if (andClauses.length > 1) {
+      for (const andClause of andClauses) {
+        const result = this.evaluateWhereExpression(row, andClause.trim(), params, paramIdx);
+        paramIdx = result.paramIdx;
+        if (!result.matched) {
+          return { matched: false, paramIdx };
+        }
+      }
+      return { matched: true, paramIdx };
+    }
+
+    return this.evaluateSingleCondition(row, expr, params, paramIdx);
+  }
+
+  private splitByTopLevel(expr: string, operator: string): string[] {
+    const parts: string[] = [];
+    let current = "";
+    let parenDepth = 0;
+
+    const opRegex = new RegExp(`\\s+${operator}\\s+`, "i");
+    let i = 0;
+
+    while (i < expr.length) {
+      const char = expr[i];
+
+      if (char === "(") {
+        parenDepth++;
+        current += char;
+        i++;
+      } else if (char === ")") {
+        parenDepth--;
+        current += char;
+        i++;
+      } else if (parenDepth === 0) {
+        const remaining = expr.slice(i);
+        const match = remaining.match(opRegex);
+
+        if (match && match.index === 0) {
+          if (current.trim()) {
+            parts.push(current.trim());
+          }
+          i += match[0]!.length;
+          current = "";
+        } else {
+          current += char;
+          i++;
+        }
+      } else {
+        current += char;
+        i++;
+      }
+    }
+
+    if (current.trim()) {
+      parts.push(current.trim());
+    }
+
+    return parts.length > 0 ? parts : [expr];
+  }
+
+  private evaluateSingleCondition(
+    row: Record<string, unknown>,
+    condition: string,
+    params: unknown[],
+    paramIdx: number,
+  ): { matched: boolean; paramIdx: number } {
+    condition = condition.trim();
+
+    const notInMatch = condition.match(/`?(\w+)`?\s+NOT\s+IN\s+\(([^)]*)\)/i);
+    if (notInMatch) {
+      const col = notInMatch[1]!;
+      const placeholders = notInMatch[2]!.split(",").map((p) => p.trim());
+      const values: unknown[] = [];
+      for (const placeholder of placeholders) {
+        if (placeholder === "?") {
+          values.push(params[paramIdx]);
+          paramIdx++;
+        }
+      }
+      const matched = !values.includes(row[col]);
+      return { matched, paramIdx };
+    }
+
+    const inMatch = condition.match(/`?(\w+)`?\s+IN\s+\(([^)]*)\)/i);
+    if (inMatch) {
+      const col = inMatch[1]!;
+      const placeholders = inMatch[2]!.split(",").map((p) => p.trim());
+      const values: unknown[] = [];
+      for (const placeholder of placeholders) {
+        if (placeholder === "?") {
+          values.push(params[paramIdx]);
+          paramIdx++;
+        }
+      }
+      const matched = values.includes(row[col]);
+      return { matched, paramIdx };
+    }
+
+    const eqMatch = condition.match(/`?(\w+)`?\s*=\s*\?/);
+    if (eqMatch) {
+      const matched = row[eqMatch[1]!] === params[paramIdx];
+      return { matched, paramIdx: paramIdx + 1 };
+    }
+
+    const neqMatch = condition.match(/`?(\w+)`?\s*!=\s*\?/);
+    if (neqMatch) {
+      const matched = row[neqMatch[1]!] !== params[paramIdx];
+      return { matched, paramIdx: paramIdx + 1 };
+    }
+
+    const gtMatch = condition.match(/`?(\w+)`?\s*>\s*\?/);
+    if (gtMatch) {
+      const matched = (row[gtMatch[1]!] as any) > (params[paramIdx] as any);
+      return { matched, paramIdx: paramIdx + 1 };
+    }
+
+    const gteMatch = condition.match(/`?(\w+)`?\s*>=\s*\?/);
+    if (gteMatch) {
+      const matched = (row[gteMatch[1]!] as any) >= (params[paramIdx] as any);
+      return { matched, paramIdx: paramIdx + 1 };
+    }
+
+    const ltMatch = condition.match(/`?(\w+)`?\s*<\s*\?/);
+    if (ltMatch) {
+      const matched = (row[ltMatch[1]!] as any) < (params[paramIdx] as any);
+      return { matched, paramIdx: paramIdx + 1 };
+    }
+
+    const lteMatch = condition.match(/`?(\w+)`?\s*<=\s*\?/);
+    if (lteMatch) {
+      const matched = (row[lteMatch[1]!] as any) <= (params[paramIdx] as any);
+      return { matched, paramIdx: paramIdx + 1 };
+    }
+
+    const notLikeMatch = condition.match(/`?(\w+)`?\s+NOT\s+LIKE\s+\?/i);
+    if (notLikeMatch) {
+      const pattern = (params[paramIdx] as string).replace(/%/g, ".*");
+      const matched = !new RegExp(`^${pattern}$`).test(String(row[notLikeMatch[1]!]));
+      return { matched, paramIdx: paramIdx + 1 };
+    }
+
+    const likeMatch = condition.match(/`?(\w+)`?\s+LIKE\s+\?/i);
+    if (likeMatch) {
+      const pattern = (params[paramIdx] as string).replace(/%/g, ".*");
+      const matched = new RegExp(`^${pattern}$`).test(String(row[likeMatch[1]!]));
+      return { matched, paramIdx: paramIdx + 1 };
+    }
+
+    return { matched: true, paramIdx };
   }
 }
