@@ -6,15 +6,18 @@ on:
       - 'v*'
 
 jobs:
-  publish-registry:
+  release:
     runs-on: self-hosted
     permissions:
       id-token: write
+      contents: write
     steps:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - name: Install dependencies
         run: bun install
       - name: Configure NPM
@@ -27,21 +30,6 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
-
-  github-changelog:
-    needs: publish-registry
-    runs-on: self-hosted
-    permissions:
-      contents: write
-    steps:
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Install dependencies
-        run: bun install
       - name: Generate Changelog
         run: bunx changelogithub
         env:

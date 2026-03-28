@@ -11,19 +11,21 @@ on:
       - master
 
 jobs:
-  test_suite:
+  testing:
     runs-on: self-hosted
-    strategy:
-      fail-fast: false
-      matrix:
-        command: ['test', 'test:build', 'test:stress', 'lint']
     steps:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Install dependencies
         run: bun install
-      - name: Run matrix command
-        run: bun run ${{ matrix.command }}
+      - name: Lint
+        run: bun run lint
+      - name: Test
+        run: bun run test
+      - name: Test Build
+        run: bun run test:build
+      - name: Test Stress
+        run: bun run test:stress
         timeout-minutes: 15
