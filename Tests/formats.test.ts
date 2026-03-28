@@ -143,9 +143,7 @@ const app = new Framework()
     "/array-buffer",
     () => {
       const encoder = new TextEncoder();
-      const buffer = encoder.encode(
-        "This is binary data as ArrayBuffer",
-      ).buffer;
+      const buffer = encoder.encode("This is binary data as ArrayBuffer").buffer;
       return buffer;
     },
     {
@@ -156,9 +154,7 @@ const app = new Framework()
     "/array-buffer",
     (context) => {
       const encoder = new TextEncoder();
-      const buffer = encoder.encode(
-        `Received message: ${context.body.message}`,
-      ).buffer;
+      const buffer = encoder.encode(`Received message: ${context.body.message}`).buffer;
       return buffer;
     },
     {
@@ -462,9 +458,7 @@ describe("Response Format Tests", () => {
 
   describe("Other HTTP Methods", () => {
     it("should handle DELETE with text response", async () => {
-      const { data, error } = await client.resource
-        .id(123)
-        .delete({ responseFormat: "text" });
+      const { data, error } = await client.resource.id(123).delete({ responseFormat: "text" });
 
       expect(error).toBeNull();
       expect(data).toBe("Deleted resource 123");

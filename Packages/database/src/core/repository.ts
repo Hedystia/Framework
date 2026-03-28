@@ -725,7 +725,8 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
   }
 
   private mapRows(rows: Record<string, unknown>[]): T[] {
-    const shouldDeserialize = (this.jsonCodeKeys.size > 0 || this.dateColumns.size > 0) && !this.isFileLikeDriver;
+    const shouldDeserialize =
+      (this.jsonCodeKeys.size > 0 || this.dateColumns.size > 0) && !this.isFileLikeDriver;
     if (!this.hasAliases && !shouldDeserialize) {
       return rows as T[];
     }

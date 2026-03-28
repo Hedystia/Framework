@@ -319,7 +319,7 @@ export class MySQLDriver extends BaseDriver {
       const result: Record<string, ColumnMetadata[]> = {};
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i] as any;
-        if (!row || !row.TABLE_NAME) {
+        if (!row?.TABLE_NAME) {
           continue;
         }
         const tableName = row.TABLE_NAME;

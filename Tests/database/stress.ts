@@ -99,7 +99,7 @@ async function main() {
   console.log(`  Find first:  ${speedup(noCache.findFirstTime, withCache.findFirstTime)} faster`);
   console.log(`  Count:       ${speedup(noCache.countTime, withCache.countTime)} faster`);
 
-  console.log("\n" + "═".repeat(60) + "\n");
+  console.log(`\n${"═".repeat(60)}\n`);
 }
 
 main().catch(console.error);

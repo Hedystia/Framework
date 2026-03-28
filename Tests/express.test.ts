@@ -4,13 +4,9 @@ import { createClient } from "@hedystia/client";
 import express from "express";
 import Hedystia, { h } from "hedystia";
 
-const subApp = new Hedystia().get(
-  "/world",
-  () => ({ message: "Hello from sub-app!" }),
-  {
-    response: h.object({ message: h.string() }),
-  },
-);
+const subApp = new Hedystia().get("/world", () => ({ message: "Hello from sub-app!" }), {
+  response: h.object({ message: h.string() }),
+});
 
 const app = new Hedystia()
   .onRequest((req) => {
@@ -83,14 +79,10 @@ const app = new Hedystia()
       .get("/", () => [{ id: 1, name: "Laptop" }], {
         response: h.array(h.object({ id: h.number(), name: h.string() })),
       })
-      .get(
-        "/:id",
-        (ctx) => ({ id: ctx.params.id, name: `Product ${ctx.params.id}` }),
-        {
-          params: h.object({ id: h.number().coerce() }),
-          response: h.object({ id: h.number(), name: h.string() }),
-        },
-      ),
+      .get("/:id", (ctx) => ({ id: ctx.params.id, name: `Product ${ctx.params.id}` }), {
+        params: h.object({ id: h.number().coerce() }),
+        response: h.object({ id: h.number(), name: h.string() }),
+      }),
   )
   .use("/v2", subApp);
 
@@ -127,9 +119,7 @@ describe("Express Adapter Comprehensive Tests", () => {
   });
 
   it("should handle POST requests with URL params and body", async () => {
-    const { data } = await client.users
-      .id(123)
-      .post({ body: { name: "Jane Doe" } });
+    const { data } = await client.users.id(123).post({ body: { name: "Jane Doe" } });
     expect(data).toEqual({
       params: { id: 123 },
       body: { name: "Jane Doe" },
@@ -137,9 +127,7 @@ describe("Express Adapter Comprehensive Tests", () => {
   });
 
   it("should handle PUT requests", async () => {
-    const { data } = await client.item
-      .id("abc")
-      .put({ body: { value: "test-value" } });
+    const { data } = await client.item.id("abc").put({ body: { value: "test-value" } });
     expect(data).toEqual({ id: "abc", value: "test-value" });
   });
 

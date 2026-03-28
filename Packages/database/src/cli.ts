@@ -92,9 +92,7 @@ switch (command) {
     console.log("@hedystia/db CLI");
     console.log("");
     console.log("Commands:");
-    console.log(
-      "  migration create <name> [--path <path>] [--no-id]  Create a new migration file",
-    );
+    console.log("  migration create <name> [--path <path>] [--no-id]  Create a new migration file");
     console.log(
       "  migration <name> [--path <path>] [--no-id]         Create a new migration file (shorthand)",
     );

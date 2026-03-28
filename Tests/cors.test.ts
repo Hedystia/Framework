@@ -41,15 +41,9 @@ describe("CORS Tests", () => {
       });
 
       expect(response.status).toBe(204);
-      expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
-        "http://allowed-client.com",
-      );
-      expect(response.headers.get("Access-Control-Allow-Methods")).toBe(
-        "GET,POST",
-      );
-      expect(response.headers.get("Access-Control-Allow-Credentials")).toBe(
-        "true",
-      );
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBe("http://allowed-client.com");
+      expect(response.headers.get("Access-Control-Allow-Methods")).toBe("GET,POST");
+      expect(response.headers.get("Access-Control-Allow-Credentials")).toBe("true");
       expect(response.headers.get("Access-Control-Max-Age")).toBe("86400");
     });
 
@@ -61,9 +55,7 @@ describe("CORS Tests", () => {
 
       expect(response.status).toBe(200);
       expect(text).toBe("CORS OK");
-      expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
-        "http://allowed-client.com",
-      );
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBe("http://allowed-client.com");
       expect(response.headers.get("Vary")).toContain("Origin");
     });
 

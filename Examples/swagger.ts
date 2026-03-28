@@ -67,7 +67,7 @@ const app = new Hedystia()
       }),
     },
   )
-  .ws("/live", { message: (ws, msg) => ws.send("Echo: " + msg) })
+  .ws("/live", { message: (ws, msg) => ws.send(`Echo: ${msg}`) })
   .subscription(
     "/events/:id",
     (ctx) => {

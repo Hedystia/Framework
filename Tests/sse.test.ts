@@ -9,9 +9,7 @@ const app = new Framework({ sse: true })
     lifecycleEvents.push(`open:${ctx.path}:${ctx.subscriptionId}`);
   })
   .onSubscriptionClose((ctx) => {
-    lifecycleEvents.push(
-      `close:${ctx.path}:${ctx.subscriptionId}:${ctx.reason}`,
-    );
+    lifecycleEvents.push(`close:${ctx.path}:${ctx.subscriptionId}:${ctx.reason}`);
   })
   .subscription("/data/basic", async () => {
     return "Test";
@@ -153,13 +151,9 @@ describe("Test SSE subscriptions", () => {
     sub.unsubscribe();
     await wait(100);
 
+    expect(lifecycleEvents.some((e) => e.startsWith("open:/data/isactive:"))).toBe(true);
     expect(
-      lifecycleEvents.some((e) => e.startsWith("open:/data/isactive:")),
-    ).toBe(true);
-    expect(
-      lifecycleEvents.some(
-        (e) => e.includes("close:/data/isactive:") && e.includes("disconnect"),
-      ),
+      lifecycleEvents.some((e) => e.includes("close:/data/isactive:") && e.includes("disconnect")),
     ).toBe(true);
   });
 

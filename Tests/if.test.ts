@@ -25,14 +25,10 @@ const app = new Framework()
   })
   .if((app) => {
     if (ENABLE_FEATURE) {
-      return app.post(
-        "/conditional-post",
-        ({ body }) => ({ received: body.name }),
-        {
-          body: h.object({ name: h.string() }),
-          response: h.object({ received: h.string() }),
-        },
-      );
+      return app.post("/conditional-post", ({ body }) => ({ received: body.name }), {
+        body: h.object({ name: h.string() }),
+        response: h.object({ received: h.string() }),
+      });
     }
   })
   .listen(3038);

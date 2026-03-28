@@ -22,45 +22,37 @@ const app = new Framework()
       expect(response.name).toBe("John");
     },
   })
-  .post(
-    "/users",
-    ({ body }) => ({ id: 1, name: body.name, email: body.email }),
-    {
-      body: h.object({ name: h.string(), email: h.string() }),
-      response: h.object({
-        id: h.number(),
-        name: h.string(),
-        email: h.string(),
-      }),
-      test: async ({ createRequest, expect }) => {
-        const { response, statusCode } = await createRequest({
-          body: { name: "John Doe", email: "john@example.com" },
-        });
-        expect(statusCode).toBe(200);
-        expect(response.id).toBe(1);
-        expect(response.name).toBe("John Doe");
-        expect(response.email).toBe("john@example.com");
-      },
+  .post("/users", ({ body }) => ({ id: 1, name: body.name, email: body.email }), {
+    body: h.object({ name: h.string(), email: h.string() }),
+    response: h.object({
+      id: h.number(),
+      name: h.string(),
+      email: h.string(),
+    }),
+    test: async ({ createRequest, expect }) => {
+      const { response, statusCode } = await createRequest({
+        body: { name: "John Doe", email: "john@example.com" },
+      });
+      expect(statusCode).toBe(200);
+      expect(response.id).toBe(1);
+      expect(response.name).toBe("John Doe");
+      expect(response.email).toBe("john@example.com");
     },
-  )
-  .get(
-    "/search",
-    ({ query }) => ({ query: query.q, limit: query.limit || 10 }),
-    {
-      query: h.object({
-        q: h.string(),
-        limit: h.number().coerce().optional(),
-      }),
-      response: h.object({ query: h.string(), limit: h.number() }),
-      test: async ({ createRequest, expect }) => {
-        const { response } = await createRequest({
-          query: { q: "hedystia", limit: 20 },
-        });
-        expect(response.query).toBe("hedystia");
-        expect(response.limit).toBe(20);
-      },
+  })
+  .get("/search", ({ query }) => ({ query: query.q, limit: query.limit || 10 }), {
+    query: h.object({
+      q: h.string(),
+      limit: h.number().coerce().optional(),
+    }),
+    response: h.object({ query: h.string(), limit: h.number() }),
+    test: async ({ createRequest, expect }) => {
+      const { response } = await createRequest({
+        query: { q: "hedystia", limit: 20 },
+      });
+      expect(response.query).toBe("hedystia");
+      expect(response.limit).toBe(20);
     },
-  )
+  })
   .get("/no-test", () => ({ ok: true }), {
     response: h.object({ ok: h.boolean() }),
   })
@@ -81,12 +73,12 @@ const app = new Framework()
       expect(response.age).toBeLessThanOrEqual(25);
     },
   })
-  .get("/float-test", () => ({ pi: 3.14159 }), {
+  .get("/float-test", () => ({ pi: Math.PI }), {
     response: h.object({ pi: h.number() }),
     test: async ({ createRequest, expect }) => {
       const { response } = await createRequest({});
       expect(response.pi).toBeCloseTo(3.14, 1);
-      expect(response.pi).toBeCloseTo(3.1416, 4);
+      expect(response.pi).toBeCloseTo(Math.PI, 4);
     },
   })
   .get("/array-test", () => ({ items: [1, 2, 3, 4, 5] }), {
@@ -126,7 +118,12 @@ const app = new Framework()
     },
   })
   .get("/truthiness-test", () => ({ bool: true, empty: "", zero: 0, nullVal: null }), {
-    response: h.object({ bool: h.boolean(), empty: h.string(), zero: h.number(), nullVal: h.any() }),
+    response: h.object({
+      bool: h.boolean(),
+      empty: h.string(),
+      zero: h.number(),
+      nullVal: h.any(),
+    }),
     test: async ({ createRequest, expect }) => {
       const { response } = await createRequest({});
       expect(response.bool).toBeTruthy();

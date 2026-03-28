@@ -5,10 +5,7 @@ import Framework from "hedystia";
 const app = new Framework()
   .ws("/chat", {
     message: (ws, message) => {
-      const data =
-        typeof message === "string"
-          ? message
-          : new TextDecoder().decode(message);
+      const data = typeof message === "string" ? message : new TextDecoder().decode(message);
       ws.send(`You said: ${data}`);
     },
     open: (ws) => {

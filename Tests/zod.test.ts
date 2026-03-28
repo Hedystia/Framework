@@ -52,10 +52,7 @@ describe("Test zod wrapper", () => {
   });
 
   it("should return a response with params", async () => {
-    const { data: test, error } = await client.test.test.new.random
-      .name("sally")
-      .id(123)
-      .get();
+    const { data: test, error } = await client.test.test.new.random.name("sally").id(123).get();
 
     expect(error).toBeNull();
 

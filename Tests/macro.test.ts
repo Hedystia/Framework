@@ -9,7 +9,7 @@ describe("Framework .macro() Tests", () => {
         auth: () => ({
           resolve: async (ctx) => {
             const authHeader = ctx.req.headers.get("Authorization");
-            if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            if (!authHeader?.startsWith("Bearer ")) {
               ctx.error(401, "Unauthorized");
             }
             const token = authHeader?.substring(7);
@@ -103,6 +103,7 @@ describe("Framework .macro() Tests", () => {
           resolve: async (ctx) => {
             const requestsCount = Number.parseInt(
               ctx.req.headers.get("X-Request-Count") || "0",
+              10,
             );
             if (requestsCount > 5) {
               ctx.error(429, "Too many requests");
@@ -172,7 +173,7 @@ describe("Framework .macro() Tests", () => {
         auth: () => ({
           resolve: async (ctx) => {
             const authHeader = ctx.req.headers.get("Authorization");
-            if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            if (!authHeader?.startsWith("Bearer ")) {
               ctx.error(401, "Unauthorized");
             }
             return { userId: 1, token: authHeader?.substring(7) };
@@ -229,7 +230,7 @@ describe("Framework .macro() Tests", () => {
         auth: () => ({
           resolve: async (ctx) => {
             const authHeader = ctx.headers.authorization;
-            if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            if (!authHeader?.startsWith("Bearer ")) {
               const error = new Error("Unauthorized");
               (error as any).isMacroError = true;
               (error as any).statusCode = 401;
@@ -321,10 +322,8 @@ describe("Framework .macro() Tests", () => {
       .macro({
         auth: () => ({
           resolve: async (ctx) => {
-            const authHeader =
-              ctx.headers?.authorization ||
-              ctx.req?.headers.get("Authorization");
-            if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            const authHeader = ctx.headers?.authorization || ctx.req?.headers.get("Authorization");
+            if (!authHeader?.startsWith("Bearer ")) {
               const error = new Error("Unauthorized");
               (error as any).isMacroError = true;
               (error as any).statusCode = 401;
