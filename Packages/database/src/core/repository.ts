@@ -1,6 +1,4 @@
 import type { CacheManager } from "../cache";
-import { FileDriver } from "../drivers/file";
-import { S3Driver } from "../drivers/s3";
 import {
   compileBulkInsert,
   compileDelete,
@@ -37,7 +35,6 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
   private tableCacheConfig?: { enabled: boolean; ttl?: number; maxTtl?: number };
   private jsonColumns: Set<string>;
   private jsonCodeKeys: Set<string>;
-  private isFileLikeDriver: boolean;
   private dateColumns: Set<string>;
 
   constructor(
@@ -79,7 +76,6 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
         this.dateColumns.add(codeKey);
       }
     }
-    this.isFileLikeDriver = driver instanceof FileDriver || driver instanceof S3Driver;
   }
 
   /**
@@ -94,14 +90,9 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
       options,
       async () => {
         const dbOptions = this.mapOptionsToDb(options);
-        let rows: T[];
-        if (this.isFileLikeDriver) {
-          rows = this.mapRows(this.findFile(dbOptions as QueryOptions<T>));
-        } else {
-          rows = this.mapRows(await this.findSQL(dbOptions as QueryOptions<T>));
-        }
+        const rows = this.mapRows(await this.findSQL(dbOptions as QueryOptions<T>));
         if (options?.with) {
-          rows = await this.loadRelations(rows, options.with);
+          return this.loadRelations(rows, options.with);
         }
         this.cacheEntities(rows);
         return rows;
@@ -132,17 +123,17 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
       async () => {
         const dbOptions = this.mapOptionsToDb(options);
         const opts = { ...dbOptions, take: 1 };
-        let rows: T[];
-        if (this.isFileLikeDriver) {
-          rows = this.mapRows(this.findFile(opts as QueryOptions<T>));
-        } else {
-          rows = this.mapRows(await this.findSQL(opts as QueryOptions<T>));
-        }
+        const rows = this.mapRows(await this.findSQL(opts as QueryOptions<T>));
         if (rows.length === 0) {
           return null;
         }
         if (options?.with) {
-          rows = await this.loadRelations(rows, options.with);
+          const loaded = await this.loadRelations(rows, options.with);
+          const row = loaded[0] ?? null;
+          if (row) {
+            this.cacheEntity(row);
+          }
+          return row;
         }
         const row = rows[0] ?? null;
         if (row) {
@@ -168,17 +159,6 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
     this.cache.invalidateTable(this.tableName);
     const cleaned = this.toDbKeys(this.cleanData(single));
 
-    if (this.isFileLikeDriver) {
-      const id = (this.driver as FileDriver | S3Driver).insertRow(this.tableName, cleaned);
-      const pk = this.registry.getPrimaryKey(this.tableName);
-      if (pk) {
-        cleaned[pk] = id;
-      }
-      const result = this.toCodeKeys(cleaned) as T;
-      this.cacheEntity(result);
-      return result;
-    }
-
     const params: unknown[] = [];
     const sql = compileInsert(this.tableName, cleaned, params);
     const result = await this.driver.execute(sql, params);
@@ -188,9 +168,9 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
       cleaned[pk] = result.insertId;
     }
 
-    const mapped = this.toCodeKeys(cleaned) as T;
-    this.cacheEntity(mapped);
-    return mapped;
+    const [mappedResult] = this.mapRows([cleaned]) as [T];
+    this.cacheEntity(mappedResult);
+    return mappedResult;
   }
 
   /**
@@ -204,14 +184,6 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
     }
 
     this.cache.invalidateTable(this.tableName);
-
-    if (this.isFileLikeDriver) {
-      const results: T[] = [];
-      for (const item of data) {
-        results.push(await this.insert(item));
-      }
-      return results;
-    }
 
     const cleanedData = data.map((item) => this.toDbKeys(this.cleanData(item)));
     const params: unknown[] = [];
@@ -247,12 +219,6 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
     const cleaned = this.toDbKeys(this.cleanData(options.data));
     const dbWhere = this.mapWhereToDb(options.where as WhereClause);
 
-    if (this.isFileLikeDriver) {
-      const filter = this.buildFileFilter(dbWhere);
-      (this.driver as FileDriver | S3Driver).updateRows(this.tableName, filter, cleaned);
-      return this.find({ where: options.where } as QueryOptions<T>);
-    }
-
     const params: unknown[] = [];
     const sql = compileUpdate(this.tableName, cleaned, dbWhere, params);
     await this.driver.execute(sql, params);
@@ -272,11 +238,6 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
 
     this.cache.invalidateTable(this.tableName);
     const dbWhere = this.mapWhereToDb(options.where as WhereClause);
-
-    if (this.isFileLikeDriver) {
-      const filter = this.buildFileFilter(dbWhere);
-      return (this.driver as FileDriver | S3Driver).deleteRows(this.tableName, filter);
-    }
 
     const params: unknown[] = [];
     const sql = compileDelete(this.tableName, dbWhere, params);
@@ -298,11 +259,6 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
         const dbWhere = options?.where
           ? this.mapWhereToDb(options.where as WhereClause)
           : undefined;
-
-        if (this.isFileLikeDriver) {
-          const filter = dbWhere ? this.buildFileFilter(dbWhere) : undefined;
-          return (this.driver as FileDriver | S3Driver).countRows(this.tableName, filter);
-        }
 
         const params: unknown[] = [];
         let sql = `SELECT COUNT(*) as count FROM \`${this.tableName}\``;
@@ -352,10 +308,6 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
    */
   async truncate(): Promise<void> {
     this.cache.invalidateTable(this.tableName);
-    if (this.isFileLikeDriver) {
-      (this.driver as FileDriver | S3Driver).truncateTable(this.tableName);
-      return;
-    }
     await this.driver.execute(`DELETE FROM \`${this.tableName}\``);
   }
 
@@ -373,53 +325,6 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
       params,
     );
     return this.driver.query(sql, params);
-  }
-
-  private findFile(options?: QueryOptions<T>): T[] {
-    const fd = this.driver as FileDriver | S3Driver;
-    const filter = options?.where ? this.buildFileFilter(options.where as WhereClause) : undefined;
-    let rows = fd.findRows(this.tableName, filter) as T[];
-
-    if (options?.select) {
-      const selectSet = new Set(options.select as string[]);
-      rows = rows.map((row) => {
-        const filtered: Record<string, any> = {};
-        for (const key of selectSet) {
-          filtered[key as string] = row[key as string];
-        }
-        return filtered as T;
-      });
-    }
-
-    if (options?.orderBy) {
-      const entries = Object.entries(options.orderBy);
-      rows.sort((a, b) => {
-        for (const [col, dir] of entries) {
-          const av = a[col];
-          const bv = b[col];
-          if (av < bv) {
-            return dir === "asc" ? -1 : 1;
-          }
-          if (av > bv) {
-            return dir === "asc" ? 1 : -1;
-          }
-        }
-        return 0;
-      });
-    }
-
-    if (options?.skip) {
-      rows = rows.slice(options.skip);
-    }
-    if (options?.take) {
-      rows = rows.slice(0, options.take);
-    }
-
-    return rows;
-  }
-
-  private buildFileFilter(where: WhereClause): (row: Record<string, unknown>) => boolean {
-    return (row) => this.matchWhere(row, where);
   }
 
   private matchWhere(row: Record<string, unknown>, where: WhereClause): boolean {
@@ -584,12 +489,6 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
     ids: unknown[],
     options: QueryOptions,
   ): Promise<any[]> {
-    if (this.isFileLikeDriver) {
-      const fd = this.driver as FileDriver | S3Driver;
-      const filter = (row: Record<string, unknown>) => ids.includes(row[column]);
-      return fd.findRows(tableName, filter);
-    }
-
     const params: unknown[] = [];
     const placeholders = ids.map(() => "?").join(", ");
     params.push(...ids);
@@ -614,7 +513,7 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
     const cleaned: Record<string, unknown> = {};
     const dbColumnNames = new Set(this.meta.columns.map((c) => c.name));
     const codeKeys = new Set(Object.keys(this.columnMap));
-    const shouldSerialize = !this.isFileLikeDriver;
+    const shouldSerialize = true;
     for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
       if (codeKeys.has(key) || dbColumnNames.has(key)) {
         if (
@@ -725,8 +624,7 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
   }
 
   private mapRows(rows: Record<string, unknown>[]): T[] {
-    const shouldDeserialize =
-      (this.jsonCodeKeys.size > 0 || this.dateColumns.size > 0) && !this.isFileLikeDriver;
+    const shouldDeserialize = this.jsonCodeKeys.size > 0 || this.dateColumns.size > 0;
     if (!this.hasAliases && !shouldDeserialize) {
       return rows as T[];
     }
