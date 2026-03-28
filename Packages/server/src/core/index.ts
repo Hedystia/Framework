@@ -1,4 +1,3 @@
-import type { RouteDefinition } from "@hedystia/types";
 import createWrappedHandler from "../handlers/wrapped";
 import { Hedystia } from "../server";
 import type {
@@ -15,6 +14,7 @@ import type {
   PublishMethod,
   PublishOptions,
   RequestHandler,
+  RouteDefinition,
   RouteSchema,
   SubscriptionContext,
   SubscriptionHandler,

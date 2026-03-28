@@ -1,12 +1,52 @@
-import type { InferOutput, RouteDefinition, ValidationSchema } from "@hedystia/types";
+import type { StandardJSONSchemaV1, StandardSchemaV1 } from "@standard-schema/spec";
 
-export type {
-  InferInput,
-  InferOutput,
-  JSONValidationSchema,
-  RouteDefinition,
-  ValidationSchema,
-} from "@hedystia/types";
+export type ValidationSchema = StandardSchemaV1<any, any>;
+export type JSONValidationSchema = StandardJSONSchemaV1<any, any>;
+
+export type InferInput<T> = T extends { readonly inferred: any }
+  ? T extends StandardSchemaV1<infer I, any>
+    ? I
+    : any
+  : T extends StandardSchemaV1<infer I, any>
+    ? I
+    : T extends StandardJSONSchemaV1<infer I, any>
+      ? I
+      : any;
+
+export type InferOutput<T> = T extends { readonly inferred: infer O }
+  ? O
+  : T extends StandardSchemaV1<any, infer O>
+    ? O
+    : T extends StandardJSONSchemaV1<any, infer O>
+      ? O
+      : any;
+
+export type Infer<T> = InferOutput<T>;
+
+export interface RouteDefinition {
+  method: "GET" | "PATCH" | "POST" | "PUT" | "DELETE" | "WS" | "SUB";
+  path: string;
+  params?: unknown;
+  query?: unknown;
+  headers?: unknown;
+  body?: unknown;
+  response?: unknown;
+  data?: unknown;
+  error?: unknown;
+  message?: unknown;
+}
+
+export interface RouteInfo {
+  method: string;
+  path: string;
+  params?: unknown;
+  query?: unknown;
+  headers?: unknown;
+  body?: unknown;
+  response?: unknown;
+  data?: unknown;
+  error?: unknown;
+}
 
 export type CookieOptions = {
   domain?: string;
@@ -180,7 +220,7 @@ export type SubscriptionContext<
   ws: ServerWebSocket;
   rawHeaders: Record<string, string>;
   data: T["data"] extends ValidationSchema ? InferOutput<T["data"]> : any;
-  errorData: T["error"] extends ValidationSchema ? InferOutput<T["error"]> : undefined;
+  errorData: T["error"] extends ValidationSchema ? InferOutput<T["error"]> : any;
   sendData: (
     data: T["data"] extends ValidationSchema ? InferOutput<T["data"]> : any,
     targetId?: string,
@@ -197,7 +237,7 @@ export type SubscriptionContext<
     ) => void | Promise<void>,
   ) => void;
 } & Pick<M, EnabledMacros>;
-export type SubscriptionHandler = (ctx: SubscriptionContext) => any | Promise<any>;
+export type SubscriptionHandler = (ctx: SubscriptionContext<any, any, any>) => any | Promise<any>;
 
 export type SubscriptionLifecycleContext = {
   path: string;

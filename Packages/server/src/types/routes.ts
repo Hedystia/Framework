@@ -1,7 +1,6 @@
-import type { ValidationSchema } from "@hedystia/types";
-import type { InferOutput } from "./index";
+import type { InferOutput, ValidationSchema } from "./index";
 
-export type { RouteDefinition } from "@hedystia/types";
+export type { RouteDefinition } from "./index";
 
 export interface Assertion {
   toBe(expected: any): void;

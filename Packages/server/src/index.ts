@@ -22,5 +22,5 @@ export {
 };
 export default Hedystia;
 
-export type { Infer, InferInput, InferOutput, RouteDefinition, ValidationSchema } from "@hedystia/types";
+export type { Infer, InferInput, InferOutput, RouteDefinition, ValidationSchema } from "./types";
 export type { Assertion, TestContext } from "./types/routes";

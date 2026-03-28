@@ -1,5 +1,5 @@
 import { generateTypes } from "@hedystia/types";
-import type { RouteDefinition } from "@hedystia/types";
+import type { StandardSchemaV1 } from "@standard-schema/spec";
 import Core from "./core";
 import generateCorsHeaders from "./handlers/cors";
 import processGenericHandlers from "./handlers/generic";
@@ -9,6 +9,7 @@ import type {
   CorsOptions,
   MacroData,
   ResponseContext,
+  RouteDefinition,
   RouteSchema,
   ServerWebSocket,
   SubscriptionContext,
