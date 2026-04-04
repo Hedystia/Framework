@@ -1,7 +1,6 @@
 /**
  * Reactive signal system for @hedystia/view
  *
- * Based on SolidJS's reactive core with fine-grained dependency tracking.
  * Signals provide mutable state with automatic dependency tracking.
  */
 
