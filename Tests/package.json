@@ -17,18 +17,24 @@
     "@hedystia/swagger": "workspace:*",
     "@hedystia/types": "workspace:*",
     "@hedystia/validations": "workspace:*",
+    "@hedystia/view": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
     "@zod/mini": "4.0.0-beta.20250418T202744",
     "better-auth": "^1.2.7",
     "better-sqlite3": "^12.8.0",
     "express": "^5.1.0",
+    "happy-dom": "^20.8.9",
     "hedystia": "workspace:*",
     "mysql": "^2.18.1",
     "mysql2": "^3.19.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "reflect-metadata": "^0.2.2",
+    "solid-js": "^1.9.12",
     "sql.js": "^1.14.1",
     "sqlite": "^5.1.1",
     "sqlite3": "^6.0.1",
-    "typeorm": "0.3.22"
+    "typeorm": "0.3.22",
+    "vite": "^8.0.3"
   }
 }
