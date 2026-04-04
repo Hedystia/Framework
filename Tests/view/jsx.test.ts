@@ -63,7 +63,8 @@ describe("JSX", () => {
       const elements = jsxs("div", {
         children: [jsx("span", {}), jsx("span", {})],
       });
-      expect(elements.length).toBe(1);
+      expect(elements.tagName).toBe("DIV");
+      expect(elements.children.length).toBe(2);
     });
 
     it("should handle fragment", () => {
