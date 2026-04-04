@@ -100,7 +100,7 @@ export function jsxs<P>(
     applyChildren(element, children);
   }
 
-  return [element];
+  return element;
 }
 
 /**
