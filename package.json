@@ -41,6 +41,7 @@
     "./Packages/swagger",
     "./Packages/validations",
     "./Packages/database",
+    "./Packages/view",
     "./Tests"
   ]
 }
