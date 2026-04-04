@@ -18,6 +18,16 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+      - name: Setup NPM Auth
+        run: |
+          mkdir -p ~/.npm
+          echo "_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+      - name: Copy License to Packages
+        run: |
+          cp license.md LICENSE
+          for dir in Packages/*/; do
+            cp LICENSE "$dir"
+          done
       - name: Publish
         run: bun run release
         env:
