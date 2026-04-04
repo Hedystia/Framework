@@ -1,6 +1,6 @@
 {
   "name": "@hedystia/view",
-  "version": "0.0.1",
+  "version": "2.1.0",
   "description": "Reactive UI engine — fine-grained signals, no Virtual DOM, real DOM nodes",
   "type": "commonjs",
   "types": "./dist/index.d.cts",
