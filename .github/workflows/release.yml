@@ -19,9 +19,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup NPM Auth
-        run: |
-          mkdir -p ~/.npm
-          echo "_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
       - name: Copy License to Packages
         run: |
           cp license.md LICENSE
@@ -31,7 +29,6 @@ jobs:
       - name: Publish
         run: bun run release
         env:
-          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
       - name: Generate Changelog
         run: bunx changelogithub
