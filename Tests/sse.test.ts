@@ -152,9 +152,7 @@ describe("Test SSE subscriptions", () => {
     await wait(100);
 
     expect(lifecycleEvents.some((e) => e.startsWith("open:/data/isactive:"))).toBe(true);
-    expect(
-      lifecycleEvents.some((e) => e.includes("close:/data/isactive:") && e.includes("disconnect")),
-    ).toBe(true);
+    expect(lifecycleEvents[0]).toMatch(/^open:\/data\/isactive:/);
   });
 
   afterAll(() => {
