@@ -6,11 +6,13 @@
   },
   "scripts": {
     "dev": "bun --watch --no-clear-screen test",
-    "test": "bun test"
+    "test": "bun test && bunx --bun vitest database/better-auth.test.ts --run"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1014.0",
     "@hedystia/adapter": "workspace:*",
+    "@better-auth/test-utils": "^1.5.6",
+    "@hedystia/better-auth": "workspace:*",
     "@hedystia/better-auth-typeorm": "^0.2.0",
     "@hedystia/client": "workspace:*",
     "@hedystia/db": "workspace:*",
@@ -35,6 +37,7 @@
     "sqlite": "^5.1.1",
     "sqlite3": "^6.0.1",
     "typeorm": "0.3.22",
-    "vite": "^8.0.3"
+    "vite": "^7.3.1",
+    "vitest": "^4.1.1"
   }
 }
