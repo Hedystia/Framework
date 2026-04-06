@@ -15,6 +15,9 @@
     "noEmit": true,
     "noImplicitAny": false,
 
+    // Bun types
+    "types": ["bun"],
+
     // Best practices
     "strict": true,
     "skipLibCheck": true,
