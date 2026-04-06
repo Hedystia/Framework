@@ -1,0 +1,9 @@
+{
+  "extends": "../../../../tsconfig.json",
+  "compilerOptions": {
+    "noImplicitAny": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "@hedystia/view",
+    "lib": ["ESNext", "DOM"]
+  }
+}
