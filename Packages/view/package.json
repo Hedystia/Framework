@@ -42,10 +42,8 @@
     "dev": "tsdown --watch"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.3"
-  },
-  "peerDependencies": {
-    "typescript": ">= 6.0.0"
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
   },
   "repository": {
     "type": "git",
