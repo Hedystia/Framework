@@ -57,7 +57,7 @@ function formatDefaultValue(field: FieldAttribute): string | null {
 
   if (typeof field.defaultValue === "function") {
     if ((Array.isArray(field.type) ? field.type[0] : field.type) === "date") {
-      return ".default(() => new Date())";
+      return ".default(new Date())";
     }
     return null;
   }
@@ -358,6 +358,26 @@ export const hedystiaAdapter = (db: any, options?: HedystiaAdapterOptions) =>
         }
       }
 
+      async function disableForeignKeys() {
+        const driver = db.getDriver();
+        const dialect = driver.dialect;
+        if (dialect === "sqlite") {
+          await driver.execute("PRAGMA foreign_keys = OFF");
+        } else if (dialect === "mysql") {
+          await driver.execute("SET FOREIGN_KEY_CHECKS = 0");
+        }
+      }
+
+      async function enableForeignKeys() {
+        const driver = db.getDriver();
+        const dialect = driver.dialect;
+        if (dialect === "sqlite") {
+          await driver.execute("PRAGMA foreign_keys = ON");
+        } else if (dialect === "mysql") {
+          await driver.execute("SET FOREIGN_KEY_CHECKS = 1");
+        }
+      }
+
       function buildWhereSql(model: string, action: string, where?: CleanedWhere[] | Where[]) {
         const cleaned = where?.length
           ? transformWhereClause({ model, where: where as Where[], action: action as any })
@@ -482,14 +502,14 @@ export const hedystiaAdapter = (db: any, options?: HedystiaAdapterOptions) =>
           const placeholders = keys.map(() => "?").join(", ");
           const cols = keys.map((k) => `\`${k}\``).join(", ");
 
-          await driver.execute("PRAGMA foreign_keys = OFF");
+          await disableForeignKeys();
           try {
             await driver.execute(
               `INSERT INTO \`${tableName}\` (${cols}) VALUES (${placeholders})`,
               values,
             );
           } finally {
-            await driver.execute("PRAGMA foreign_keys = ON");
+            await enableForeignKeys();
           }
 
           const rows = await driver.query(`SELECT * FROM \`${tableName}\` WHERE \`id\` = ?`, [
@@ -624,10 +644,15 @@ export const hedystiaAdapter = (db: any, options?: HedystiaAdapterOptions) =>
             return v;
           });
 
-          await driver.execute(`UPDATE \`${tableName}\` SET ${setClauses} WHERE \`id\` = ?`, [
-            ...setValues,
-            existing[0].id,
-          ]);
+          await disableForeignKeys();
+          try {
+            await driver.execute(`UPDATE \`${tableName}\` SET ${setClauses} WHERE \`id\` = ?`, [
+              ...setValues,
+              existing[0].id,
+            ]);
+          } finally {
+            await enableForeignKeys();
+          }
 
           const result = await driver.query(`SELECT * FROM \`${tableName}\` WHERE \`id\` = ?`, [
             existing[0].id,
@@ -670,11 +695,16 @@ export const hedystiaAdapter = (db: any, options?: HedystiaAdapterOptions) =>
 
           const { sql: whereSql, params: whereParams } = buildWhereSql(model, "updateMany", where);
 
-          const result = await driver.execute(
-            `UPDATE \`${tableName}\` SET ${setClauses}${whereSql}`,
-            [...setValues, ...whereParams],
-          );
-          return result?.changes || 0;
+          await disableForeignKeys();
+          try {
+            const result = await driver.execute(
+              `UPDATE \`${tableName}\` SET ${setClauses}${whereSql}`,
+              [...setValues, ...whereParams],
+            );
+            return result?.changes || 0;
+          } finally {
+            await enableForeignKeys();
+          }
         },
 
         async delete({ model, where }) {
@@ -683,7 +713,12 @@ export const hedystiaAdapter = (db: any, options?: HedystiaAdapterOptions) =>
 
           const { sql: whereSql, params } = buildWhereSql(model, "delete", where);
 
-          await driver.execute(`DELETE FROM \`${tableName}\`${whereSql}`, params);
+          await disableForeignKeys();
+          try {
+            await driver.execute(`DELETE FROM \`${tableName}\`${whereSql}`, params);
+          } finally {
+            await enableForeignKeys();
+          }
         },
 
         async deleteMany({ model, where }) {
@@ -692,8 +727,13 @@ export const hedystiaAdapter = (db: any, options?: HedystiaAdapterOptions) =>
 
           const { sql: whereSql, params } = buildWhereSql(model, "deleteMany", where);
 
-          const result = await driver.execute(`DELETE FROM \`${tableName}\`${whereSql}`, params);
-          return result?.changes || 0;
+          await disableForeignKeys();
+          try {
+            const result = await driver.execute(`DELETE FROM \`${tableName}\`${whereSql}`, params);
+            return result?.changes || 0;
+          } finally {
+            await enableForeignKeys();
+          }
         },
 
         async count({ model, where }) {
