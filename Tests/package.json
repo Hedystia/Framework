@@ -6,7 +6,7 @@
   },
   "scripts": {
     "dev": "bun --watch --no-clear-screen test",
-    "test": "bun test && bunx --bun vitest database/better-auth.test.ts --run"
+    "test": "bun test --path-ignore-patterns 'database/better-auth.test.ts' && bunx --bun vitest database/better-auth.test.ts --run"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1014.0",
