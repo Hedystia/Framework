@@ -40,7 +40,7 @@
     "bump": "bumpp -r",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "release": "rm bun.lock && bun install && turbo run build && turbo run release:pkg"
+    "release": "turbo run release:pkg"
   },
   "repository": {
     "type": "git",
