@@ -140,7 +140,7 @@ export function Fragment(props: {
 }
 
 /** @internal - Eager effect for DOM side effects (unlike memo which is lazy) */
-function effect(fn: () => void): void {
+export function effect(fn: () => void): void {
   const computation: Computation<any> = {
     _fn: () => {
       fn();
