@@ -1,3 +1,2 @@
 [test]
 preload = "./view/setup.ts"
-pathIgnorePatterns = "**/better-auth.test.ts"
