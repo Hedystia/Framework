@@ -12,12 +12,14 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
       - name: Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
       - name: Setup NPM Auth
         run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
       - name: Copy License to Packages
