@@ -45,7 +45,11 @@ export function sig<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
 /**
  * Read the value of a signal, registering a dependency if inside a reactive context
  */
-export function val<T>(signal: Signal<T> | Computed<T>): T {
+export function val<T>(signal: Signal<T> | Computed<T> | (() => T)): T {
+  // Handle accessor function (used in SSR For/Index children)
+  if (typeof signal === "function" && !("_value" in signal)) {
+    return (signal as () => T)();
+  }
   if (Listener !== null) {
     if (signal._observers === null) {
       signal._observers = [];

@@ -150,6 +150,10 @@ function renderElement(element: unknown): string {
   if (typeof HTMLElement !== "undefined" && element instanceof HTMLElement) {
     return element.outerHTML;
   }
+  // Handle Comment nodes (Show, For, Index, Switch, etc return comment nodes)
+  if (typeof Comment !== "undefined" && element instanceof Comment) {
+    return "";
+  }
   // Handle SSR elements (server)
   if (isSSRElement(element)) {
     const { type, props } = element;
@@ -199,17 +203,36 @@ function renderElement(element: unknown): string {
     }
     return `<${tagName}${attrsStr}>${innerHTML}</${tagName}>`;
   }
+  // Handle Match marker objects (from SSR flow components)
+  if (typeof element === "object" && element !== null) {
+    const obj = element as Record<string, unknown>;
+    if ("_matchWhen" in obj) {
+      const when = obj._matchWhen as (() => unknown) | unknown;
+      const condition = typeof when === "function" ? when() : when;
+      if (condition) {
+        return renderElement(obj._matchChildren);
+      }
+      return "";
+    }
+    if ("nodeType" in obj && obj.nodeType === 8) {
+      // Comment node representation in SSR
+      return "";
+    }
+  }
   return "";
 }
 
 /**
  * Render a component to a string (for SSR)
- * @param {Component<{}>} component - The component to render
+ * @param {Component<{}> | unknown} input - The component to render, or a JSX element
  * @returns {string} The rendered HTML string
  * @example
  * const html = renderToString(App);
  */
-export function renderToString(component: Component<{}>): string {
-  const result = component({});
-  return renderElement(result);
+export function renderToString(input: Component<{}> | unknown): string {
+  if (typeof input === "function") {
+    const result = input({});
+    return renderElement(result);
+  }
+  return renderElement(input);
 }

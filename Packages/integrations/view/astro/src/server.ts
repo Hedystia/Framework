@@ -22,9 +22,11 @@ async function check(
   }
 
   try {
-    const html = renderToString(() => Component(_props));
-    return typeof html === "string";
-  } catch {
+    const result = Component(_props);
+    const html = renderToString(result);
+    return typeof html === "string" && html.length > 0;
+  } catch (e) {
+    console.error("[@hedystia/astro] check failed:", e);
     return false;
   }
 }
@@ -55,7 +57,7 @@ async function renderToStaticMarkup(
     children: childrenHtml,
   };
 
-  const componentHtml = renderToString(() => Component(newProps));
+  const componentHtml = renderToString(Component(newProps));
 
   return {
     attrs: {

@@ -9,9 +9,26 @@ import { createRoot, memo, sig, onCleanup as signalOnCleanup, val } from "../sig
 import type { Accessor } from "../types";
 
 /**
+ * Check if running in browser
+ */
+const isBrowser = typeof document !== "undefined";
+
+/**
  * Conditionally render children based on a condition
  */
 export function Show<T>(props: { when: T | Accessor<T>; fallback?: any; children: any }): any {
+  // SSR mode: evaluate condition and return appropriate content
+  if (!isBrowser) {
+    const cond = typeof props.when === "function" ? (props.when as Accessor<T>)() : props.when;
+    if (cond && props.children) {
+      return typeof props.children === "function" ? props.children() : props.children;
+    }
+    if (props.fallback) {
+      return typeof props.fallback === "function" ? props.fallback() : props.fallback;
+    }
+    return "";
+  }
+
   const container = document.createComment("show");
   let rendered: HTMLElement | null = null;
   let fallbackNode: HTMLElement | null = null;
@@ -90,6 +107,20 @@ export function For<T>(props: {
   key?: (item: T) => string | number;
   children: (item: Accessor<T>, index: Accessor<number>) => any;
 }): any {
+  // SSR mode: render all items
+  if (!isBrowser) {
+    const items = typeof props.each === "function" ? (props.each as Accessor<T[]>)() : props.each;
+    if (!Array.isArray(items) || items.length === 0) {
+      return "";
+    }
+    return items.map((item, i) => {
+      // Accessors that return the value directly (compatible with val())
+      const itemAccessor = () => item;
+      const indexAccessor = () => i;
+      return props.children(itemAccessor, indexAccessor);
+    });
+  }
+
   const container = document.createComment("for");
   const nodes = new Map<string | number, HTMLElement>();
   const order: Array<string | number> = [];
@@ -177,6 +208,18 @@ export function Index<T>(props: {
   each: T[] | Accessor<T[]>;
   children: (item: Accessor<T>, index: number) => any;
 }): any {
+  // SSR mode: render all items by index
+  if (!isBrowser) {
+    const items = typeof props.each === "function" ? (props.each as Accessor<T[]>)() : props.each;
+    if (!Array.isArray(items) || items.length === 0) {
+      return "";
+    }
+    return items.map((item, i) => {
+      const itemAccessor = () => item;
+      return props.children(itemAccessor, i);
+    });
+  }
+
   const container = document.createComment("index");
   const nodes: Array<HTMLElement | null> = [];
 
@@ -231,6 +274,23 @@ export function Index<T>(props: {
  * Switch component for mutually exclusive conditions
  */
 export function Switch(props: { fallback?: any; children: any }): any {
+  // SSR mode: evaluate matches
+  if (!isBrowser) {
+    const children = props.children;
+    if (Array.isArray(children)) {
+      for (const child of children) {
+        if (child && typeof child === "object" && "_matchWhen" in child) {
+          const when = (child as any)._matchWhen;
+          const condition = typeof when === "function" ? when() : when;
+          if (condition) {
+            return (child as any)._matchChildren;
+          }
+        }
+      }
+    }
+    return props.fallback || "";
+  }
+
   const container = document.createComment("switch");
   let rendered: HTMLElement | null = null;
 
@@ -289,6 +349,14 @@ export function Switch(props: { fallback?: any; children: any }): any {
  * Match component for use inside Switch
  */
 export function Match<T>(props: { when: T | Accessor<T>; children: any }): any {
+  // SSR mode: return marker object
+  if (!isBrowser) {
+    const marker: Record<string, unknown> = {};
+    marker._matchWhen = typeof props.when === "function" ? props.when : () => props.when;
+    marker._matchChildren = props.children;
+    return marker;
+  }
+
   const marker = document.createComment("match");
   (marker as any)._matchWhen = typeof props.when === "function" ? props.when : () => props.when;
   (marker as any)._matchChildren = props.children;
@@ -299,6 +367,14 @@ export function Match<T>(props: { when: T | Accessor<T>; children: any }): any {
  * Portal component for rendering outside the current DOM hierarchy
  */
 export function Portal(props: { mount?: HTMLElement; children: any }): any {
+  // SSR mode: just render children inline
+  if (!isBrowser) {
+    if (typeof props.children === "function") {
+      return props.children();
+    }
+    return props.children;
+  }
+
   const container = document.createComment("portal");
   const mountPoint = props.mount || document.body;
   let rendered: HTMLElement | null = null;
