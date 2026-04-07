@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
       - name: Checkout
         uses: actions/checkout@v6
       - name: Install dependencies
