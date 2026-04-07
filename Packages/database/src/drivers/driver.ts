@@ -1,10 +1,11 @@
-import type { ColumnMetadata, DatabaseDriver, TableMetadata } from "../types";
+import type { ColumnMetadata, DatabaseDriver, DatabaseType, TableMetadata } from "../types";
 
 /**
  * Abstract base class for database drivers
  */
 export abstract class BaseDriver implements DatabaseDriver {
   protected connected = false;
+  abstract readonly dialect: DatabaseType;
 
   /**
    * Connect to the database

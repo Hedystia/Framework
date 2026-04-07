@@ -16,6 +16,7 @@ interface FileTableData {
  * File-based database driver using JSON files for storage
  */
 export class FileDriver extends BaseDriver {
+  readonly dialect = "file" as const;
   private config: FileConnectionConfig;
   private data = new Map<string, FileTableData>();
 

@@ -23,6 +23,7 @@ interface MySQLConnection {
  * MySQL database driver supporting mysql2 and mysql
  */
 export class MySQLDriver extends BaseDriver {
+  readonly dialect = "mysql" as const;
   private pool: MySQLPool | null = null;
   private config: MySQLConnectionConfig;
   private provider?: "mysql" | "mysql2";

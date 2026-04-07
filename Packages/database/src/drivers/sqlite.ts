@@ -21,6 +21,7 @@ interface SQLiteStatement {
  * SQLite database driver supporting multiple libraries (better-sqlite3, sqlite3, sql.js, bun:sqlite)
  */
 export class SQLiteDriver extends BaseDriver {
+  readonly dialect = "sqlite" as const;
   private db: SQLiteAdapter | null = null;
   private config: SQLiteConnectionConfig;
   private provider?: "better-sqlite3" | "sqlite3" | "sql.js" | "bun:sqlite";

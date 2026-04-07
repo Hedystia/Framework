@@ -14,6 +14,7 @@ interface S3TableData {
  * S3-based database driver using JSON objects for storage
  */
 export class S3Driver extends BaseDriver {
+  readonly dialect = "s3" as const;
   private config: S3ConnectionConfig;
   private data = new Map<string, S3TableData>();
   private client: any = null;
