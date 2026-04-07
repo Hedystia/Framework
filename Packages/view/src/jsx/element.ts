@@ -21,6 +21,11 @@ export type FunctionComponent<P = {}> = (props: P & { children?: JSX.Element }) 
 export type ElementType<P = {}> = string | FunctionComponent<P>;
 
 /**
+ * Check if running in browser environment
+ */
+const isBrowser = typeof document !== "undefined";
+
+/**
  * Create a real DOM element from JSX props
  * @param {ElementType} type - The element type (string or function component)
  * @param {Record<string, any>} props - The element props
@@ -36,6 +41,11 @@ export function jsx<P>(type: ElementType<P>, props: P & { children?: JSX.Element
   // Handle function components
   if (typeof type === "function") {
     return type({ children, ...rest } as P & { children?: JSX.Element });
+  }
+
+  // SSR mode: return serializable element representation
+  if (!isBrowser) {
+    return { type, props: { children, ...rest }, __isSSR: true } as unknown as JSX.Element;
   }
 
   // Handle intrinsic elements (strings)
@@ -83,6 +93,11 @@ export function jsxs<P>(
       return flattenChildren(children);
     }
     return children ?? null;
+  }
+
+  // SSR mode
+  if (!isBrowser) {
+    return { type, props: { children, ...rest }, __isSSR: true } as unknown as JSX.Element;
   }
 
   // Handle intrinsic elements (strings)
