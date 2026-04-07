@@ -76,6 +76,8 @@ export function compileColumnDef(col: ColumnMetadata, dialect: DatabaseType): st
       parts.push(`DEFAULT '${col.defaultValue}'`);
     } else if (col.defaultValue === null) {
       parts.push("DEFAULT NULL");
+    } else if (col.defaultValue instanceof Date) {
+      parts.push(`DEFAULT '${col.defaultValue.toISOString()}'`);
     } else {
       parts.push(`DEFAULT ${col.defaultValue}`);
     }
