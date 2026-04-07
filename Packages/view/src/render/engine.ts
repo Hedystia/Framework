@@ -53,6 +53,156 @@ export function mount(component: Component<{}>, target: HTMLElement): ViewApp {
 }
 
 /**
+ * Void elements that don't need closing tags
+ */
+const VOID_ELEMENTS = new Set([
+  "area",
+  "base",
+  "br",
+  "col",
+  "embed",
+  "hr",
+  "img",
+  "input",
+  "link",
+  "meta",
+  "param",
+  "source",
+  "track",
+  "wbr",
+]);
+
+/**
+ * Escape HTML special characters
+ */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * Serialize a value to an HTML attribute string
+ */
+function serializeAttrValue(key: string, value: unknown): string | null {
+  if (value === undefined || value === null || typeof value === "function") {
+    return null;
+  }
+  // Handle style objects
+  if (key === "style" && typeof value === "object" && value !== null) {
+    return Object.entries(value)
+      .map(([k, v]) => `${k}:${v}`)
+      .join(";");
+  }
+  if (typeof value === "boolean") {
+    return value ? "" : null;
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+
+/**
+ * SSR element representation
+ */
+interface SSRElement {
+  type: unknown;
+  props: Record<string, any>;
+  __isSSR: true;
+}
+
+/**
+ * Check if value is an SSR element
+ */
+function isSSRElement(el: unknown): el is SSRElement {
+  return typeof el === "object" && el !== null && "__isSSR" in el;
+}
+
+/**
+ * Render a JSX element to HTML string (handles both DOM elements and SSR elements)
+ */
+function renderElement(element: unknown): string {
+  if (element === null || element === undefined) {
+    return "";
+  }
+  if (typeof element === "string") {
+    return escapeHtml(element);
+  }
+  if (typeof element === "number") {
+    return String(element);
+  }
+  if (typeof element === "boolean") {
+    return "";
+  }
+  // Handle functions (accessors/signals) - call them and render result
+  if (typeof element === "function") {
+    const result = element();
+    return renderElement(result);
+  }
+  // Handle arrays (fragments)
+  if (Array.isArray(element)) {
+    return element.map((child) => renderElement(child)).join("");
+  }
+  // Handle DOM elements (browser)
+  if (typeof HTMLElement !== "undefined" && element instanceof HTMLElement) {
+    return element.outerHTML;
+  }
+  // Handle SSR elements (server)
+  if (isSSRElement(element)) {
+    const { type, props } = element;
+    if (typeof type === "function") {
+      // It's a component function, call it
+      const result = type(props);
+      return renderElement(result);
+    }
+    // Intrinsic element (string tag)
+    if (typeof type !== "string") {
+      return "";
+    }
+    const tagName = type;
+    const attrs: string[] = [];
+    let innerHTML = "";
+
+    for (const [key, value] of Object.entries(props || {})) {
+      if (key === "children") {
+        if (typeof value === "string") {
+          innerHTML = escapeHtml(value);
+        } else if (typeof value === "number" || typeof value === "boolean") {
+          innerHTML = value ? String(value) : "";
+        } else {
+          innerHTML = renderElement(value);
+        }
+        continue;
+      }
+      if (key === "dangerouslySetInnerHTML") {
+        innerHTML = value?.__html || "";
+        continue;
+      }
+      const attrName = key === "className" ? "class" : key === "htmlFor" ? "for" : key;
+      const serialized = serializeAttrValue(key, value);
+      if (serialized === null) {
+        continue;
+      }
+      if (typeof value === "boolean" && value) {
+        attrs.push(attrName);
+      } else {
+        attrs.push(`${attrName}="${escapeHtml(serialized)}"`);
+      }
+    }
+
+    const attrsStr = attrs.length > 0 ? ` ${attrs.join(" ")}` : "";
+    if (VOID_ELEMENTS.has(tagName)) {
+      return `<${tagName}${attrsStr}>`;
+    }
+    return `<${tagName}${attrsStr}>${innerHTML}</${tagName}>`;
+  }
+  return "";
+}
+
+/**
  * Render a component to a string (for SSR)
  * @param {Component<{}>} component - The component to render
  * @returns {string} The rendered HTML string
@@ -60,9 +210,6 @@ export function mount(component: Component<{}>, target: HTMLElement): ViewApp {
  * const html = renderToString(App);
  */
 export function renderToString(component: Component<{}>): string {
-  const element = component({});
-  if (element instanceof HTMLElement) {
-    return element.outerHTML;
-  }
-  return "";
+  const result = component({});
+  return renderElement(result);
 }
