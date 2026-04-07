@@ -4,14 +4,43 @@
  * Provides Show, For, Index, Switch, Match, Portal, Suspense, ErrorBoundary.
  */
 
+import { effect } from "../jsx/element";
 import { tick } from "../scheduler";
-import { createRoot, memo, sig, onCleanup as signalOnCleanup, val } from "../signal";
+import { createRoot, sig, onCleanup as signalOnCleanup, val } from "../signal";
 import type { Accessor } from "../types";
 
 /**
  * Check if running in browser
  */
 const isBrowser = typeof document !== "undefined";
+
+/** @internal - Insert a node after a marker, deferring if marker has no parent yet */
+function insertAfter(marker: Comment, node: Node): void {
+  if (marker.parentNode) {
+    marker.parentNode.insertBefore(node, marker.nextSibling);
+  } else {
+    queueMicrotask(() => {
+      if (node.parentNode === null && marker.parentNode) {
+        marker.parentNode.insertBefore(node, marker.nextSibling);
+      }
+    });
+  }
+}
+
+/** @internal - Remove a node from the DOM if attached */
+function removeNode(node: Node | null): void {
+  if (node?.parentNode) {
+    node.parentNode.removeChild(node);
+  }
+}
+
+/** @internal - Create a DOM node from children prop */
+function resolveContent(content: any): HTMLElement | null {
+  if (content == null) {
+    return null;
+  }
+  return typeof content === "function" ? (content() as HTMLElement) : (content as HTMLElement);
+}
 
 /**
  * Conditionally render children based on a condition
@@ -30,71 +59,24 @@ export function Show<T>(props: { when: T | Accessor<T>; fallback?: any; children
   }
 
   const container = document.createComment("show");
-  let rendered: HTMLElement | null = null;
-  let fallbackNode: HTMLElement | null = null;
-  const _initialized = false;
+  let currentNode: Node | null = null;
 
-  const getCondition = (): any => {
-    return typeof props.when === "function" ? (props.when as Accessor<T>)() : props.when;
-  };
+  effect(() => {
+    const cond = typeof props.when === "function" ? (props.when as Accessor<T>)() : props.when;
 
-  const runEffect = () => {
-    const cond = getCondition();
+    removeNode(currentNode);
+    currentNode = null;
+
     if (cond) {
-      if (fallbackNode) {
-        fallbackNode.parentNode?.removeChild(fallbackNode);
-        fallbackNode = null;
-      }
-      if (!rendered && props.children) {
-        rendered =
-          typeof props.children === "function"
-            ? (props.children() as HTMLElement)
-            : (props.children as HTMLElement);
-        if (rendered && !rendered.parentNode) {
-          // Defer insertion until container has a parent
-          if (container.parentNode) {
-            container.parentNode.insertBefore(rendered, container.nextSibling);
-          } else {
-            queueMicrotask(() => {
-              if (rendered && !rendered.parentNode && container.parentNode) {
-                container.parentNode.insertBefore(rendered, container.nextSibling);
-              }
-            });
-          }
-        }
-      }
-    } else {
-      if (rendered) {
-        rendered.parentNode?.removeChild(rendered);
-        rendered = null;
-      }
-      if (props.fallback && !fallbackNode) {
-        fallbackNode =
-          typeof props.fallback === "function"
-            ? (props.fallback() as HTMLElement)
-            : (props.fallback as HTMLElement);
-        if (fallbackNode && !fallbackNode.parentNode) {
-          if (container.parentNode) {
-            container.parentNode.insertBefore(fallbackNode, container.nextSibling);
-          } else {
-            queueMicrotask(() => {
-              if (fallbackNode && !fallbackNode.parentNode && container.parentNode) {
-                container.parentNode.insertBefore(fallbackNode, container.nextSibling);
-              }
-            });
-          }
-        }
-      }
+      currentNode = resolveContent(props.children);
+    } else if (props.fallback) {
+      currentNode = resolveContent(props.fallback);
     }
-  };
 
-  const tracker = memo(() => {
-    runEffect();
-    return true;
+    if (currentNode) {
+      insertAfter(container, currentNode);
+    }
   });
-
-  // Run effect synchronously
-  val(tracker);
 
   return container;
 }
@@ -114,7 +96,6 @@ export function For<T>(props: {
       return "";
     }
     return items.map((item, i) => {
-      // Accessors that return the value directly (compatible with val())
       const itemAccessor = () => item;
       const indexAccessor = () => i;
       return props.children(itemAccessor, indexAccessor);
@@ -122,81 +103,48 @@ export function For<T>(props: {
   }
 
   const container = document.createComment("for");
-  const nodes = new Map<string | number, HTMLElement>();
-  const order: Array<string | number> = [];
+  let currentNodes: Node[] = [];
 
-  const getEach = (): T[] => {
-    return typeof props.each === "function" ? (props.each as Accessor<T[]>)() : props.each;
-  };
+  effect(() => {
+    const items = typeof props.each === "function" ? (props.each as Accessor<T[]>)() : props.each;
 
-  const runEffect = () => {
-    const items = getEach();
-    const newOrder: Array<string | number> = [];
-    const newNodes = new Map<string | number, HTMLElement>();
+    // Remove old nodes
+    for (const node of currentNodes) {
+      removeNode(node);
+    }
+    currentNodes = [];
 
+    // Create new nodes
     for (let i = 0; i < items.length; i++) {
       const item = items[i]!;
-      const key = props.key ? props.key(item) : i;
-      newOrder.push(key);
-
-      if (nodes.has(key)) {
-        newNodes.set(key, nodes.get(key)!);
-      } else {
-        const itemSig = sig(item);
-        const indexSig = sig(i);
-        const child = props.children(
-          () => val(itemSig),
-          () => val(indexSig),
-        ) as HTMLElement;
-        newNodes.set(key, child);
-      }
+      const itemSig = sig(item);
+      const indexSig = sig(i);
+      const child = props.children(
+        () => val(itemSig),
+        () => val(indexSig),
+      ) as Node;
+      currentNodes.push(child);
     }
 
-    for (const key of order) {
-      if (!newNodes.has(key)) {
-        const node = nodes.get(key);
-        if (node?.parentNode) {
-          node.parentNode.removeChild(node);
-        }
-      }
-    }
-
-    const insertNodes = () => {
+    // Insert all nodes
+    const doInsert = () => {
       if (container.parentNode) {
-        let prevSibling = container.nextSibling;
-        for (const key of newOrder) {
-          const node = newNodes.get(key)!;
-          if (!nodes.has(key) && !node.parentNode) {
-            container.parentNode!.insertBefore(node, prevSibling);
-          } else if (prevSibling !== node) {
-            container.parentNode!.insertBefore(node, prevSibling);
+        let ref = container as Node;
+        for (const node of currentNodes) {
+          if (!node.parentNode) {
+            container.parentNode!.insertBefore(node, ref.nextSibling);
           }
-          prevSibling = node.nextSibling;
+          ref = node;
         }
       }
     };
 
     if (container.parentNode) {
-      insertNodes();
+      doInsert();
     } else {
-      queueMicrotask(insertNodes);
+      queueMicrotask(doInsert);
     }
-
-    order.length = 0;
-    order.push(...newOrder);
-    nodes.clear();
-    for (const [k, v] of newNodes) {
-      nodes.set(k, v);
-    }
-  };
-
-  const tracker = memo(() => {
-    runEffect();
-    return true;
   });
-
-  // Run effect synchronously
-  val(tracker);
 
   return container;
 }
@@ -221,51 +169,43 @@ export function Index<T>(props: {
   }
 
   const container = document.createComment("index");
-  const nodes: Array<HTMLElement | null> = [];
+  let currentNodes: Node[] = [];
 
-  const getEach = (): T[] => {
-    return typeof props.each === "function" ? (props.each as Accessor<T[]>)() : props.each;
-  };
+  effect(() => {
+    const items = typeof props.each === "function" ? (props.each as Accessor<T[]>)() : props.each;
 
-  const runEffect = () => {
-    const items = getEach();
+    // Remove old nodes
+    for (const node of currentNodes) {
+      removeNode(node);
+    }
+    currentNodes = [];
 
-    while (nodes.length > items.length) {
-      const node = nodes.pop();
-      if (node?.parentNode) {
-        node.parentNode.removeChild(node);
-      }
+    // Create new nodes
+    for (let i = 0; i < items.length; i++) {
+      const itemSig = sig(items[i]!);
+      const child = props.children(() => val(itemSig), i) as Node;
+      currentNodes.push(child);
     }
 
-    const insertNodes = () => {
+    // Insert all nodes
+    const doInsert = () => {
       if (container.parentNode) {
-        for (let i = 0; i < items.length; i++) {
-          if (nodes[i] === undefined) {
-            const itemSig = sig(items[i]!);
-            const child = props.children(() => val(itemSig), i) as HTMLElement;
-            nodes[i] = child;
-            if (!child.parentNode) {
-              container.parentNode.insertBefore(child, container.nextSibling);
-            }
+        let ref = container as Node;
+        for (const node of currentNodes) {
+          if (!node.parentNode) {
+            container.parentNode!.insertBefore(node, ref.nextSibling);
           }
+          ref = node;
         }
       }
     };
 
     if (container.parentNode) {
-      insertNodes();
+      doInsert();
     } else {
-      queueMicrotask(insertNodes);
+      queueMicrotask(doInsert);
     }
-  };
-
-  const tracker = memo(() => {
-    runEffect();
-    return true;
   });
-
-  // Run effect synchronously
-  val(tracker);
 
   return container;
 }
@@ -292,55 +232,39 @@ export function Switch(props: { fallback?: any; children: any }): any {
   }
 
   const container = document.createComment("switch");
-  let rendered: HTMLElement | null = null;
+  let currentNode: Node | null = null;
 
-  const evaluate = (): any => {
+  effect(() => {
     const children = props.children;
+    let matched: any = null;
+
     if (Array.isArray(children)) {
       for (const child of children) {
         if (child && (child as any)._matchWhen) {
           const when = (child as any)._matchWhen;
           const condition = typeof when === "function" ? when() : when;
           if (condition) {
-            return (child as any)._matchChildren;
+            matched = (child as any)._matchChildren;
+            break;
           }
         }
       }
     }
-    return props.fallback;
-  };
 
-  const runEffect = () => {
-    const content = evaluate();
-    if (rendered) {
-      rendered.parentNode?.removeChild(rendered);
-      rendered = null;
+    if (!matched) {
+      matched = props.fallback;
     }
-    if (content) {
-      rendered =
-        typeof content === "function" ? (content() as HTMLElement) : (content as HTMLElement);
-      if (rendered && !rendered.parentNode) {
-        const insertNode = () => {
-          if (rendered && container.parentNode && !rendered.parentNode) {
-            container.parentNode.insertBefore(rendered, container.nextSibling);
-          }
-        };
-        if (container.parentNode) {
-          insertNode();
-        } else {
-          queueMicrotask(insertNode);
-        }
+
+    removeNode(currentNode);
+    currentNode = null;
+
+    if (matched) {
+      currentNode = resolveContent(matched);
+      if (currentNode) {
+        insertAfter(container, currentNode);
       }
     }
-  };
-
-  const tracker = memo(() => {
-    runEffect();
-    return true;
   });
-
-  // Run effect synchronously
-  val(tracker);
 
   return container;
 }
