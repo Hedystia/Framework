@@ -28,6 +28,12 @@ jobs:
           for dir in Packages/*/; do
             cp LICENSE "$dir"
           done
+      - name: Remove bun.lock
+        run: rm bun.lock
+      - name: Install dependencies
+        run: bun install
+      - name: Build
+        run: bun run build
       - name: Publish
         run: bun run release
         env:
