@@ -61,4 +61,4 @@ export type {
   StyleProps,
 } from "./types";
 // Watch
-export { on, once } from "./watch";
+export { on, once, watch, watchAll } from "./watch";
