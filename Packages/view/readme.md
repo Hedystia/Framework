@@ -142,7 +142,7 @@ reset(app, { user: { name: "guest", role: "viewer" }, theme: "dark", count: 0 })
 ## Effects
 
 ```tsx
-import { on, once } from "@hedystia/view";
+import { on, once, watch, watchAll } from "@hedystia/view";
 
 // Runs whenever count changes
 const dispose = on(
@@ -160,6 +160,16 @@ once(() => val(count), (value) => {
 
 // Stop watching
 dispose();
+
+// Concise shorthand — pass a signal directly
+watch(count, (value, prev) => {
+  console.log(`${prev} → ${value}`);
+});
+
+// Track multiple signals at once
+watchAll([a, b], ([aVal, bVal], [prevA, prevB]) => {
+  console.log(aVal, bVal);
+});
 ```
 
 ## Data Fetching
@@ -380,7 +390,7 @@ const html = renderToString(App);
 |----------|-----------|
 | **Signals** | `sig`, `val`, `set`, `update`, `memo`, `batch`, `peek`, `untrack` |
 | **Store** | `store`, `patch`, `reset`, `snap` |
-| **Effects** | `on`, `once` |
+| **Effects** | `on`, `once`, `watch`, `watchAll` |
 | **Lifecycle** | `onMount`, `onCleanup`, `onReady` |
 | **Context** | `ctx`, `use` |
 | **Fetch** | `load`, `action` |
