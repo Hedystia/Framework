@@ -1,10 +1,10 @@
 <div align="center">
   <p>
-    <strong>🚀 Hedystia Framework</strong>
+    <strong>🚀 Hedystia</strong>
   </p>
 
   <p>
-    <strong>Next-gen TypeScript framework for building type-safe APIs at lightspeed! ⚡</strong>
+    <strong>A complete TypeScript ecosystem — server, ORM, reactive UI, validations, and more. ⚡</strong>
   </p>
 
   <p>
@@ -16,24 +16,34 @@
   </p>
 </div>
 
-## 🌟 Superpowers
+## 📦 Packages
 
-- 🌐 **Multi-runtime support** - Bun (default), Deno, Node.js, Vercel, Cloudflare Workers, Fastly Compute, Lambda, etc.
-- 🔒 **End-to-end type safety** - From params to response, full TypeScript integration
-- ⚡ **Bun-native performance** - Built for Bun runtime with native validation
-- 🧩 **Client integration** - Auto-generated type-safe HTTP client
-- 🛡️ **Validation built-in** - Zod integration for runtime safety
-- 🔌 **Extensible architecture** - Middleware, hooks and macros system
-- 📝 **Standard Schema** - Compatibility with the standard schema so you can use it with Zod, Arktype, etc.
+| Package | npm | Description |
+|---------|-----|-------------|
+| [`hedystia`](./Packages/server) | [![npm](https://img.shields.io/npm/v/hedystia.svg?style=flat-square)](https://www.npmjs.com/package/hedystia) | Core HTTP server framework with full type safety, WebSocket, SSE, middleware, hooks and macros |
+| [`@hedystia/validations`](./Packages/validations) | [![npm](https://img.shields.io/npm/v/@hedystia/validations.svg?style=flat-square)](https://www.npmjs.com/package/@hedystia/validations) | Schema validation system — Standard Schema v1 compliant, interoperable with Zod, ArkType, etc. |
+| [`@hedystia/db`](./Packages/database) | [![npm](https://img.shields.io/npm/v/@hedystia/db.svg?style=flat-square)](https://www.npmjs.com/package/@hedystia/db) | Type-safe ORM with schema-first design, migrations, caching, and multi-driver support (MySQL, SQLite, S3) |
+| [`@hedystia/view`](./Packages/view) | [![npm](https://img.shields.io/npm/v/@hedystia/view.svg?style=flat-square)](https://www.npmjs.com/package/@hedystia/view) | Reactive UI engine — fine-grained signals, no Virtual DOM, JSX, SSR, and control flow primitives |
+| [`@hedystia/client`](./Packages/client) | [![npm](https://img.shields.io/npm/v/@hedystia/client.svg?style=flat-square)](https://www.npmjs.com/package/@hedystia/client) | Auto-generated type-safe HTTP client with path chaining, SSE and WebSocket support |
+| [`@hedystia/adapter`](./Packages/adapter) | [![npm](https://img.shields.io/npm/v/@hedystia/adapter.svg?style=flat-square)](https://www.npmjs.com/package/@hedystia/adapter) | Multi-runtime adapters — Cloudflare Workers, Node.js, Deno, Lambda, Vercel, Fastly Compute |
+| [`@hedystia/swagger`](./Packages/swagger) | [![npm](https://img.shields.io/npm/v/@hedystia/swagger.svg?style=flat-square)](https://www.npmjs.com/package/@hedystia/swagger) | OpenAPI/Swagger documentation auto-generated from your routes |
+| [`@hedystia/types`](./Packages/types) | [![npm](https://img.shields.io/npm/v/@hedystia/types.svg?style=flat-square)](https://www.npmjs.com/package/@hedystia/types) | Route type generation utility for end-to-end type safety |
 
-## 🚀 Launch in 30 Seconds
+### Integrations
 
-1. Install with Bun:
+| Package | npm | Description |
+|---------|-----|-------------|
+| [`@hedystia/astro`](./Packages/integrations/view/astro) | [![npm](https://img.shields.io/npm/v/@hedystia/astro.svg?style=flat-square)](https://www.npmjs.com/package/@hedystia/astro) | Astro integration for `@hedystia/view` components |
+| [`@hedystia/better-auth`](./Packages/integrations/database/better-auth) | [![npm](https://img.shields.io/npm/v/@hedystia/better-auth.svg?style=flat-square)](https://www.npmjs.com/package/@hedystia/better-auth) | Better Auth adapter for `@hedystia/db` |
+
+## 🚀 Quick Start
+
+### Server
+
 ```bash
 bun add hedystia
 ```
 
-2. Create your first API:
 ```typescript
 import { Hedystia, h } from "hedystia";
 
@@ -45,128 +55,121 @@ const app = new Hedystia()
   .listen(3000);
 ```
 
-3. Generate client and consume API:
+### Type-safe Client
+
+```bash
+bun add @hedystia/client
+```
+
 ```typescript
 import { createClient } from "@hedystia/client";
 
 const client = createClient<typeof app>("http://localhost:3000");
 
-// Fully typed request!
 const { data } = await client.hello.name("World").get();
 console.log(data); // "Hello World!"
 ```
 
-## 💡 Why Developers Love Hedystia
+### Database (ORM)
 
-### 🔄 Full-stack Type Safety
-```typescript
-// Server-side validation
-.post("/users", (ctx) => {...}, {
-  body: h.object({
-    email: h.email(),
-    age: h.number()
-  })
-})
-
-// Client-side types
-await client.users.post({
-  body: {
-      email: "user@example.com", // Autocompletes!
-      age: 25 // Type-checked
-  }
-});
+```bash
+bun add @hedystia/db
 ```
 
-### 📖 Swagger Integration
+```typescript
+import { database, table } from "@hedystia/db";
+
+const users = table("users", {
+  id: (col) => col.int().primaryKey().autoIncrement(),
+  name: (col) => col.string(),
+  email: (col) => col.string().unique(),
+});
+
+const db = database({ driver: "mysql2", connection: { /* ... */ } });
+const repo = db.repository(users);
+
+await repo.insert({ name: "Alice", email: "alice@example.com" });
+const user = await repo.findOne({ where: { email: "alice@example.com" } });
+```
+
+### Reactive UI (View)
+
+```bash
+bun add @hedystia/view
+```
+
+```typescript
+import { sig, mount, Show, For } from "@hedystia/view";
+
+function Counter() {
+  const count = sig(0);
+  return (
+    <button onClick={() => count.set(count.get() + 1)}>
+      Count: {count}
+    </button>
+  );
+}
+
+mount(Counter, document.getElementById("app")!);
+```
+
+### Validations
+
+```bash
+bun add @hedystia/validations
+```
+
+```typescript
+import { h } from "@hedystia/validations";
+
+const userSchema = h.object({
+  email: h.email(),
+  age: h.number(),
+  name: h.string(),
+});
+
+// Standard Schema v1 compliant — works with Zod, ArkType, etc.
+```
+
+### Swagger
 
 ```typescript
 import { swagger } from "@hedystia/swagger";
 
-const swaggerPlugin = swagger({
+const docs = swagger({
   title: "My API",
-  description: "An example API with Swagger",
+  description: "API documentation",
   version: "1.0.0",
-  tags: [
-    { name: "users", description: "User operations" },
-  ],
 });
 
-app.use("/swagger", swaggerPlugin.plugin(app));
-
-app.listen(3000);
+app.use("/swagger", docs.plugin(app));
 ```
 
-### ⚡ Performance First
-- Bun runtime optimized
-- Faster by default
-- Own type validation system
-- Faster than Express
-- Built-in response compression
+### Multi-runtime Adapters
 
-### 🧩 Modern Feature Set
 ```typescript
-// File uploads
-.post("/upload", async (ctx) => {
-  const formData = await ctx.body; // FormData type
-})
+import { adapter } from "@hedystia/adapter";
 
-// Binary responses
-.get("/pdf", () => new Blob([...]), {
-  response: h.instanceof(Blob)
-})
-
-// Nested routing
-.group("/api/v1", (v1) => v1
-  .group("/users", (users) => users
-    .get("/:id", ...)
-  )
-)
-```
-
-## 🛠️ Development Roadmap
-
-### Core Features
-- ✅ HTTP Methods: GET, POST, PUT, PATCH, DELETE
-- ✅ Response Types: JSON, Text, FormData, Blob, ArrayBuffer
-- ✅ Router Groups & Middleware
-- ✅ Type-safe Client Generation
-- ✅ WebSocket Support
-- ✅ Adapter System to work with other frameworks
-
-### Advanced Capabilities
-- ✅ Standard Schema Compatibility
-- ✅ Hooks System (onRequest, onError, etc)
-- ✅ Macro System for Auth/Rate Limiting
-- ✅ OpenAPI - Swagger Integration
-
-## 💼 Production Ready
-```typescript
-// Error handling
-.onError((err, ctx) => {
-  ctx.set.status(500);
-  return { 
-    error: err.message 
-  };
-})
-
-// Rate limiting macro
-.macro({
-  rateLimit: () => ({
-    resolve: async (ctx) => {
-      // Implement your logic
-    }
-  })
-})
+// Deploy anywhere
+adapter(app).toCloudflareWorker();
+adapter(app).toNodeHandler();
+adapter(app).toDeno();
+adapter(app).toLambda();
+adapter(app).toVercel();
+adapter(app).toFastlyCompute();
 ```
 
 ## 📜 License
+
 MIT License © 2026 Hedystia
 
 ## 📖 Documentation
+
 - [Full Documentation](https://docs.hedystia.com)
 - [Getting Started Guide](https://docs.hedystia.com/framework/getting-started)
 - [API Reference](https://docs.hedystia.com/framework/overview)
 
 ## 🗣️ Community
+
 - [GitHub Issues](https://github.com/Hedystia/Hedystia/issues)
 - [Discord Server](https://hedystia.com/support)
