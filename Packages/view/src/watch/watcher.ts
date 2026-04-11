@@ -4,8 +4,8 @@
  * Provides effect tracking and reactive subscriptions.
  */
 
-import { cleanupSources, Owner, runComputation, untrack } from "../signal";
-import type { Computation } from "../types";
+import { cleanupSources, Owner, runComputation, untrack, val } from "../signal";
+import type { Computation, ReadonlySignal } from "../types";
 
 /**
  * Create a reactive effect that runs when dependencies change
@@ -81,4 +81,35 @@ export function once<T>(track: () => T, run: (value: T) => void): () => void {
       run(value);
     }
   });
+}
+
+/**
+ * Concise reactive effect — pass a signal directly instead of a track function.
+ *
+ * ```ts
+ * watch(count, (value, prev) => console.log(value, prev));
+ * ```
+ */
+export function watch<T>(
+  signal: ReadonlySignal<T>,
+  run: (value: T, prev: T) => any | (() => void),
+): () => void {
+  return on(() => val(signal), run);
+}
+
+/**
+ * Reactive effect that tracks multiple signals at once.
+ *
+ * ```ts
+ * watchAll([a, b], ([aVal, bVal], [prevA, prevB]) => { });
+ * ```
+ */
+export function watchAll<T extends readonly ReadonlySignal<any>[]>(
+  signals: [...T],
+  run: (
+    values: { [K in keyof T]: T[K] extends ReadonlySignal<infer V> ? V : never },
+    prev: { [K in keyof T]: T[K] extends ReadonlySignal<infer V> ? V : never },
+  ) => any | (() => void),
+): () => void {
+  return on(() => signals.map((s) => val(s)) as any, run as any);
 }
