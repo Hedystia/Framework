@@ -1,0 +1,259 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# https://docs.coderabbit.ai/guides/customize-coderabbit
+
+language: "en-US"
+early_access: true
+tone_instructions: "Provide clear, professional explanations that help developers understand what needs improvement and why. Avoid generic AI prompts or nitpicky labels. Focus on actionable feedback with reasoning."
+
+reviews:
+  request_changes_workflow: true
+  high_level_summary: true
+  high_level_summary_placeholder: " @coderabbitai summary"
+  auto_title_placeholder: " @coderabbitai"
+  poem: false
+  review_status: true
+  review_details: false
+  commit_status: true
+  collapse_walkthrough: false
+  changed_files_summary: true
+  sequence_diagrams: true
+  estimate_code_review_effort: true
+  assess_linked_issues: true
+  related_issues: true
+  related_prs: true
+  suggested_labels: true
+  auto_apply_labels: true
+  suggested_reviewers: true
+  auto_assign_reviewers: false
+  in_progress_fortune: true
+  enable_prompt_for_ai_agents: false
+  auto_review:
+    enabled: true
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
+      - "SWEEP"
+    drafts: false
+    base_branches:
+      - master
+  path_filters:
+    - "!**/node_modules/**"
+    - "!**/dist/**"
+    - "!**/.vscode/extensions.json"
+  path_instructions:
+    - path: "*"
+      instructions:
+        "All character sets must be UTF-8.
+        Lines must end with LF (line feed).
+        Use spaces for indentation instead of tabs.
+        Insert a newline at the end of each file.
+        Trim all trailing whitespaces.
+        Maximum line length is 100 characters.
+        Avoid blank lines in code.
+        Do not maintain indents on empty lines.
+        Add spaces after commas.
+        Add spaces around all operators.
+        Do not add space before comma.
+        Handle leftover TODOs in code.
+        console.log statements are allowed.
+        This is a monorepo using Bun as the package manager and runtime, Turbo for task orchestration, tsdown for building, and Biome for linting and formatting.
+        Hedystia is a complete TypeScript ecosystem — not just a web framework. It includes: a server framework (hedystia), a type-safe ORM (@hedystia/db), a reactive UI engine without Virtual DOM (@hedystia/view), a schema validation system (@hedystia/validations), an auto-generated type-safe client (@hedystia/client), multi-runtime adapters (@hedystia/adapter), Swagger generation (@hedystia/swagger), type generation (@hedystia/types), and integrations (Astro, Better Auth).
+        All packages live under Packages/."
+
+    - path: "**/*.ts"
+      instructions:
+        "Use 2 spaces for indentation in TypeScript files.
+        Use semicolons always.
+        Use double quotes for strings.
+        Use 'as' for type casting (prefer 'as Type' over angle bracket syntax).
+        Always use parentheses for arrow functions, even with single parameters.
+        Use bracketSpacing: true (add spaces inside object braces).
+        Use bracketSameLine: false (do not place closing bracket on same line as last element).
+        Use 'import type' instead of 'import' for type-only imports (verbatimModuleSyntax is enabled).
+        Organize imports (sort and group them).
+        Use explicit types for variables, function parameters, and return types.
+        Use PascalCase for class names and type names.
+        Use camelCase for functions and variables.
+        Keep functions short (10-20 lines max) with limited parameters (3-4 max).
+        Use early exits for invalid inputs.
+        Use descriptive variable names.
+        Use braces for all 'if' and 'for' statements.
+        Use 'const' instead of 'let' when variables are not reassigned.
+        Avoid useless else blocks after early returns.
+        Avoid 'var' - use 'let' or 'const' instead.
+        Use template literals instead of string concatenation.
+        Use optional chaining and nullish coalescing when appropriate.
+        Avoid unnecessary ternary expressions.
+        Use literal keys instead of quoted keys when possible.
+        Avoid useless constructors, renames, or type casts.
+        Avoid void type - use undefined or never instead.
+        Avoid comma operator.
+        Use regex literals instead of RegExp constructor.
+        Avoid double equals - use strict equality (=== and !==).
+        Avoid duplicate case clauses, class members, object keys, and parameters.
+        Avoid catch/prototype/class/global assignments.
+        Avoid redeclaring variables.
+        Avoid self-compare and shadow restricted names.
+        Avoid unsafe negation and with statements.
+        Avoid global eval for security.
+        Use isNaN() instead of direct NaN comparison.
+        Use valid typeof expressions.
+        Avoid constant conditions and precision loss.
+        Avoid unreachable code and super calls.
+        Avoid unsafe finally blocks.
+        Avoid unused variables and imports.
+        Avoid empty patterns and character classes in regex.
+        Avoid invalid use before declaration.
+        Avoid fallthrough switch clauses without comments.
+        Avoid inferrable types (let x: number = 0 -> let x = 0).
+        Use default parameters last.
+        Use enum initializers.
+        Use self-closing elements for JSX.
+        Use single var declarator per statement.
+        Use block statements for control flow.
+        Use default switch clause last.
+        Bun types are globally available (no need to import Bun-specific types)."
+
+    - path: "**/*.json"
+      instructions:
+        "Use 2 spaces for indentation in JSON files.
+        Split array items across multiple lines.
+        Split object properties across multiple lines.
+        Remove trailing commas.
+        Do not align properties.
+        Add space after colon and comma.
+        Do not add space before colon or comma."
+
+    - path: "Packages/server/**"
+      instructions:
+        "Core HTTP server framework (npm: hedystia). Provides the Hedystia class, route definitions, WebSocket, SSE, middleware, hooks, and macros.
+        Depends on @hedystia/types and @hedystia/validations."
+
+    - path: "Packages/database/**"
+      instructions:
+        "Type-safe ORM (npm: @hedystia/db). Schema-first design with table/column builders, SQL compiler, migrations, caching, and multi-driver support (MySQL, MySQL2, SQLite variants, S3).
+        Includes a CLI for migrations. Has its own SchemaRegistry and Synchronizer."
+
+    - path: "Packages/view/**"
+      instructions:
+        "Reactive UI engine (npm: @hedystia/view). Fine-grained signal system, no Virtual DOM, real DOM manipulation.
+        Features: JSX runtime, control flow (Show, For, Switch/Match, Index), SSR (renderToString), lifecycle hooks, stores, Portal, Suspense, ErrorBoundary, context API."
+
+    - path: "Packages/validations/**"
+      instructions:
+        "Schema validation system (npm: @hedystia/validations). Standard Schema v1 compliant, interoperable with Zod, ArkType, etc.
+        Provides the 'h' helper with types like h.string(), h.number(), h.object(), h.email(), h.uuid(), etc. Also generates JSON Schema output."
+
+    - path: "Packages/client/**"
+      instructions:
+        "Auto-generated type-safe HTTP client (npm: @hedystia/client). Uses Proxy-based path chaining to mirror server routes.
+        Supports all HTTP methods, SSE subscriptions, WebSocket connections, and FormData."
+
+    - path: "Packages/adapter/**"
+      instructions:
+        "Multi-runtime adapter layer (npm: @hedystia/adapter). Converts a Hedystia app to platform-specific handlers: Cloudflare Workers, Node.js, Deno, Lambda, Vercel, Fastly Compute."
+
+    - path: "Packages/swagger/**"
+      instructions:
+        "OpenAPI/Swagger documentation plugin (npm: @hedystia/swagger). Introspects app routes and generates an interactive Swagger UI with JSON spec endpoint."
+
+    - path: "Packages/types/**"
+      instructions:
+        "Route type generation utility (npm: @hedystia/types). Generates a TypeScript file with AppRoutes type definitions from a Hedystia app's routes."
+
+    - path: "Packages/integrations/**"
+      instructions:
+        "Integration packages that bridge Hedystia packages with third-party tools.
+        @hedystia/astro: Astro integration for @hedystia/view components.
+        @hedystia/better-auth: Better Auth adapter for @hedystia/db.
+        Each integration should have minimal code and rely on peer dependencies."
+
+    - path: "Tests/**"
+      instructions:
+        "Test files use Bun's built-in test runner (bun:test).
+        Test files follow the naming pattern: <feature>.test.ts.
+        Focus tests on a single feature or endpoint per file.
+        Run tests with: bun run --cwd Tests test."
+
+    - path: "Examples/**"
+      instructions:
+        "These are usage examples for the Hedystia framework.
+        Each file demonstrates a specific feature (get, post, ws, swagger, etc.).
+        Examples should be simple, self-contained, and easy to understand.
+        They serve as documentation for users of the framework."
+
+  tools:
+    biome:
+      enabled: true
+    github-checks:
+      enabled: true
+
+  finishing_touches:
+    docstrings:
+      enabled: true
+    unit_tests:
+      enabled: true
+    autofix:
+      enabled: true
+
+  pre_merge_checks:
+    enabled: true
+
+chat:
+  auto_reply: true
+  art: false
+  allow_non_org_members: true
+
+knowledge_base:
+  opt_out: false
+  web_search:
+    enabled: true
+  code_guidelines:
+    enabled: true
+  learnings:
+    scope: "local"
+  issues:
+    scope: "local"
+  pull_requests:
+    scope: "local"
+  mcp:
+    usage: "auto"
+
+issue_enrichment:
+  auto_enrich:
+    enabled: true
+  planning:
+    enabled: true
+    auto_planning:
+      enabled: true
+      labels:
+        - "feature"
+        - "enhancement"
+        - "bug"
+  labeling:
+    labeling_instructions:
+      - label: "bug"
+        instructions: "Something isn't working."
+      - label: "documentation"
+        instructions: "Improvements or additions to documentation."
+      - label: "duplicate"
+        instructions: "This issue or pull request already exists."
+      - label: "enhancement"
+        instructions: "New feature or request."
+      - label: "good first issue"
+        instructions: "Good for newcomers."
+      - label: "help wanted"
+        instructions: "Extra attention is needed."
+      - label: "invalid"
+        instructions: "This doesn't seem right."
+      - label: "question"
+        instructions: "Further information is requested."
+      - label: "wontfix"
+        instructions: "This will not be worked on."
+    auto_apply_labels: true
+
+code_generation:
+  docstrings:
+    path_instructions: []
+  unit_tests:
+    path_instructions: []
