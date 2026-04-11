@@ -13,11 +13,14 @@ import type {
   PrefixRoutes,
   PublishMethod,
   PublishOptions,
+  PublishTree,
   RequestHandler,
   RouteDefinition,
   RouteSchema,
   SubscriptionContext,
   SubscriptionHandler,
+  SubscriptionLifecycleContext,
+  SubscriptionMessageContext,
   ValidationSchema,
   WebSocketHandler,
   WebSocketOptions,
@@ -51,14 +54,10 @@ type OnAfterResponseHandler<T extends RouteSchema = {}> = (
   ctx: ContextTypes<T>,
 ) => void | Promise<void>;
 
-type OnSubscriptionOpenHandler = (
-  ctx: import("../types").SubscriptionLifecycleContext,
-) => void | Promise<void>;
-type OnSubscriptionCloseHandler = (
-  ctx: import("../types").SubscriptionLifecycleContext,
-) => void | Promise<void>;
+type OnSubscriptionOpenHandler = (ctx: SubscriptionLifecycleContext) => void | Promise<void>;
+type OnSubscriptionCloseHandler = (ctx: SubscriptionLifecycleContext) => void | Promise<void>;
 type OnSubscriptionMessageHandler<Routes extends RouteDefinition[] = []> = (
-  ctx: import("../types").SubscriptionMessageContext<Routes>,
+  ctx: SubscriptionMessageContext<Routes>,
 ) => void | Promise<void>;
 
 export default class Core<
@@ -566,7 +565,7 @@ export default class Core<
    * Tree-based publish API for WebSocket subscriptions.
    * Usage: app.pub.data.messages({ data: { ... } })
    */
-  get pub(): import("../types").PublishTree<Routes> {
+  get pub(): PublishTree<Routes> {
     const self = this;
     const createProxy = (pathParts: string[] = []): any => {
       return new Proxy(() => {}, {
@@ -579,7 +578,7 @@ export default class Core<
         },
       });
     };
-    return createProxy() as import("../types").PublishTree<Routes>;
+    return createProxy() as PublishTree<Routes>;
   }
 
   public staticRoutes: { path: string; response: Response }[] = [];
