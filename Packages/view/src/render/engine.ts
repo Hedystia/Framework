@@ -185,6 +185,16 @@ function renderElement(element: unknown): string {
         innerHTML = value?.__html || "";
         continue;
       }
+      if (key === "innerHTML") {
+        const val = typeof value === "function" ? value() : value;
+        innerHTML = val == null ? "" : String(val);
+        continue;
+      }
+      if (key === "innerText" || key === "textContent") {
+        const val = typeof value === "function" ? value() : value;
+        innerHTML = val == null ? "" : escapeHtml(String(val));
+        continue;
+      }
       const attrName = key === "className" ? "class" : key === "htmlFor" ? "for" : key;
       const serialized = serializeAttrValue(key, value);
       if (serialized === null) {

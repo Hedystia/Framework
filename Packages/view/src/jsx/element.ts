@@ -180,10 +180,17 @@ function applyProp(element: HTMLElement, key: string, value: any): void {
     } else if (typeof value === "function") {
       applyReactiveStyle(element, value);
     }
-  } else if (key === "class") {
+  } else if (key === "class" || key === "className") {
     element.className = String(value);
-  } else if (key === "className") {
-    element.className = String(value);
+  } else if (key === "innerHTML" || key === "innerText" || key === "textContent") {
+    if (typeof value === "function") {
+      effect(() => {
+        const val = value();
+        element[key] = val == null ? "" : String(val);
+      });
+    } else {
+      element[key] = String(value);
+    }
   } else if (key === "ref" && typeof value === "function") {
     tick(() => value(element));
   } else if (typeof value === "function" && !key.startsWith("on")) {
