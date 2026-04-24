@@ -216,12 +216,15 @@ export namespace JSX {
     slot?: string;
     spellcheck?: boolean | "true" | "false";
     style?:
-      | string
-      | Record<string, string | number | undefined>
-      | (() => string | Record<string, string | number | undefined>);
+    | string
+    | Record<string, string | number | undefined>
+    | (() => string | Record<string, string | number | undefined>);
     tabindex?: number | string;
     title?: string;
     translate?: "yes" | "no";
+    innerText?: string | number | (() => string | number);
+    innerHTML?: string | number | (() => string | number);
+    textContent?: string | number | (() => string | number);
     onClick?: (event: MouseEvent) => void;
     onContextMenu?: (event: MouseEvent) => void;
     onDblClick?: (event: MouseEvent) => void;
@@ -719,7 +722,7 @@ export namespace JSX {
     y?: number | string;
   }
 
-  export interface GHTMLAttributes extends SVGAttributes {}
+  export interface GHTMLAttributes extends SVGAttributes { }
 
   export interface SVGAttributes extends HTMLAttributes {
     accentHeight?: number | string;
@@ -968,51 +971,56 @@ export namespace JSX {
   }
 
   // Other SVG element attributes (extending SVGAttributes)
-  export interface AnimateHTMLAttributes extends SVGAttributes {}
-  export interface AnimateMotionHTMLAttributes extends SVGAttributes {}
-  export interface AnimateTransformHTMLAttributes extends SVGAttributes {}
-  export interface ClipPathHTMLAttributes extends SVGAttributes {}
-  export interface DefsHTMLAttributes extends SVGAttributes {}
-  export interface DescHTMLAttributes extends SVGAttributes {}
-  export interface FeBlendHTMLAttributes extends SVGAttributes {}
-  export interface FeColorMatrixHTMLAttributes extends SVGAttributes {}
-  export interface FeComponentTransferHTMLAttributes extends SVGAttributes {}
-  export interface FeCompositeHTMLAttributes extends SVGAttributes {}
-  export interface FeConvolveMatrixHTMLAttributes extends SVGAttributes {}
-  export interface FeDiffuseLightingHTMLAttributes extends SVGAttributes {}
-  export interface FeDisplacementMapHTMLAttributes extends SVGAttributes {}
-  export interface FeDistantLightHTMLAttributes extends SVGAttributes {}
-  export interface FeDropShadowHTMLAttributes extends SVGAttributes {}
-  export interface FeFloodHTMLAttributes extends SVGAttributes {}
-  export interface FeFuncAHTMLAttributes extends SVGAttributes {}
-  export interface FeFuncBHTMLAttributes extends SVGAttributes {}
-  export interface FeFuncGHTMLAttributes extends SVGAttributes {}
-  export interface FeFuncRHTMLAttributes extends SVGAttributes {}
-  export interface FeGaussianBlurHTMLAttributes extends SVGAttributes {}
-  export interface FeImageHTMLAttributes extends SVGAttributes {}
-  export interface FeMergeHTMLAttributes extends SVGAttributes {}
-  export interface FeMergeNodeHTMLAttributes extends SVGAttributes {}
-  export interface FeMorphologyHTMLAttributes extends SVGAttributes {}
-  export interface FeOffsetHTMLAttributes extends SVGAttributes {}
-  export interface FePointLightHTMLAttributes extends SVGAttributes {}
-  export interface FeSpecularLightingHTMLAttributes extends SVGAttributes {}
-  export interface FeSpotLightHTMLAttributes extends SVGAttributes {}
-  export interface FeTileHTMLAttributes extends SVGAttributes {}
-  export interface FeTurbulenceHTMLAttributes extends SVGAttributes {}
-  export interface FilterHTMLAttributes extends SVGAttributes {}
-  export interface ForeignObjectHTMLAttributes extends SVGAttributes {}
-  export interface LinearGradientHTMLAttributes extends SVGAttributes {}
-  export interface MarkerHTMLAttributes extends SVGAttributes {}
-  export interface MaskHTMLAttributes extends SVGAttributes {}
-  export interface MetadataHTMLAttributes extends SVGAttributes {}
-  export interface MpathHTMLAttributes extends SVGAttributes {}
-  export interface PatternHTMLAttributes extends SVGAttributes {}
-  export interface RadialGradientHTMLAttributes extends SVGAttributes {}
-  export interface StopHTMLAttributes extends SVGAttributes {}
-  export interface SwitchHTMLAttributes extends SVGAttributes {}
-  export interface SymbolHTMLAttributes extends SVGAttributes {}
-  export interface TextPathHTMLAttributes extends SVGAttributes {}
-  export interface TspanHTMLAttributes extends SVGAttributes {}
-  export interface UseHTMLAttributes extends SVGAttributes {}
-  export interface ViewHTMLAttributes extends SVGAttributes {}
+  export interface AnimateHTMLAttributes extends SVGAttributes { }
+  export interface AnimateMotionHTMLAttributes extends SVGAttributes { }
+  export interface AnimateTransformHTMLAttributes extends SVGAttributes { }
+  export interface ClipPathHTMLAttributes extends SVGAttributes { }
+  export interface DefsHTMLAttributes extends SVGAttributes { }
+  export interface DescHTMLAttributes extends SVGAttributes { }
+  export interface FeBlendHTMLAttributes extends SVGAttributes { }
+  export interface FeColorMatrixHTMLAttributes extends SVGAttributes { }
+  export interface FeComponentTransferHTMLAttributes extends SVGAttributes { }
+  export interface FeCompositeHTMLAttributes extends SVGAttributes { }
+  export interface FeConvolveMatrixHTMLAttributes extends SVGAttributes { }
+  export interface FeDiffuseLightingHTMLAttributes extends SVGAttributes { }
+  export interface FeDisplacementMapHTMLAttributes extends SVGAttributes { }
+  export interface FeDistantLightHTMLAttributes extends SVGAttributes { }
+  export interface FeDropShadowHTMLAttributes extends SVGAttributes { }
+  export interface FeFloodHTMLAttributes extends SVGAttributes { }
+  export interface FeFuncAHTMLAttributes extends SVGAttributes { }
+  export interface FeFuncBHTMLAttributes extends SVGAttributes { }
+  export interface FeFuncGHTMLAttributes extends SVGAttributes { }
+  export interface FeFuncRHTMLAttributes extends SVGAttributes { }
+  export interface FeGaussianBlurHTMLAttributes extends SVGAttributes { }
+  export interface FeImageHTMLAttributes extends SVGAttributes { }
+  export interface FeMergeHTMLAttributes extends SVGAttributes { }
+  export interface FeMergeNodeHTMLAttributes extends SVGAttributes { }
+  export interface FeMorphologyHTMLAttributes extends SVGAttributes { }
+  export interface FeOffsetHTMLAttributes extends SVGAttributes { }
+  export interface FePointLightHTMLAttributes extends SVGAttributes { }
+  export interface FeSpecularLightingHTMLAttributes extends SVGAttributes { }
+  export interface FeSpotLightHTMLAttributes extends SVGAttributes { }
+  export interface FeTileHTMLAttributes extends SVGAttributes { }
+  export interface FeTurbulenceHTMLAttributes extends SVGAttributes { }
+  export interface FilterHTMLAttributes extends SVGAttributes { }
+  export interface ForeignObjectHTMLAttributes extends SVGAttributes { }
+  export interface LinearGradientHTMLAttributes extends SVGAttributes { }
+  export interface MarkerHTMLAttributes extends SVGAttributes { }
+  export interface MaskHTMLAttributes extends SVGAttributes { }
+  export interface MetadataHTMLAttributes extends SVGAttributes { }
+  export interface MpathHTMLAttributes extends SVGAttributes { }
+  export interface PatternHTMLAttributes extends SVGAttributes { }
+  export interface RadialGradientHTMLAttributes extends SVGAttributes { }
+  export interface StopHTMLAttributes extends SVGAttributes { }
+  export interface SwitchHTMLAttributes extends SVGAttributes { }
+  export interface SymbolHTMLAttributes extends SVGAttributes { }
+  export interface TextPathHTMLAttributes extends SVGAttributes { }
+  export interface TspanHTMLAttributes extends SVGAttributes { }
+  export interface UseHTMLAttributes extends SVGAttributes { }
+  export interface ViewHTMLAttributes extends SVGAttributes { }
 }
+
+declare module "*.css";
+declare module "*.scss";
+declare module "*.sass";
+declare module "*.less";
