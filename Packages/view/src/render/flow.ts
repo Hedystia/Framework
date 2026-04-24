@@ -15,21 +15,82 @@ import type { Accessor } from "../types";
 const isBrowser = typeof document !== "undefined";
 
 /** @internal - Insert a node after a marker, deferring if marker has no parent yet */
-function insertAfter(marker: Comment, node: Node): void {
+function insertAfter(marker: Comment, content: any, targetNodes: Node[]): void {
+  const insert = () => {
+    if (!marker.parentNode) {
+      return;
+    }
+    let ref: Node = marker;
+
+    const flatten = (items: any[]) => {
+      const res: any[] = [];
+      for (const item of items) {
+        if (Array.isArray(item)) {
+          res.push(...flatten(item));
+        } else {
+          res.push(item);
+        }
+      }
+      return res;
+    };
+
+    const items = flatten(Array.isArray(content) ? content : [content]);
+
+    for (const item of items) {
+      if (item == null || typeof item === "boolean") {
+        continue;
+      }
+
+      let n: Node;
+      if (
+        item instanceof HTMLElement ||
+        item instanceof Text ||
+        item instanceof Comment ||
+        item instanceof DocumentFragment
+      ) {
+        n = item;
+      } else {
+        n = document.createTextNode(String(item));
+      }
+
+      if (item instanceof DocumentFragment) {
+        const children = Array.from(n.childNodes);
+        marker.parentNode.insertBefore(n, ref.nextSibling);
+        for (const child of children) {
+          targetNodes.push(child);
+          ref = child;
+        }
+      } else {
+        marker.parentNode.insertBefore(n, ref.nextSibling);
+        targetNodes.push(n);
+        ref = n;
+      }
+    }
+  };
+
   if (marker.parentNode) {
-    marker.parentNode.insertBefore(node, marker.nextSibling);
+    insert();
   } else {
     queueMicrotask(() => {
-      if (node.parentNode === null && marker.parentNode) {
-        marker.parentNode.insertBefore(node, marker.nextSibling);
+      if (marker.parentNode && targetNodes.length === 0) {
+        insert();
       }
     });
   }
 }
 
 /** @internal - Remove a node from the DOM if attached */
-function removeNode(node: Node | null): void {
-  if (node?.parentNode) {
+function removeNode(node: Node | Node[] | null): void {
+  if (!node) {
+    return;
+  }
+  if (Array.isArray(node)) {
+    for (const n of node) {
+      removeNode(n);
+    }
+    return;
+  }
+  if (node.parentNode) {
     node.parentNode.removeChild(node);
   }
 }
@@ -39,7 +100,7 @@ function resolveContent(content: any): HTMLElement | null {
   if (content == null) {
     return null;
   }
-  return typeof content === "function" ? (content() as HTMLElement) : (content as HTMLElement);
+  return typeof content === "function" ? content() : content;
 }
 
 /**
@@ -59,22 +120,21 @@ export function Show<T>(props: { when: T | Accessor<T>; fallback?: any; children
   }
 
   const container = document.createComment("show");
-  let currentNode: Node | null = null;
+  let currentNodes: Node[] = [];
 
   effect(() => {
     const cond = typeof props.when === "function" ? (props.when as Accessor<T>)() : props.when;
 
-    removeNode(currentNode);
-    currentNode = null;
+    removeNode(currentNodes);
+    currentNodes = [];
 
-    if (cond) {
-      currentNode = resolveContent(props.children);
-    } else if (props.fallback) {
-      currentNode = resolveContent(props.fallback);
-    }
-
-    if (currentNode) {
-      insertAfter(container, currentNode);
+    const content = cond
+      ? resolveContent(props.children)
+      : props.fallback
+        ? resolveContent(props.fallback)
+        : null;
+    if (content != null) {
+      insertAfter(container, content, currentNodes);
     }
   });
 
@@ -232,7 +292,7 @@ export function Switch(props: { fallback?: any; children: any }): any {
   }
 
   const container = document.createComment("switch");
-  let currentNode: Node | null = null;
+  let currentNodes: Node[] = [];
 
   effect(() => {
     const children = props.children;
@@ -255,13 +315,13 @@ export function Switch(props: { fallback?: any; children: any }): any {
       matched = props.fallback;
     }
 
-    removeNode(currentNode);
-    currentNode = null;
+    removeNode(currentNodes);
+    currentNodes = [];
 
     if (matched) {
-      currentNode = resolveContent(matched);
-      if (currentNode) {
-        insertAfter(container, currentNode);
+      const content = resolveContent(matched);
+      if (content != null) {
+        insertAfter(container, content, currentNodes);
       }
     }
   });
