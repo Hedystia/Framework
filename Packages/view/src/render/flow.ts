@@ -85,7 +85,7 @@ function resolveNodes(content: any): Node[] {
     }
     return result;
   }
-  if (content instanceof Node) {
+  if (typeof Node !== "undefined" && content instanceof Node) {
     return [content];
   }
   if (typeof content === "string" || typeof content === "number") {
