@@ -34,12 +34,25 @@
       "types": "./dist/jsx-dev-runtime.d.cts",
       "import": "./dist/jsx-dev-runtime.mjs",
       "require": "./dist/jsx-dev-runtime.cjs"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.cts",
+      "import": "./dist/vite.mjs",
+      "require": "./dist/vite.cjs"
     }
   },
   "scripts": {
     "build": "tsdown --config-loader unrun",
     "release:pkg": "bun publish --provenance --access public",
     "dev": "tsdown --watch"
+  },
+  "peerDependencies": {
+    "vite": ">= 7.3.1"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/bun": "catalog:",
