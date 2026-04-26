@@ -14,93 +14,84 @@ import type { Accessor } from "../types";
  */
 const isBrowser = typeof document !== "undefined";
 
-/** @internal - Insert a node after a marker, deferring if marker has no parent yet */
-function insertAfter(marker: Comment, content: any, targetNodes: Node[]): void {
-  const insert = () => {
-    if (!marker.parentNode) {
-      return;
+/** @internal - Map of markers with pending insertions (for nested flow components) */
+const pendingInsertions = new Map<Comment, () => void>();
+
+/** @internal - After inserting nodes, flush any pending insertions for markers among them */
+function flushPending(nodes: Node[]): void {
+  for (const node of nodes) {
+    if (node instanceof Comment && pendingInsertions.has(node)) {
+      const pending = pendingInsertions.get(node)!;
+      pendingInsertions.delete(node);
+      pending();
     }
-    let ref: Node = marker;
+  }
+}
 
-    const flatten = (items: any[]) => {
-      const res: any[] = [];
-      for (const item of items) {
-        if (Array.isArray(item)) {
-          res.push(...flatten(item));
-        } else {
-          res.push(item);
+/** @internal - Insert multiple nodes sequentially after a marker */
+function insertNodesAfter(marker: Comment, nodes: Node[]): void {
+  const doInsert = () => {
+    if (marker.parentNode) {
+      let ref: Node = marker;
+      for (const node of nodes) {
+        if (!node.parentNode) {
+          marker.parentNode!.insertBefore(node, ref.nextSibling);
         }
+        ref = node;
       }
-      return res;
-    };
-
-    const items = flatten(Array.isArray(content) ? content : [content]);
-
-    for (const item of items) {
-      if (item == null || typeof item === "boolean") {
-        continue;
-      }
-
-      let n: Node;
-      if (
-        item instanceof HTMLElement ||
-        item instanceof Text ||
-        item instanceof Comment ||
-        item instanceof DocumentFragment
-      ) {
-        n = item;
-      } else {
-        n = document.createTextNode(String(item));
-      }
-
-      if (item instanceof DocumentFragment) {
-        const children = Array.from(n.childNodes);
-        marker.parentNode.insertBefore(n, ref.nextSibling);
-        for (const child of children) {
-          targetNodes.push(child);
-          ref = child;
-        }
-      } else {
-        marker.parentNode.insertBefore(n, ref.nextSibling);
-        targetNodes.push(n);
-        ref = n;
-      }
+      flushPending(nodes);
     }
   };
 
   if (marker.parentNode) {
-    insert();
+    doInsert();
   } else {
+    pendingInsertions.set(marker, doInsert);
     queueMicrotask(() => {
-      if (marker.parentNode && targetNodes.length === 0) {
-        insert();
+      if (pendingInsertions.has(marker) && marker.parentNode) {
+        pendingInsertions.delete(marker);
+        doInsert();
       }
     });
   }
 }
 
 /** @internal - Remove a node from the DOM if attached */
-function removeNode(node: Node | Node[] | null): void {
-  if (!node) {
-    return;
-  }
-  if (Array.isArray(node)) {
-    for (const n of node) {
-      removeNode(n);
-    }
-    return;
-  }
-  if (node.parentNode) {
+function removeNode(node: Node | null): void {
+  if (node?.parentNode) {
     node.parentNode.removeChild(node);
   }
 }
 
-/** @internal - Create a DOM node from children prop */
-function resolveContent(content: any): HTMLElement | null {
-  if (content == null) {
-    return null;
+/** @internal - Remove multiple nodes from the DOM */
+function removeNodes(nodes: Node[]): void {
+  for (const node of nodes) {
+    removeNode(node);
   }
-  return typeof content === "function" ? content() : content;
+}
+
+/** @internal - Resolve any content value into an array of DOM nodes */
+function resolveNodes(content: any): Node[] {
+  if (content == null || content === false) {
+    return [];
+  }
+  if (typeof content === "function") {
+    return resolveNodes(content());
+  }
+  if (Array.isArray(content)) {
+    const result: Node[] = [];
+    for (const item of content) {
+      result.push(...resolveNodes(item));
+    }
+    return result;
+  }
+  if (content instanceof Node) {
+    return [content];
+  }
+  if (typeof content === "string" || typeof content === "number") {
+    return [document.createTextNode(String(content))];
+  }
+  return [];
 }
 
 /**
@@ -125,16 +116,17 @@ export function Show<T>(props: { when: T | Accessor<T>; fallback?: any; children
   effect(() => {
     const cond = typeof props.when === "function" ? (props.when as Accessor<T>)() : props.when;
 
-    removeNode(currentNodes);
+    removeNodes(currentNodes);
     currentNodes = [];
 
-    const content = cond
-      ? resolveContent(props.children)
-      : props.fallback
-        ? resolveContent(props.fallback)
-        : null;
-    if (content != null) {
-      insertAfter(container, content, currentNodes);
+    if (cond) {
+      currentNodes = resolveNodes(props.children);
+    } else if (props.fallback) {
+      currentNodes = resolveNodes(props.fallback);
+    }
+
+    if (currentNodes.length > 0) {
+      insertNodesAfter(container, currentNodes);
     }
   });
 
@@ -169,9 +161,7 @@ export function For<T>(props: {
     const items = typeof props.each === "function" ? (props.each as Accessor<T[]>)() : props.each;
 
     // Remove old nodes
-    for (const node of currentNodes) {
-      removeNode(node);
-    }
+    removeNodes(currentNodes);
     currentNodes = [];
 
     // Create new nodes
@@ -182,28 +172,14 @@ export function For<T>(props: {
       const child = props.children(
         () => val(itemSig),
         () => val(indexSig),
-      ) as Node;
-      currentNodes.push(child);
+      );
+      // Children callback can return a single node or an array
+      const nodes = resolveNodes(child);
+      currentNodes.push(...nodes);
     }
 
     // Insert all nodes
-    const doInsert = () => {
-      if (container.parentNode) {
-        let ref = container as Node;
-        for (const node of currentNodes) {
-          if (!node.parentNode) {
-            container.parentNode!.insertBefore(node, ref.nextSibling);
-          }
-          ref = node;
-        }
-      }
-    };
-
-    if (container.parentNode) {
-      doInsert();
-    } else {
-      queueMicrotask(doInsert);
-    }
+    insertNodesAfter(container, currentNodes);
   });
 
   return container;
@@ -235,36 +211,19 @@ export function Index<T>(props: {
     const items = typeof props.each === "function" ? (props.each as Accessor<T[]>)() : props.each;
 
     // Remove old nodes
-    for (const node of currentNodes) {
-      removeNode(node);
-    }
+    removeNodes(currentNodes);
     currentNodes = [];
 
     // Create new nodes
     for (let i = 0; i < items.length; i++) {
       const itemSig = sig(items[i]!);
-      const child = props.children(() => val(itemSig), i) as Node;
-      currentNodes.push(child);
+      const child = props.children(() => val(itemSig), i);
+      const nodes = resolveNodes(child);
+      currentNodes.push(...nodes);
     }
 
     // Insert all nodes
-    const doInsert = () => {
-      if (container.parentNode) {
-        let ref = container as Node;
-        for (const node of currentNodes) {
-          if (!node.parentNode) {
-            container.parentNode!.insertBefore(node, ref.nextSibling);
-          }
-          ref = node;
-        }
-      }
-    };
-
-    if (container.parentNode) {
-      doInsert();
-    } else {
-      queueMicrotask(doInsert);
-    }
+    insertNodesAfter(container, currentNodes);
   });
 
   return container;
@@ -315,13 +274,13 @@ export function Switch(props: { fallback?: any; children: any }): any {
       matched = props.fallback;
     }
 
-    removeNode(currentNodes);
+    removeNodes(currentNodes);
     currentNodes = [];
 
     if (matched) {
-      const content = resolveContent(matched);
-      if (content != null) {
-        insertAfter(container, content, currentNodes);
+      currentNodes = resolveNodes(matched);
+      if (currentNodes.length > 0) {
+        insertNodesAfter(container, currentNodes);
       }
     }
   });
@@ -361,20 +320,19 @@ export function Portal(props: { mount?: HTMLElement; children: any }): any {
 
   const container = document.createComment("portal");
   const mountPoint = props.mount || document.body;
-  let rendered: HTMLElement | null = null;
+  let rendered: Node[] = [];
 
   createRoot(() => {
-    rendered =
-      typeof props.children === "function"
-        ? (props.children() as HTMLElement)
-        : (props.children as HTMLElement);
-    if (rendered) {
-      mountPoint.appendChild(rendered);
+    rendered = resolveNodes(props.children);
+    for (const node of rendered) {
+      mountPoint.appendChild(node);
     }
 
     signalOnCleanup(() => {
-      if (rendered && rendered.parentNode === mountPoint) {
-        mountPoint.removeChild(rendered);
+      for (const node of rendered) {
+        if (node.parentNode === mountPoint) {
+          mountPoint.removeChild(node);
+        }
       }
     });
   });
@@ -387,36 +345,30 @@ export function Portal(props: { mount?: HTMLElement; children: any }): any {
  */
 export function Suspense(props: { fallback?: any; children: any }): any {
   const container = document.createComment("suspense");
-  let rendered: HTMLElement | null = null;
-  let fallbackNode: HTMLElement | null = null;
+  let renderedNodes: Node[] = [];
+  let fallbackNodes: Node[] = [];
 
   tick(() => {
     try {
-      if (fallbackNode) {
-        container.parentNode?.removeChild(fallbackNode);
-        fallbackNode = null;
+      if (fallbackNodes.length > 0) {
+        removeNodes(fallbackNodes);
+        fallbackNodes = [];
       }
-      if (!rendered && props.children) {
-        rendered =
-          typeof props.children === "function"
-            ? (props.children() as HTMLElement)
-            : (props.children as HTMLElement);
-        if (rendered) {
-          container.parentNode?.insertBefore(rendered, container.nextSibling);
+      if (renderedNodes.length === 0 && props.children) {
+        renderedNodes = resolveNodes(props.children);
+        if (renderedNodes.length > 0) {
+          insertNodesAfter(container, renderedNodes);
         }
       }
     } catch {
-      if (rendered) {
-        container.parentNode?.removeChild(rendered);
-        rendered = null;
+      if (renderedNodes.length > 0) {
+        removeNodes(renderedNodes);
+        renderedNodes = [];
       }
-      if (props.fallback && !fallbackNode) {
-        fallbackNode =
-          typeof props.fallback === "function"
-            ? (props.fallback() as HTMLElement)
-            : (props.fallback as HTMLElement);
-        if (fallbackNode) {
-          container.parentNode?.insertBefore(fallbackNode, container.nextSibling);
+      if (props.fallback && fallbackNodes.length === 0) {
+        fallbackNodes = resolveNodes(props.fallback);
+        if (fallbackNodes.length > 0) {
+          insertNodesAfter(container, fallbackNodes);
         }
       }
     }
@@ -433,35 +385,27 @@ export function ErrorBoundary(props: {
   children: any;
 }): any {
   const container = document.createComment("error-boundary");
-  let rendered: HTMLElement | null = null;
+  let renderedNodes: Node[] = [];
   let error: Error | null = null;
 
   const reset = () => {
     error = null;
-    if (rendered) {
-      container.parentNode?.removeChild(rendered);
-      rendered = null;
-    }
+    removeNodes(renderedNodes);
+    renderedNodes = [];
     tick(() => {
       try {
-        rendered =
-          typeof props.children === "function"
-            ? (props.children() as HTMLElement)
-            : (props.children as HTMLElement);
-        if (rendered) {
-          container.parentNode?.insertBefore(rendered, container.nextSibling);
+        renderedNodes = resolveNodes(props.children);
+        if (renderedNodes.length > 0) {
+          insertNodesAfter(container, renderedNodes);
         }
       } catch (e) {
         error = e instanceof Error ? e : new Error(String(e));
-        if (rendered) {
-          container.parentNode?.removeChild(rendered);
-          rendered = null;
-        }
+        removeNodes(renderedNodes);
+        renderedNodes = [];
         const fallback = props.fallback(error, reset);
-        rendered =
-          typeof fallback === "function" ? (fallback() as HTMLElement) : (fallback as HTMLElement);
-        if (rendered) {
-          container.parentNode?.insertBefore(rendered, container.nextSibling);
+        renderedNodes = resolveNodes(fallback);
+        if (renderedNodes.length > 0) {
+          insertNodesAfter(container, renderedNodes);
         }
       }
     });
@@ -469,20 +413,16 @@ export function ErrorBoundary(props: {
 
   tick(() => {
     try {
-      rendered =
-        typeof props.children === "function"
-          ? (props.children() as HTMLElement)
-          : (props.children as HTMLElement);
-      if (rendered) {
-        container.parentNode?.insertBefore(rendered, container.nextSibling);
+      renderedNodes = resolveNodes(props.children);
+      if (renderedNodes.length > 0) {
+        insertNodesAfter(container, renderedNodes);
       }
     } catch (e) {
       error = e instanceof Error ? e : new Error(String(e));
       const fallback = props.fallback(error, reset);
-      rendered =
-        typeof fallback === "function" ? (fallback() as HTMLElement) : (fallback as HTMLElement);
-      if (rendered) {
-        container.parentNode?.insertBefore(rendered, container.nextSibling);
+      renderedNodes = resolveNodes(fallback);
+      if (renderedNodes.length > 0) {
+        insertNodesAfter(container, renderedNodes);
       }
     }
   });
