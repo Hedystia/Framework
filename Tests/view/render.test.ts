@@ -83,6 +83,56 @@ describe("Render", () => {
       expect(findById(target, "test-fallback")).not.toBeNull();
       app.dispose();
     });
+
+    it("should render nested Show children", async () => {
+      const target = document.createElement("div");
+      const App = () => {
+        return Show({
+          when: true,
+          children: Show({
+            when: true,
+            fallback: document.createElement("span"),
+            children: (() => {
+              const inner = document.createElement("div");
+              inner.id = "nested-child";
+              return inner;
+            })(),
+          }),
+        });
+      };
+      const app = mount(App, target);
+      await new Promise((resolve) => queueMicrotask(resolve));
+      await new Promise((resolve) => queueMicrotask(resolve));
+      expect(findById(target, "nested-child")).not.toBeNull();
+      app.dispose();
+    });
+
+    it("should render nested Show with multiple children via wrapper", async () => {
+      const target = document.createElement("div");
+      const App = () => {
+        const wrapper = document.createElement("div");
+        wrapper.id = "wrapper";
+        const child1 = document.createElement("section");
+        child1.id = "multi-1";
+        const child2 = document.createElement("span");
+        child2.id = "multi-2";
+        wrapper.appendChild(child1);
+        wrapper.appendChild(child2);
+        return Show({
+          when: true,
+          children: Show({
+            when: true,
+            children: wrapper,
+          }),
+        });
+      };
+      const app = mount(App, target);
+      await new Promise((resolve) => queueMicrotask(resolve));
+      await new Promise((resolve) => queueMicrotask(resolve));
+      expect(findById(target, "multi-1")).not.toBeNull();
+      expect(findById(target, "multi-2")).not.toBeNull();
+      app.dispose();
+    });
   });
 
   describe("For", () => {
