@@ -7,7 +7,7 @@ import { on, once, set, sig, untrack, val, watch, watchAll } from "@hedystia/vie
 
 describe("Watch", () => {
   describe("on()", () => {
-    it("should run effect initially", () => {
+    it("should not run callback initially (seed only)", () => {
       const count = sig(0);
       let effectValue: number | undefined;
 
@@ -18,7 +18,25 @@ describe("Watch", () => {
         },
       );
 
-      expect(effectValue).toBe(0);
+      expect(effectValue).toBe(undefined);
+    });
+
+    it("should run callback on signal change with correct prev", () => {
+      const count = sig(0);
+      let effectValue: number | undefined;
+      let prevValue: number | undefined;
+
+      on(
+        () => val(count),
+        (value, prev) => {
+          effectValue = value;
+          prevValue = prev;
+        },
+      );
+
+      set(count, 5);
+      expect(effectValue).toBe(5);
+      expect(prevValue).toBe(0);
     });
 
     it("should return dispose function", () => {
@@ -32,9 +50,11 @@ describe("Watch", () => {
         },
       );
 
+      set(count, 3);
+      expect(effectValue).toBe(3);
       dispose();
       set(count, 5);
-      expect(effectValue).toBe(0);
+      expect(effectValue).toBe(3);
     });
 
     it("should support cleanup callback", () => {
@@ -50,13 +70,14 @@ describe("Watch", () => {
         },
       );
 
+      set(count, 1);
       dispose();
       expect(cleanupCalled).toBe(true);
     });
   });
 
   describe("once()", () => {
-    it("should run only once", () => {
+    it("should run only once on first change", () => {
       const count = sig(0);
       let effectValue: number | undefined;
       let callCount = 0;
@@ -69,13 +90,21 @@ describe("Watch", () => {
         },
       );
 
-      expect(effectValue).toBe(0);
+      expect(effectValue).toBe(undefined);
+      expect(callCount).toBe(0);
+
+      set(count, 1);
+      expect(effectValue).toBe(1);
+      expect(callCount).toBe(1);
+
+      set(count, 2);
+      expect(effectValue).toBe(1);
       expect(callCount).toBe(1);
     });
   });
 
   describe("watch()", () => {
-    it("should run effect initially", () => {
+    it("should not run callback initially", () => {
       const count = sig(0);
       let effectValue: number | undefined;
 
@@ -83,7 +112,7 @@ describe("Watch", () => {
         effectValue = value;
       });
 
-      expect(effectValue).toBe(0);
+      expect(effectValue).toBe(undefined);
     });
 
     it("should react to signal changes", () => {
@@ -118,9 +147,11 @@ describe("Watch", () => {
         effectValue = value;
       });
 
+      set(count, 3);
+      expect(effectValue).toBe(3);
       dispose();
       set(count, 99);
-      expect(effectValue).toBe(0);
+      expect(effectValue).toBe(3);
     });
 
     it("should support cleanup callback", () => {
@@ -133,13 +164,14 @@ describe("Watch", () => {
         };
       });
 
+      set(count, 1);
       dispose();
       expect(cleanupCalled).toBe(true);
     });
   });
 
   describe("watchAll()", () => {
-    it("should run effect initially with all values", () => {
+    it("should not run callback initially", () => {
       const a = sig(1);
       const b = sig(2);
       let effectValues: [number, number] | undefined;
@@ -148,7 +180,7 @@ describe("Watch", () => {
         effectValues = values as [number, number];
       });
 
-      expect(effectValues).toEqual([1, 2]);
+      expect(effectValues).toBe(undefined);
     });
 
     it("should react when any tracked signal changes", () => {
@@ -189,9 +221,11 @@ describe("Watch", () => {
         effectValues = values as [number, number];
       });
 
+      set(a, 10);
+      expect(effectValues).toEqual([10, 2]);
       dispose();
       set(a, 99);
-      expect(effectValues).toEqual([1, 2]);
+      expect(effectValues).toEqual([10, 2]);
     });
 
     it("should support cleanup callback", () => {
@@ -205,6 +239,7 @@ describe("Watch", () => {
         };
       });
 
+      set(a, 10);
       dispose();
       expect(cleanupCalled).toBe(true);
     });

@@ -28,17 +28,17 @@ describe("effect() through memo chain", () => {
       },
     );
 
-    expect(styleRuns).toBe(1);
-    expect(childRuns).toBe(1);
+    expect(styleRuns).toBe(0);
+    expect(childRuns).toBe(0);
 
     set(width, 400);
-    expect(styleRuns).toBe(2);
-    expect(childRuns).toBe(2);
+    expect(styleRuns).toBe(1);
+    expect(childRuns).toBe(1);
     expect(lastChildLayout.cols).toBe(1);
 
     set(width, 800);
-    expect(styleRuns).toBe(3);
-    expect(childRuns).toBe(3);
+    expect(styleRuns).toBe(2);
+    expect(childRuns).toBe(2);
     expect(lastChildLayout.cols).toBe(4);
   });
 });
