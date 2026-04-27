@@ -113,9 +113,9 @@ export function runComputation<T>(computation: Computation<T>): T | undefined {
   const prevListener = Listener;
   const prevOwner = Owner;
 
-  cleanupSources(computation);
+  cleanNode(computation);
   Listener = computation;
-  Owner = computation._owner;
+  Owner = computation as any;
 
   try {
     const value = computation._fn(computation._value as any);
@@ -278,6 +278,7 @@ export function memo<T>(fn: () => T): Computed<T> {
     _observers: null,
     _observerSlots: null,
     _owner: Owner,
+    _owned: null,
     _cleanups: null,
     _context: null,
     _suspense: null,
@@ -290,6 +291,7 @@ export function memo<T>(fn: () => T): Computed<T> {
   // Link computed and computation bidirectionally
   (computed as any)._computation = computation;
   (computation as any)._computed = computed;
+  addOwned(computation);
 
   // Make computed callable and proxy all properties to computed
   const callable = (() => {
@@ -461,6 +463,20 @@ function cleanRoot(root: OwnerType): void {
 }
 
 /**
+ * Register a computation as owned by the current Owner so it is
+ * cleaned up when the owner is disposed.
+ */
+export function addOwned(computation: Computation<any>): void {
+  if (Owner === null) {
+    return;
+  }
+  if (Owner._owned === null) {
+    Owner._owned = [];
+  }
+  Owner._owned.push(computation);
+}
+
+/**
  * Register a cleanup callback to run when the owner is disposed
  */
 export function onCleanup(fn: () => void): void {
@@ -489,5 +505,8 @@ export function cleanNode(node: Computation<any> | OwnerType): void {
     for (let i = 0; i < owned.length; i++) {
       cleanNode(owned[i]!);
     }
+  }
+  if ("_sources" in node) {
+    cleanupSources(node as Computation<any>);
   }
 }
