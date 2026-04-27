@@ -79,6 +79,8 @@ export interface Computation<T> {
   /** @internal */
   _owner: Owner | null;
   /** @internal */
+  _owned: Array<Computation<any>> | null;
+  /** @internal */
   _cleanups: (() => void)[] | null;
   /** @internal */
   _context: any | null;
