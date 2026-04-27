@@ -4,7 +4,7 @@
  * Provides effect tracking and reactive subscriptions.
  */
 
-import { cleanupSources, Owner, runComputation, untrack, val } from "../signal";
+import { addOwned, cleanNode, Owner, runComputation, untrack, val } from "../signal";
 import type { Computation, ReadonlySignal } from "../types";
 
 /**
@@ -12,7 +12,7 @@ import type { Computation, ReadonlySignal } from "../types";
  */
 export function on<T>(track: () => T, run: (value: T, prev: T) => any | (() => void)): () => void {
   let cleanup: (() => void) | undefined;
-  let prevValue: T | undefined;
+  let prevValue!: T;
   let hasRun = false;
   let stopped = false;
 
@@ -22,24 +22,27 @@ export function on<T>(track: () => T, run: (value: T, prev: T) => any | (() => v
         return undefined;
       }
 
-      // Track dependencies from the track function
       const value = track();
 
-      // Run callback untracked so reads inside run() don't become dependencies
+      if (!hasRun) {
+        prevValue = value;
+        hasRun = true;
+        return undefined;
+      }
+
       untrack(() => {
         if (cleanup) {
           cleanup();
           cleanup = undefined;
         }
 
-        const result = run(value, hasRun ? prevValue! : value);
+        const result = run(value, prevValue);
         if (typeof result === "function") {
           cleanup = result;
         }
       });
 
       prevValue = value;
-      hasRun = true;
       return undefined;
     },
     _value: undefined,
@@ -48,6 +51,7 @@ export function on<T>(track: () => T, run: (value: T, prev: T) => any | (() => v
     _observers: null,
     _observerSlots: null,
     _owner: Owner,
+    _owned: null,
     _cleanups: null,
     _context: null,
     _suspense: null,
@@ -57,12 +61,12 @@ export function on<T>(track: () => T, run: (value: T, prev: T) => any | (() => v
     _updatedAt: null,
   };
 
-  // Run initial execution with proper Listener tracking
+  addOwned(computation);
   runComputation(computation);
 
   return () => {
     stopped = true;
-    cleanupSources(computation);
+    cleanNode(computation);
     if (cleanup) {
       cleanup();
       cleanup = undefined;
