@@ -7,7 +7,7 @@
 
 import type { JSX } from "../jsx.d";
 import { tick } from "../scheduler";
-import { Owner, runComputation } from "../signal";
+import { addOwned, Owner, onCleanup, runComputation } from "../signal";
 import type { Accessor, Computation } from "../types";
 
 /**
@@ -152,6 +152,7 @@ export function effect(fn: () => void): void {
     _observers: null,
     _observerSlots: null,
     _owner: Owner,
+    _owned: null,
     _cleanups: null,
     _context: null,
     _suspense: null,
@@ -160,6 +161,7 @@ export function effect(fn: () => void): void {
     _state: 0,
     _updatedAt: null,
   };
+  addOwned(computation);
   runComputation(computation);
 }
 
@@ -172,6 +174,7 @@ function applyProp(element: HTMLElement, key: string, value: any): void {
   if (key.startsWith("on") && typeof value === "function") {
     const eventName = key.slice(2).toLowerCase();
     element.addEventListener(eventName, value);
+    onCleanup(() => element.removeEventListener(eventName, value));
   } else if (key === "style") {
     if (typeof value === "string") {
       element.style.cssText = value;
