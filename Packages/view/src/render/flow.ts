@@ -88,6 +88,14 @@ function resolveNodes(content: any): Node[] {
   if (typeof Node !== "undefined" && content instanceof Node) {
     return [content];
   }
+  if (
+    content instanceof HTMLElement ||
+    content instanceof Text ||
+    content instanceof Comment ||
+    content instanceof DocumentFragment
+  ) {
+    return [content];
+  }
   if (typeof content === "string" || typeof content === "number") {
     return [document.createTextNode(String(content))];
   }
