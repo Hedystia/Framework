@@ -5,6 +5,7 @@ const window = new Window();
 (globalThis as any).window = window;
 (globalThis as any).document = window.document;
 (globalThis as any).navigator = window.navigator;
+(globalThis as any).Node = window.Node;
 (globalThis as any).HTMLElement = window.HTMLElement;
 (globalThis as any).Text = window.Text;
 (globalThis as any).Comment = window.Comment;
