@@ -55,6 +55,11 @@ export function load<T, K>(key: Accessor<K>, fetcher: (key: K) => Promise<T>): R
     }
   };
 
+  // Trigger initial fetch
+  const initialKey = key();
+  queueMicrotask(() => execute(initialKey));
+
+  // Re-fetch when key changes
   on(key, (keyValue) => {
     queueMicrotask(() => execute(keyValue));
   });
