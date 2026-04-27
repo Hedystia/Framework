@@ -181,7 +181,13 @@ function applyProp(element: HTMLElement, key: string, value: any): void {
       applyReactiveStyle(element, value);
     }
   } else if (key === "class" || key === "className") {
-    element.className = String(value);
+    if (typeof value === "function") {
+      effect(() => {
+        element.className = String(value());
+      });
+    } else {
+      element.className = String(value);
+    }
   } else if (key === "innerHTML" || key === "innerText" || key === "textContent") {
     if (typeof value === "function") {
       effect(() => {
@@ -232,8 +238,10 @@ function applyReactiveStyle(element: HTMLElement, accessor: Accessor<Record<stri
 function applyReactiveProp(element: HTMLElement, key: string, accessor: Accessor<any>): void {
   effect(() => {
     const value = accessor();
-    if (value === undefined || value === null) {
+    if (value === undefined || value === null || value === false) {
       element.removeAttribute(key);
+    } else if (value === true) {
+      element.setAttribute(key, "");
     } else {
       element.setAttribute(key, String(value));
     }
