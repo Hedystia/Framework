@@ -92,7 +92,8 @@ function resolveNodes(content: any): Node[] {
     content instanceof HTMLElement ||
     content instanceof Text ||
     content instanceof Comment ||
-    content instanceof DocumentFragment
+    content instanceof DocumentFragment ||
+    (typeof SVGElement !== "undefined" && content instanceof SVGElement)
   ) {
     return [content];
   }
