@@ -1,6 +1,6 @@
 {
   "name": "@hedystia/better-auth",
-  "version": "2.2.11",
+  "version": "2.2.12",
   "description": "@hedystia/db adapter for Better Auth",
   "homepage": "https://docs.hedystia.com",
   "private": false,
