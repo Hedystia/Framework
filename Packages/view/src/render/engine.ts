@@ -4,6 +4,7 @@
  * Mounts components to the DOM and manages the render cycle.
  */
 
+import { SVG_ATTR_MAP, SVG_ELEMENTS } from "../jsx/element";
 import { createRoot } from "../signal";
 import type { Component, Owner } from "../types";
 
@@ -195,7 +196,10 @@ function renderElement(element: unknown): string {
         innerHTML = val == null ? "" : escapeHtml(String(val));
         continue;
       }
-      const attrName = key === "className" ? "class" : key === "htmlFor" ? "for" : key;
+      let attrName = key === "className" ? "class" : key === "htmlFor" ? "for" : key;
+      if (SVG_ELEMENTS.has(tagName)) {
+        attrName = SVG_ATTR_MAP[attrName] || attrName;
+      }
       const serialized = serializeAttrValue(key, value);
       if (serialized === null) {
         continue;
