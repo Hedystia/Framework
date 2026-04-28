@@ -26,6 +26,164 @@ export type ElementType<P = {}> = string | FunctionComponent<P>;
 const isBrowser = typeof document !== "undefined";
 
 /**
+ * SVG namespace URI
+ */
+export const SVG_NS = "http://www.w3.org/2000/svg";
+
+/**
+ * Set of SVG element tag names that require createElementNS
+ */
+export const SVG_ELEMENTS = new Set([
+  "svg",
+  "animate",
+  "animateMotion",
+  "animateTransform",
+  "circle",
+  "clipPath",
+  "defs",
+  "desc",
+  "ellipse",
+  "feBlend",
+  "feColorMatrix",
+  "feComponentTransfer",
+  "feComposite",
+  "feConvolveMatrix",
+  "feDiffuseLighting",
+  "feDisplacementMap",
+  "feDistantLight",
+  "feDropShadow",
+  "feFlood",
+  "feFuncA",
+  "feFuncB",
+  "feFuncG",
+  "feFuncR",
+  "feGaussianBlur",
+  "feImage",
+  "feMerge",
+  "feMergeNode",
+  "feMorphology",
+  "feOffset",
+  "fePointLight",
+  "feSpecularLighting",
+  "feSpotLight",
+  "feTile",
+  "feTurbulence",
+  "filter",
+  "foreignObject",
+  "g",
+  "image",
+  "line",
+  "linearGradient",
+  "marker",
+  "mask",
+  "metadata",
+  "mpath",
+  "path",
+  "pattern",
+  "polygon",
+  "polyline",
+  "radialGradient",
+  "rect",
+  "stop",
+  "switch",
+  "symbol",
+  "text",
+  "textPath",
+  "title",
+  "tspan",
+  "use",
+  "view",
+]);
+
+/**
+ * SVG attributes that use camelCase in JSX but need kebab-case in the DOM
+ */
+export const SVG_ATTR_MAP: Record<string, string> = {
+  accentHeight: "accent-height",
+  alignmentBaseline: "alignment-baseline",
+  arabicForm: "arabic-form",
+  baselineShift: "baseline-shift",
+  capHeight: "cap-height",
+  clipPath: "clip-path",
+  clipRule: "clip-rule",
+  colorInterpolation: "color-interpolation",
+  colorInterpolationFilters: "color-interpolation-filters",
+  colorProfile: "color-profile",
+  colorRendering: "color-rendering",
+  dominantBaseline: "dominant-baseline",
+  enableBackground: "enable-background",
+  fillOpacity: "fill-opacity",
+  fillRule: "fill-rule",
+  floodColor: "flood-color",
+  floodOpacity: "flood-opacity",
+  fontFamily: "font-family",
+  fontSize: "font-size",
+  fontSizeAdjust: "font-size-adjust",
+  fontStretch: "font-stretch",
+  fontStyle: "font-style",
+  fontVariant: "font-variant",
+  fontWeight: "font-weight",
+  glyphName: "glyph-name",
+  glyphOrientationHorizontal: "glyph-orientation-horizontal",
+  glyphOrientationVertical: "glyph-orientation-vertical",
+  horizAdvX: "horiz-adv-x",
+  horizOriginX: "horiz-origin-x",
+  imageRendering: "image-rendering",
+  letterSpacing: "letter-spacing",
+  lightingColor: "lighting-color",
+  markerEnd: "marker-end",
+  markerMid: "marker-mid",
+  markerStart: "marker-start",
+  overlinePosition: "overline-position",
+  overlineThickness: "overline-thickness",
+  paintOrder: "paint-order",
+  panose1: "panose-1",
+  pointerEvents: "pointer-events",
+  shapeRendering: "shape-rendering",
+  stopColor: "stop-color",
+  stopOpacity: "stop-opacity",
+  strikethroughPosition: "strikethrough-position",
+  strikethroughThickness: "strikethrough-thickness",
+  strokeDasharray: "stroke-dasharray",
+  strokeDashoffset: "stroke-dashoffset",
+  strokeLinecap: "stroke-linecap",
+  strokeLinejoin: "stroke-linejoin",
+  strokeMiterlimit: "stroke-miterlimit",
+  strokeOpacity: "stroke-opacity",
+  strokeWidth: "stroke-width",
+  textAnchor: "text-anchor",
+  textDecoration: "text-decoration",
+  textRendering: "text-rendering",
+  underlinePosition: "underline-position",
+  underlineThickness: "underline-thickness",
+  unicodeBidi: "unicode-bidi",
+  unicodeRange: "unicode-range",
+  unitsPerEm: "units-per-em",
+  vAlphabetic: "v-alphabetic",
+  vHanging: "v-hanging",
+  vIdeographic: "v-ideographic",
+  vMathematical: "v-mathematical",
+  vectorEffect: "vector-effect",
+  vertAdvY: "vert-adv-y",
+  vertOriginX: "vert-origin-x",
+  vertOriginY: "vert-origin-y",
+  wordSpacing: "word-spacing",
+  writingMode: "writing-mode",
+  xHeight: "x-height",
+  xlinkActuate: "xlink:actuate",
+  xlinkArcrole: "xlink:arcrole",
+  xlinkHref: "xlink:href",
+  xlinkRole: "xlink:role",
+  xlinkShow: "xlink:show",
+  xlinkTitle: "xlink:title",
+  xlinkType: "xlink:type",
+  xmlBase: "xml:base",
+  xmlLang: "xml:lang",
+  xmlSpace: "xml:space",
+  xmlnsXlink: "xmlns:xlink",
+};
+
+/**
  * Create a real DOM element from JSX props
  * @param {ElementType} type - The element type (string or function component)
  * @param {Record<string, any>} props - The element props
@@ -49,21 +207,22 @@ export function jsx<P>(type: ElementType<P>, props: P & { children?: JSX.Element
   }
 
   // Handle intrinsic elements (strings)
-  const element = document.createElement(type);
+  const isSvg = SVG_ELEMENTS.has(type);
+  const element = isSvg ? document.createElementNS(SVG_NS, type) : document.createElement(type);
 
   for (const key in rest) {
     if (!Object.hasOwn(rest, key)) {
       continue;
     }
     const value = (rest as Record<string, any>)[key];
-    applyProp(element, key, value);
+    applyProp(element, key, value, isSvg);
   }
 
   if (children !== undefined && children !== null) {
     applyChildren(element, children);
   }
 
-  return element;
+  return element as unknown as JSX.Element;
 }
 
 /**
@@ -79,7 +238,7 @@ export function jsx<P>(type: ElementType<P>, props: P & { children?: JSX.Element
 export function jsxs<P>(
   type: ElementType<P>,
   props: P & { children?: JSX.Element },
-): JSX.Element | (HTMLElement | Text | Comment)[] {
+): JSX.Element | (HTMLElement | SVGElement | Text | Comment)[] {
   const { children, ...rest } = props || {};
 
   // Handle function components
@@ -101,21 +260,22 @@ export function jsxs<P>(
   }
 
   // Handle intrinsic elements (strings)
-  const element = document.createElement(type);
+  const isSvg = SVG_ELEMENTS.has(type);
+  const element = isSvg ? document.createElementNS(SVG_NS, type) : document.createElement(type);
 
   for (const key in rest) {
     if (!Object.hasOwn(rest, key)) {
       continue;
     }
     const value = (rest as Record<string, any>)[key];
-    applyProp(element, key, value);
+    applyProp(element, key, value, isSvg);
   }
 
   if (children !== undefined && children !== null) {
     applyChildren(element, children);
   }
 
-  return element;
+  return element as unknown as JSX.Element;
 }
 
 /**
@@ -123,7 +283,7 @@ export function jsxs<P>(
  */
 export function Fragment(props: {
   children?: JSX.Children;
-}): JSX.Element | (HTMLElement | Text | Comment)[] {
+}): JSX.Element | (HTMLElement | SVGElement | Text | Comment)[] {
   const { children } = props;
   if (children == null) {
     return null;
@@ -133,7 +293,7 @@ export function Fragment(props: {
   }
   if (typeof children === "function") {
     const container = document.createDocumentFragment();
-    applyReactiveChild(container, children as () => any);
+    applyReactiveChild(container, children as () => JSX.Child | JSX.Child[]);
     return container;
   }
   return children as JSX.Element;
@@ -164,56 +324,60 @@ export function effect(fn: () => void): void {
 }
 
 /** @internal */
-function applyProp(element: HTMLElement, key: string, value: any): void {
+function applyProp(element: Element, key: string, value: any, isSvg = false): void {
   if (value === undefined || value === null) {
     return;
   }
+
+  const attrName = isSvg ? SVG_ATTR_MAP[key] || key : key;
 
   if (key.startsWith("on") && typeof value === "function") {
     const eventName = key.slice(2).toLowerCase();
     element.addEventListener(eventName, value);
   } else if (key === "style") {
+    const el = element as HTMLElement | SVGElement;
     if (typeof value === "string") {
-      element.style.cssText = value;
+      el.style.cssText = value;
     } else if (typeof value === "object") {
-      applyStyle(element, value);
+      applyStyle(el, value);
     } else if (typeof value === "function") {
-      applyReactiveStyle(element, value);
+      applyReactiveStyle(el, value);
     }
   } else if (key === "class" || key === "className") {
     if (typeof value === "function") {
       effect(() => {
-        element.className = String(value());
+        element.setAttribute("class", String(value()));
       });
     } else {
-      element.className = String(value);
+      element.setAttribute("class", String(value));
     }
   } else if (key === "innerHTML" || key === "innerText" || key === "textContent") {
+    const el = element as HTMLElement;
     if (typeof value === "function") {
       effect(() => {
         const val = value();
-        element[key] = val == null ? "" : String(val);
+        el[key] = val == null ? "" : String(val);
       });
     } else {
-      element[key] = String(value);
+      el[key] = String(value);
     }
   } else if (key === "ref" && typeof value === "function") {
     tick(() => value(element));
   } else if (typeof value === "function" && !key.startsWith("on")) {
-    applyReactiveProp(element, key, value);
+    applyReactiveProp(element, attrName, value);
   } else {
     if (typeof value === "boolean") {
       if (value) {
-        element.setAttribute(key, "");
+        element.setAttribute(attrName, "");
       }
     } else {
-      element.setAttribute(key, String(value));
+      element.setAttribute(attrName, String(value));
     }
   }
 }
 
 /** @internal */
-function applyStyle(element: HTMLElement, style: Record<string, any>): void {
+function applyStyle(element: HTMLElement | SVGElement, style: Record<string, any>): void {
   for (const key in style) {
     if (!Object.hasOwn(style, key)) {
       continue;
@@ -221,13 +385,16 @@ function applyStyle(element: HTMLElement, style: Record<string, any>): void {
     const value = style[key];
     if (value !== undefined && value !== null) {
       const cssKey = camelToKebab(key);
-      (element.style as any)[cssKey] = String(value);
+      element.style.setProperty(cssKey, String(value));
     }
   }
 }
 
 /** @internal */
-function applyReactiveStyle(element: HTMLElement, accessor: Accessor<Record<string, any>>): void {
+function applyReactiveStyle(
+  element: HTMLElement | SVGElement,
+  accessor: Accessor<Record<string, any>>,
+): void {
   effect(() => {
     const style = accessor();
     applyStyle(element, style);
@@ -235,7 +402,7 @@ function applyReactiveStyle(element: HTMLElement, accessor: Accessor<Record<stri
 }
 
 /** @internal */
-function applyReactiveProp(element: HTMLElement, key: string, accessor: Accessor<any>): void {
+function applyReactiveProp(element: Element, key: string, accessor: Accessor<any>): void {
   effect(() => {
     const value = accessor();
     if (value === undefined || value === null || value === false) {
@@ -249,7 +416,7 @@ function applyReactiveProp(element: HTMLElement, key: string, accessor: Accessor
 }
 
 /** @internal */
-function applyChildren(element: HTMLElement | DocumentFragment, children: JSX.Children): void {
+function applyChildren(element: Element | DocumentFragment, children: JSX.Children): void {
   if (Array.isArray(children)) {
     for (let i = 0; i < children.length; i++) {
       appendSingleChild(element, children[i]);
@@ -260,7 +427,7 @@ function applyChildren(element: HTMLElement | DocumentFragment, children: JSX.Ch
 }
 
 /** @internal */
-function appendSingleChild(element: HTMLElement | DocumentFragment, child: any): void {
+function appendSingleChild(element: Element | DocumentFragment, child: JSX.Child): void {
   if (child === null || child === undefined || child === false) {
     return;
   }
@@ -272,17 +439,21 @@ function appendSingleChild(element: HTMLElement | DocumentFragment, child: any):
     applyReactiveChild(element, child);
   } else if (typeof child === "string" || typeof child === "number") {
     element.appendChild(document.createTextNode(String(child)));
-  } else if (child instanceof HTMLElement || child instanceof Text || child instanceof Comment) {
-    element.appendChild(child);
-  } else if (child instanceof DocumentFragment) {
+  } else if (
+    child instanceof HTMLElement ||
+    child instanceof Text ||
+    child instanceof Comment ||
+    child instanceof DocumentFragment ||
+    (typeof SVGElement !== "undefined" && child instanceof SVGElement)
+  ) {
     element.appendChild(child);
   }
 }
 
 /** @internal */
 function applyReactiveChild(
-  element: HTMLElement | DocumentFragment,
-  accessor: Accessor<any>,
+  element: Element | DocumentFragment,
+  accessor: () => JSX.Child | JSX.Child[],
 ): void {
   const marker = document.createComment("");
   element.appendChild(marker);
@@ -314,7 +485,8 @@ function applyReactiveChild(
           item instanceof HTMLElement ||
           item instanceof Text ||
           item instanceof Comment ||
-          item instanceof DocumentFragment
+          item instanceof DocumentFragment ||
+          (typeof SVGElement !== "undefined" && item instanceof SVGElement)
         ) {
           insert(item);
         } else if (typeof item === "string" || typeof item === "number") {
@@ -332,7 +504,8 @@ function applyReactiveChild(
       value instanceof HTMLElement ||
       value instanceof Text ||
       value instanceof Comment ||
-      value instanceof DocumentFragment
+      value instanceof DocumentFragment ||
+      (typeof SVGElement !== "undefined" && value instanceof SVGElement)
     ) {
       insert(value);
     }
@@ -340,14 +513,19 @@ function applyReactiveChild(
 }
 
 /** @internal */
-function flattenChildren(children: JSX.Child[]): Array<HTMLElement | Text | Comment> {
-  const result: Array<HTMLElement | Text | Comment> = [];
+function flattenChildren(children: JSX.Child[]): Array<HTMLElement | SVGElement | Text | Comment> {
+  const result: Array<HTMLElement | SVGElement | Text | Comment> = [];
   for (let i = 0; i < children.length; i++) {
     const child = children[i];
     if (Array.isArray(child)) {
       result.push(...flattenChildren(child));
     } else if (child !== null && child !== undefined && child !== false) {
-      if (child instanceof HTMLElement || child instanceof Text || child instanceof Comment) {
+      if (
+        child instanceof HTMLElement ||
+        child instanceof Text ||
+        child instanceof Comment ||
+        (typeof SVGElement !== "undefined" && child instanceof SVGElement)
+      ) {
         result.push(child);
       } else if (typeof child === "string" || typeof child === "number") {
         result.push(document.createTextNode(String(child)));
