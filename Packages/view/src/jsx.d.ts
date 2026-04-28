@@ -5,7 +5,7 @@
  */
 
 export namespace JSX {
-  export type Element = HTMLElement | DocumentFragment | Text | Comment | null;
+  export type Element = HTMLElement | SVGElement | DocumentFragment | Text | Comment | null;
   export type ElementClass = never;
   export interface ElementChildrenAttribute {
     children: {};
@@ -656,7 +656,7 @@ export namespace JSX {
   }
 
   // SVG Attributes
-  export interface SvgHTMLAttributes extends HTMLAttributes {
+  export interface SvgHTMLAttributes extends SVGAttributes {
     height?: Reactive<number | string>;
     preserveAspectRatio?: Reactive<string>;
     viewBox?: Reactive<string>;
