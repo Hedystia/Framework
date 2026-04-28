@@ -26,5 +26,6 @@ const window = new Window();
 (globalThis as any).AbortController = window.AbortController;
 (globalThis as any).requestAnimationFrame = window.requestAnimationFrame.bind(window);
 (globalThis as any).cancelAnimationFrame = window.cancelAnimationFrame.bind(window);
+(globalThis as any).SVGElement = window.SVGElement || window.HTMLElement;
 
 (globalThis as any).__DEV__ = true;
