@@ -63,15 +63,25 @@ switch (command) {
   case "migrate": {
     const options = getMigrateOptions();
     if (subCommand === "up") {
-      migrateUp(options).catch((err) => {
-        console.error("Migration failed:", err.message);
-        process.exit(1);
-      });
+      (async () => {
+        try {
+          await migrateUp(options);
+          process.exit(0);
+        } catch (err) {
+          console.error("Migration failed:", err);
+          process.exit(1);
+        }
+      })();
     } else if (subCommand === "down") {
-      migrateDown(options).catch((err) => {
-        console.error("Rollback failed:", err.message);
-        process.exit(1);
-      });
+      (async () => {
+        try {
+          await migrateDown(options);
+          process.exit(0);
+        } catch (err) {
+          console.error("Rollback failed:", err);
+          process.exit(1);
+        }
+      })();
     } else {
       console.log("Usage: @hedystia/db migrate up [options]");
       console.log("       @hedystia/db migrate down [options]");
