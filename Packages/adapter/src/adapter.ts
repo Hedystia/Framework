@@ -71,9 +71,9 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
           const url = new URL(request.url);
           url.pathname = prefix + url.pathname;
           const newRequest = new Request(url.toString(), request);
-          return this.app.fetch(newRequest);
+          return await this.app.fetch(newRequest);
         }
-        return this.app.fetch(request);
+        return await this.app.fetch(request);
       } catch (error) {
         console.error("Server error:", error);
         return new Response(`Internal Server Error: ${(error as Error).message}`, { status: 500 });
@@ -94,9 +94,9 @@ export class HedystiaAdapter<Routes extends RouteDefinition[] = [], Macros exten
           const url = new URL(request.url);
           url.pathname = prefix + url.pathname;
           const newRequest = new Request(url.toString(), request);
-          return this.app.fetch(newRequest);
+          return await this.app.fetch(newRequest);
         }
-        return this.app.fetch(request);
+        return await this.app.fetch(request);
       } catch (error) {
         console.error("Server error:", error);
         return new Response(`Internal Server Error: ${(error as Error).message}`, { status: 500 });
