@@ -1,3 +1,4 @@
+import type { TableDefinition } from "@hedystia/db";
 import { integer, SchemaRegistry, table, text, varchar } from "@hedystia/db";
 import { describe, expect, it } from "vitest";
 
@@ -93,6 +94,6 @@ describe("Schema Registry", () => {
 
   it("should throw on invalid schema", () => {
     const registry = new SchemaRegistry();
-    expect(() => registry.register([{} as any])).toThrow();
+    expect(() => registry.register([{} as TableDefinition])).toThrow();
   });
 });
