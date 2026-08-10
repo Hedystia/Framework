@@ -121,20 +121,48 @@ export type TableDefinition<
 /** Extract the row type from a table definition */
 export type InferRow<T> = T extends { __row: infer R } ? R : never;
 
-/** Extract the insertable type from a table definition (auto-increment keys become optional) */
+/**
+ * Extract the insertable type from a table definition.
+ *
+ * Auto-incrementing, nullable, and defaulted columns may be omitted. Columns
+ * marked `notNull()` without a default remain required.
+ */
 export type InferInsert<T> = T extends { __row: infer R }
   ? {
-      [K in keyof R as K extends AutoIncrementKeys<T> ? never : K]: R[K];
+      [K in RequiredInsertKeys<T, R>]: R[K];
     } & {
-      [K in Extract<AutoIncrementKeys<T>, keyof R>]?: R[K];
+      [K in OptionalInsertKeys<T, R>]?: R[K];
     }
   : never;
 
+type TableColumnKeys<T> = {
+  [K in keyof T]-?: T[K] extends { readonly __type: unknown } ? K : never;
+}[keyof T];
+
 type AutoIncrementKeys<T> = T extends { __table: true }
   ? {
-      [K in keyof T]-?: T[K] extends { readonly __autoIncrement: true } ? K : never;
-    }[keyof T]
+      [K in TableColumnKeys<T>]-?: T[K] extends { readonly __autoIncrement: true } ? K : never;
+    }[TableColumnKeys<T>]
   : never;
+
+type DefaultedKeys<T> = T extends { __table: true }
+  ? {
+      [K in TableColumnKeys<T>]-?: T[K] extends { readonly __hasDefault: true } ? K : never;
+    }[TableColumnKeys<T>]
+  : never;
+
+type NullableKeys<T> = T extends { __table: true }
+  ? {
+      [K in TableColumnKeys<T>]-?: T[K] extends { readonly __nullable: true } ? K : never;
+    }[TableColumnKeys<T>]
+  : never;
+
+type OptionalInsertKeys<T, R> = Extract<
+  keyof R,
+  AutoIncrementKeys<T> | DefaultedKeys<T> | NullableKeys<T>
+>;
+
+type RequiredInsertKeys<T, R> = Exclude<keyof R, OptionalInsertKeys<T, R>>;
 
 /** Extract the updatable type from a table definition (all fields become optional) */
 export type InferUpdate<T> = T extends TableDefinition<infer R, any, any> ? Partial<R> : never;
