@@ -84,7 +84,7 @@ describe("database deep repository contracts", () => {
       where: { displayName: "Ada" },
       with: { notes: { orderBy: { id: "desc" }, take: 2 } },
     });
-    expect(result[0]?.notes?.map((note: any) => note.body)).toEqual(["third", "second"]);
+    expect(result[0]?.notes?.map((note) => note.body)).toEqual(["third", "second"]);
     expect(await db.notes.count({ where: { body: { in: ["first", "second", "third"] } } })).toBe(3);
   });
 
