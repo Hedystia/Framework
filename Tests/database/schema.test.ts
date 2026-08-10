@@ -225,10 +225,7 @@ describe("Schema - Custom type", () => {
   });
 
   it("should chain .type() with other modifiers", () => {
-    const col = varchar(25)
-      .type<"en_US" | "es_ES">()
-      .notNull()
-      .default("en_US" as any);
+    const col = varchar(25).type<"en_US" | "es_ES">().notNull().default("en_US");
     const meta = col.__build("locale");
     expect(meta.notNull).toBe(true);
     expect(meta.defaultValue).toBe("en_US");
