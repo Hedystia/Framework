@@ -168,6 +168,7 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
       return first;
     }
 
+    this.validateInsertData(data);
     this.cache.invalidateTable(this.tableName);
     const cleaned = this.toDbKeys(this.cleanData(data));
 
@@ -198,6 +199,9 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
       return [];
     }
 
+    for (const item of data) {
+      this.validateInsertData(item);
+    }
     this.cache.invalidateTable(this.tableName);
 
     const cleanedData = data.map((item) => this.toDbKeys(this.cleanData(item)));
@@ -530,6 +534,19 @@ export class TableRepository<T extends Record<string, any>> implements Repositor
     );
 
     return this.driver.query(sql, params);
+  }
+
+  private validateInsertData(data: Partial<T>): void {
+    const values = data as Record<string, unknown>;
+    for (const column of this.meta.columns) {
+      if (!column.notNull || column.autoIncrement || column.defaultValue !== undefined) {
+        continue;
+      }
+      const codeKey = this.reverseColumnMap[column.name] ?? column.name;
+      if (!(codeKey in values) && !(column.name in values)) {
+        throw new QueryError(`Missing required field "${codeKey}" for table "${this.tableName}"`);
+      }
+    }
   }
 
   private cleanData(data: Partial<T>): Record<string, unknown> {
