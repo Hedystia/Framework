@@ -88,8 +88,8 @@ describe("Cache System", () => {
       const cache = new CacheManager(true);
       cache.setEntity("users", 1, { id: 1, name: "old" });
       cache.updateEntity("users", 1, { name: "new" });
-      const entity = cache.getEntity("users", 1) as any;
-      expect(entity.name).toBe("new");
+      const entity = cache.getEntity("users", 1);
+      expect(entity).toMatchObject({ name: "new" });
     });
 
     it("should clear all cache", () => {
