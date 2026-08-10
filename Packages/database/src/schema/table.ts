@@ -2,7 +2,15 @@ import type { ColumnMetadata, DeferredRefMeta, TableCacheConfig, TableDefinition
 import type { ColumnBuilder } from "./column";
 
 type BindColumn<C, TableName extends string, ColName extends string> =
-  C extends ColumnBuilder<infer T, any, any, infer Ref, infer AutoIncrement extends boolean>
+  C extends ColumnBuilder<
+    infer T,
+    any,
+    any,
+    infer Ref,
+    infer AutoIncrement extends boolean,
+    infer HasDefault extends boolean,
+    infer Nullable extends boolean
+  >
     ? ColumnBuilder<
         T,
         TableName,
@@ -10,19 +18,25 @@ type BindColumn<C, TableName extends string, ColName extends string> =
         Ref extends DeferredRefMeta<any, infer ToTable, infer ToColumn, infer RelName>
           ? DeferredRefMeta<ColName, ToTable, ToColumn, RelName>
           : never,
-        AutoIncrement
+        AutoIncrement,
+        HasDefault,
+        Nullable
       >
     : never;
 
 type BoundColumns<
-  C extends Record<string, ColumnBuilder<any, any, any, any, boolean>>,
+  C extends Record<string, ColumnBuilder<any, any, any, any, boolean, boolean, boolean>>,
   N extends string,
 > = {
   [K in keyof C]: BindColumn<C[K], N, Extract<K, string>>;
 };
 
-type ExtractDeferredRefs<C extends Record<string, ColumnBuilder<any, any, any, any, boolean>>> = {
-  [K in keyof C]: C[K] extends ColumnBuilder<any, any, any, any, boolean> ? C[K]["__ref"] : never;
+type ExtractDeferredRefs<
+  C extends Record<string, ColumnBuilder<any, any, any, any, boolean, boolean, boolean>>,
+> = {
+  [K in keyof C]: C[K] extends ColumnBuilder<any, any, any, any, boolean, boolean, boolean>
+    ? C[K]["__ref"]
+    : never;
 }[keyof C];
 
 /**
@@ -36,7 +50,7 @@ type ExtractDeferredRefs<C extends Record<string, ColumnBuilder<any, any, any, a
  */
 export function table<
   N extends string,
-  C extends Record<string, ColumnBuilder<any, any, any, any, boolean>>,
+  C extends Record<string, ColumnBuilder<any, any, any, any, boolean, boolean, boolean>>,
 >(
   name: N,
   columns: C,
