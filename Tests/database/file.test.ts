@@ -53,6 +53,13 @@ describe("File Driver", () => {
       expect(user.id).toBe(2);
     });
 
+    it("should reject inserts missing required fields at runtime", async () => {
+      const incomplete = {} as Parameters<typeof db.users.insert>[0];
+      await expect(db.users.insert(incomplete)).rejects.toThrow(
+        'Missing required field "name" for table "hedystia_test_users"',
+      );
+    });
+
     it("should insert with array data", async () => {
       const user = await db.users.insert({
         name: "ArrayUser",
