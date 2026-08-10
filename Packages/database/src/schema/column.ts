@@ -14,12 +14,16 @@ export class ColumnBuilder<
   CN extends string = string,
   Ref extends DeferredRefMeta = never,
   AutoIncrement extends boolean = false,
+  HasDefault extends boolean = false,
+  Nullable extends boolean = true,
 > {
   declare readonly __type: T;
   declare readonly __tableName: TN;
   declare readonly __columnName: CN;
   declare readonly __ref: Ref;
   declare readonly __autoIncrement: AutoIncrement;
+  declare readonly __hasDefault: HasDefault;
+  declare readonly __nullable: Nullable;
   private _type: ColumnDataType;
   private _primaryKey = false;
   private _autoIncrement = false;
@@ -52,7 +56,7 @@ export class ColumnBuilder<
    * // In code: guildId, In database: guild_id
    * guildId: varchar(255).name("guild_id")
    */
-  name(alias: string): ColumnBuilder<T, TN, CN, Ref, AutoIncrement> {
+  name(alias: string): ColumnBuilder<T, TN, CN, Ref, AutoIncrement, HasDefault, Nullable> {
     this._columnAlias = alias;
     return this;
   }
@@ -65,51 +69,59 @@ export class ColumnBuilder<
    * // Limits autocomplete to specific values
    * locale: varchar(25).type<"en_US" | "es_ES">()
    */
-  type<U>(): ColumnBuilder<U, TN, CN, Ref, AutoIncrement> {
-    return this as unknown as ColumnBuilder<U, TN, CN, Ref, AutoIncrement>;
+  type<U>(): ColumnBuilder<U, TN, CN, Ref, AutoIncrement, HasDefault, Nullable> {
+    return this as unknown as ColumnBuilder<U, TN, CN, Ref, AutoIncrement, HasDefault, Nullable>;
   }
 
   /**
    * Mark this column as a primary key
    * @returns {ColumnBuilder<T, TN, CN, Ref, AutoIncrement>} The column builder for chaining
    */
-  primaryKey(): ColumnBuilder<T, TN, CN, Ref, AutoIncrement> {
+  primaryKey(): ColumnBuilder<T, TN, CN, Ref, AutoIncrement, HasDefault, false> {
     this._primaryKey = true;
-    return this;
+    return this as unknown as ColumnBuilder<T, TN, CN, Ref, AutoIncrement, HasDefault, false>;
   }
 
   /**
    * Mark this column as auto-incrementing
    * @returns {ColumnBuilder<T, TN, CN, Ref, true>} The column builder marked as auto-incrementing
    */
-  autoIncrement(): ColumnBuilder<T, TN, CN, Ref, true> {
+  autoIncrement(): ColumnBuilder<T, TN, CN, Ref, true, HasDefault, Nullable> {
     this._autoIncrement = true;
-    return this as unknown as ColumnBuilder<T, TN, CN, Ref, true>;
+    return this as unknown as ColumnBuilder<T, TN, CN, Ref, true, HasDefault, Nullable>;
   }
 
   /**
    * Mark this column as NOT NULL
    * @returns {ColumnBuilder<NonNullable<T>, TN, CN, Ref, AutoIncrement>} The column builder for chaining
    */
-  notNull(): ColumnBuilder<NonNullable<T>, TN, CN, Ref, AutoIncrement> {
+  notNull(): ColumnBuilder<NonNullable<T>, TN, CN, Ref, AutoIncrement, HasDefault, false> {
     this._notNull = true;
-    return this as unknown as ColumnBuilder<NonNullable<T>, TN, CN, Ref, AutoIncrement>;
+    return this as unknown as ColumnBuilder<
+      NonNullable<T>,
+      TN,
+      CN,
+      Ref,
+      AutoIncrement,
+      HasDefault,
+      false
+    >;
   }
 
   /**
    * Mark this column as nullable
    * @returns {ColumnBuilder<T | null, TN, CN, Ref, AutoIncrement>} The column builder for chaining
    */
-  nullable(): ColumnBuilder<T | null, TN, CN, Ref, AutoIncrement> {
+  nullable(): ColumnBuilder<T | null, TN, CN, Ref, AutoIncrement, HasDefault, true> {
     this._notNull = false;
-    return this as unknown as ColumnBuilder<T | null, TN, CN, Ref, AutoIncrement>;
+    return this as unknown as ColumnBuilder<T | null, TN, CN, Ref, AutoIncrement, HasDefault, true>;
   }
 
   /**
    * Mark this column as nullable (alias for {@link nullable})
    * @returns {ColumnBuilder<T | null, TN, CN, Ref, AutoIncrement>} The column builder for chaining
    */
-  null(): ColumnBuilder<T | null, TN, CN, Ref, AutoIncrement> {
+  null(): ColumnBuilder<T | null, TN, CN, Ref, AutoIncrement, HasDefault, true> {
     return this.nullable();
   }
 
@@ -118,16 +130,16 @@ export class ColumnBuilder<
    * @param {T} value - The default value
    * @returns {ColumnBuilder<T, TN, CN, Ref, AutoIncrement>} The column builder for chaining
    */
-  default(value: T): ColumnBuilder<T, TN, CN, Ref, AutoIncrement> {
+  default(value: T): ColumnBuilder<T, TN, CN, Ref, AutoIncrement, true, Nullable> {
     this._defaultValue = value;
-    return this;
+    return this as unknown as ColumnBuilder<T, TN, CN, Ref, AutoIncrement, true, Nullable>;
   }
 
   /**
    * Mark this column as having a unique constraint
    * @returns {ColumnBuilder<T, TN, CN, Ref, AutoIncrement>} The column builder for chaining
    */
-  unique(): ColumnBuilder<T, TN, CN, Ref, AutoIncrement> {
+  unique(): ColumnBuilder<T, TN, CN, Ref, AutoIncrement, HasDefault, Nullable> {
     this._unique = true;
     return this;
   }
@@ -142,7 +154,7 @@ export class ColumnBuilder<
    * @returns {ColumnBuilder<T, TN, CN, DeferredRefMeta<CN, R["__tableName"], R["__columnName"], O extends { relationName: infer N extends string } ? N : undefined>, AutoIncrement>} The column builder with resolved reference metadata
    */
   references<
-    R extends ColumnBuilder<any, string, string, any, boolean>,
+    R extends ColumnBuilder<any, string, string, any, boolean, boolean, boolean>,
     O extends {
       onDelete?: ReferenceAction;
       onUpdate?: ReferenceAction;
@@ -161,7 +173,9 @@ export class ColumnBuilder<
       R["__columnName"],
       O extends { relationName: infer N extends string } ? N : undefined
     >,
-    AutoIncrement
+    AutoIncrement,
+    HasDefault,
+    Nullable
   > {
     this._references = {
       resolve: () => {
